@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
@@ -15,16 +15,8 @@
       theme: {
         extend: {
           fontFamily: {
-            type: ['"Special Elite"', 'Courier New', 'monospace'],
-            mono: ['"Courier Prime"', 'Courier New', 'monospace'],
-          },
-          colors: {
-            desk:   { 900: '#14120f', 800: '#1d1a15', 700: '#2a251d', 600: '#3a3328' },
-            paper:  { 100: '#f4ecd6', 200: '#e9dfc2', 300: '#d8cba6', 400: '#b9a97f' },
-            ink:    { 900: '#211d18', 700: '#3d362c' },
-            amber:  { glow: '#f5b942' },
-            stamp:  '#b3261e',
-            grass:  '#5d7c3a',
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+            display: ['Outfit', 'Montserrat', 'system-ui', 'sans-serif'],
           },
         },
       },
@@ -32,42 +24,46 @@
   </script>
 
   <style>
+    /* Barwy klubu wstrzykiwane dynamicznie przez UI.applyTheme() */
+    :root {
+      --c1: #10b981; --c2: #f59e0b;
+      --accent: #10b981; --accent2: #f59e0b; --accent-text: #34d399; --on-accent: #0f172a;
+    }
     body {
-      background-color: #14120f;
+      background-color: #0b1120;
       background-image:
-        radial-gradient(ellipse at top, rgba(245,185,66,0.06), transparent 60%),
-        repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 4px);
+        radial-gradient(1100px 520px at 0% -10%, rgba(56, 189, 248, 0.07), transparent 60%),
+        radial-gradient(900px 480px at 100% -5%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%);
+      background-attachment: fixed;
     }
-    .paper {
-      background-color: #f4ecd6;
-      background-image:
-        linear-gradient(rgba(33,29,24,0.04) 1px, transparent 1px);
-      background-size: 100% 1.6rem;
-      box-shadow: 0 2px 0 #b9a97f, 0 10px 25px rgba(0,0,0,0.55);
-    }
-    .paper-rough { clip-path: polygon(0 0, 100% 0, 100% 98%, 97% 100%, 60% 98.5%, 30% 100%, 0 98.6%); }
-    .stamp {
-      border: 3px double #b3261e;
-      color: #b3261e;
-      transform: rotate(-6deg);
-      letter-spacing: 0.15em;
-      opacity: 0.85;
-    }
-    .crt { text-shadow: 0 0 6px rgba(245,185,66,0.45); }
-    .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
-    .bar-stripes {
-      background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 6px, transparent 6px 12px);
-    }
+    .font-display { letter-spacing: 0.01em; }
+    .accent-bg { background-color: var(--accent); color: var(--on-accent); }
+    .accent-text { color: var(--accent-text); }
+    .accent-border { border-color: var(--accent) !important; }
+    .accent-soft { background-color: color-mix(in srgb, var(--accent) 16%, transparent); }
+    .club-stripe { background: linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%); }
+    .club-glow { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 10px 40px -10px color-mix(in srgb, var(--accent) 45%, transparent); }
+    .btn-accent { background-color: var(--accent); color: var(--on-accent); }
+    .btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
+    .opt { transition: border-color .15s, background-color .15s, transform .1s; }
+    .opt:hover:not(:disabled) { border-color: var(--accent); background-color: color-mix(in srgb, var(--accent) 10%, #0f172a); }
+    .is-active { border-color: var(--accent) !important; background-color: color-mix(in srgb, var(--accent) 16%, #0f172a) !important; }
+    .tab-active { color: #f8fafc; border-color: var(--accent); }
+    .btn-press:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
     .shake { animation: shake 0.25s 2; }
-    /* Nowe wpisy dziennika: tylko podświetlenie tła, tekst zawsze w pełni czytelny */
-    @keyframes logFlash { from { background-color: rgba(245,185,66,0.45); } to { background-color: transparent; } }
-    .log-new { animation: logFlash 1.6s ease-out; }
-    .scroll-thin::-webkit-scrollbar { width: 8px; }
-    .scroll-thin::-webkit-scrollbar-thumb { background: #b9a97f; }
+    /* Nowe wpisy osi czasu: krótkie podświetlenie, tekst zawsze w pełni czytelny */
+    @keyframes flash { from { background-color: color-mix(in srgb, var(--accent) 22%, transparent); } to { background-color: transparent; } }
+    .log-new { animation: flash 1.6s ease-out; }
+    @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, .55); } 100% { box-shadow: 0 0 0 14px rgba(52, 211, 153, 0); } }
+    .ring-pulse { animation: ring 1.4s ease-out infinite; }
+    .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
   </style>
 </head>
-<body class="min-h-screen text-paper-100 font-mono">
+<body class="min-h-screen text-slate-100 font-sans antialiased">
 
   <!-- Cała aplikacja renderuje się tutaj -->
   <div id="app"></div>
@@ -80,7 +76,7 @@
      2. STAN GRY          – jedyne źródło prawdy (gameState)
      3. SILNIK / LOGIKA   – funkcje zmieniające stan (Engine)
      4. ZAPIS             – localStorage z migracją starszych zapisów (Storage)
-     5. RENDEROWANIE      – funkcje stan -> HTML (UI)
+     5. RENDEROWANIE      – funkcje stan -> HTML (UI, motyw w barwach klubu)
      6. ZDARZENIA         – delegacja kliknięć po data-action (Actions)
    Nowe moduły dopinamy przez: nowe pole w gameState (stare zapisy
    dostaną je automatycznie z createInitialState), hook w
@@ -236,9 +232,9 @@ const DATA = {
   },
 
   profiles: {
-    off: { label: 'Ofensywy',   short: 'OF', color: 'bg-stamp text-paper-100' },
-    def: { label: 'Defensywy',  short: 'DF', color: 'bg-ink-900 text-paper-100' },
-    uni: { label: 'Uniwersalny', short: 'UNI', color: 'bg-paper-400 text-ink-900' },
+    off: { label: 'Ofensywy',   short: 'OF' },
+    def: { label: 'Defensywy',  short: 'DF' },
+    uni: { label: 'Uniwersalny', short: 'UNI' },
   },
 
   positions: {
@@ -1184,6 +1180,8 @@ function createInitialState() {
       // Stan formularza rejestracyjnego (ekran startowy)
       form: { prefix: 'LZS', customPrefix: '', town: '', character: 'rural', colors: 'gy', stadium: '', stadiumEdited: false, president: '' },
       lastLogId: 0,
+      seenFeedId: 0,            // licznik nowych postów na zakładce Wirtualny X
+      seenScoutKey: '',         // raport Szwagra już obejrzany
     },
   };
 }
@@ -2706,152 +2704,301 @@ const Storage = {
    5. RENDEROWANIE UI
    --------------------------------------------------------------------- */
 const UI = {
-  lastSeenLogId: Infinity,   // podświetlamy tylko wpisy dodane od ostatniego renderu dziennika
+  lastSeenLogId: Infinity,   // podświetlamy tylko wpisy dodane od ostatniego renderu osi czasu
+  _uid: 0,                   // unikalne id dla clipPath w herbach SVG
+
+  // Wspólne klasy kart
+  CARD: 'bg-slate-800/70 border border-slate-700/80 rounded-xl shadow-lg shadow-black/20',
 
   root: () => document.getElementById('app'),
 
   renderAll() {
-    const root = UI.root();
-    root.innerHTML = gameState.screen === 'start' ? UI.startScreen()
-      : gameState.screen === 'gameover' ? UI.gameOverScreen()
+    UI._uid = 0;
+    const screen = gameState.screen;
+    UI.applyTheme(screen === 'start' ? gameState.ui.form.colors : gameState.club.colors);
+    UI.root().innerHTML = screen === 'start' ? UI.startScreen()
+      : screen === 'gameover' ? UI.gameOverScreen()
       : UI.gameScreen();
-    UI.fitActionBar();
   },
 
-  // Treść nigdy nie chowa się pod stałym paskiem: dolny margines = realna wysokość paska.
-  fitActionBar() {
-    const bar = document.getElementById('action-bar');
-    const page = document.getElementById('game-root');
-    if (bar && page) page.style.paddingBottom = (bar.offsetHeight + 24) + 'px';
+  // Zostawione dla zgodności (nasłuch resize) – pływający przycisk nie potrzebuje przeliczeń.
+  fitActionBar() {},
+
+  /* ---------- Motyw: barwy klubu jako akcenty interfejsu ---------- */
+  theme(colorsId) {
+    const c = DATA.clubColors[colorsId] || { c1: '#10b981', c2: '#f59e0b' };
+    const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lum = (hex) => {
+      const [r, g, b] = rgb(hex).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const sat = (hex) => { const v = rgb(hex); return Math.max(...v) - Math.min(...v); };
+    const usable = (hex) => lum(hex) > 0.02 && lum(hex) < 0.8 && sat(hex) > 0.2;   // bez bieli i czerni
+    const pick = [c.c1, c.c2].filter(usable);
+    const accent = pick.length ? pick[0] : c.c1;
+    const accent2 = accent === c.c1 ? c.c2 : c.c1;
+    const mix = (hex, t) => '#' + rgb(hex).map((v) => Math.round((v + (1 - v) * t) * 255).toString(16).padStart(2, '0')).join('');
+    return {
+      c1: c.c1, c2: c.c2, accent, accent2,
+      accentText: lum(accent) < 0.2 ? mix(accent, 0.45) : accent,
+      onAccent: lum(accent) > 0.4 ? '#0f172a' : '#ffffff',
+    };
   },
 
-  /* ---------- EKRAN STARTOWY ---------- */
+  applyTheme(colorsId) {
+    const t = UI.theme(colorsId);
+    const st = document.documentElement.style;
+    st.setProperty('--c1', t.c1); st.setProperty('--c2', t.c2);
+    st.setProperty('--accent', t.accent); st.setProperty('--accent2', t.accent2);
+    st.setProperty('--accent-text', t.accentText); st.setProperty('--on-accent', t.onAccent);
+  },
+
+  initials(name) {
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    if (/^[A-ZĄĆĘŁŃÓŚŹŻ]{2,4}$/.test(words[0])) return words[0];
+    return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
+  },
+
+  // Tarcza klubu w barwach (SVG); neutral = herb rywala
+  crest(colorsId, name, size = 48, neutral = false) {
+    const c = neutral ? { c1: '#475569', c2: '#334155' } : (DATA.clubColors[colorsId] || { c1: '#10b981', c2: '#f59e0b' });
+    const id = 'cr' + (++UI._uid);
+    const ini = Utils.escape(UI.initials(name)).slice(0, 4);
+    const fs = ini.length > 2 ? 17 : 22;
+    return `
+    <svg width="${size}" height="${Math.round(size * 1.12)}" viewBox="0 0 64 72" class="flex-shrink-0 drop-shadow-lg" aria-hidden="true">
+      <defs><clipPath id="${id}"><path d="M32 3 L59 11 V35 C59 52 46 63 32 69 C18 63 5 52 5 35 V11 Z"/></clipPath></defs>
+      <g clip-path="url(#${id})">
+        <rect width="64" height="72" fill="${c.c1}"/>
+        <rect x="32" width="32" height="72" fill="${c.c2}"/>
+        <rect y="24" width="64" height="20" fill="rgba(15,23,42,.55)"/>
+      </g>
+      <path d="M32 3 L59 11 V35 C59 52 46 63 32 69 C18 63 5 52 5 35 V11 Z" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2.5"/>
+      <text x="32" y="${34 + fs / 3}" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="800" font-size="${fs}" fill="#fff">${ini}</text>
+    </svg>`;
+  },
+
+  // Koszulka meczowa w pasy klubowe (podgląd w kreatorze)
+  kit(colorsId, size = 120) {
+    const c = DATA.clubColors[colorsId] || { c1: '#10b981', c2: '#f59e0b' };
+    const id = 'kit' + (++UI._uid);
+    return `
+    <svg width="${size}" height="${size}" viewBox="0 0 80 80" class="drop-shadow-xl" aria-hidden="true">
+      <defs>
+        <pattern id="${id}" width="12" height="80" patternUnits="userSpaceOnUse">
+          <rect width="6" height="80" fill="${c.c1}"/><rect x="6" width="6" height="80" fill="${c.c2}"/>
+        </pattern>
+      </defs>
+      <path d="M22 9 L32 5 Q40 12 48 5 L58 9 L75 23 L66 33 L59 28 L59 75 L21 75 L21 28 L14 33 L5 23 Z" fill="url(#${id})" stroke="rgba(15,23,42,.6)" stroke-width="1.5"/>
+      <path d="M5 23 L22 9 L21 28 L14 33 Z M75 23 L58 9 L59 28 L66 33 Z" fill="${c.c1}" stroke="rgba(15,23,42,.6)" stroke-width="1.2"/>
+      <path d="M32 5 Q40 12 48 5" fill="none" stroke="${c.c2}" stroke-width="3"/>
+      <text x="40" y="52" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="900" font-size="18" fill="#fff" stroke="rgba(15,23,42,.7)" stroke-width="1.2" paint-order="stroke">10</text>
+    </svg>`;
+  },
+
+  // Mała plakietka barw (np. w zapisie)
   colorsBadge(colorsId, size = 'w-5 h-5') {
     const c = DATA.clubColors[colorsId];
     if (!c) return '';
-    return `<span class="inline-block ${size} align-middle border-2 border-ink-900 flex-shrink-0" title="Barwy: ${c.label}" style="background:linear-gradient(135deg, ${c.c1} 50%, ${c.c2} 50%)"></span>`;
+    return `<span class="inline-block ${size} rounded-full align-middle ring-2 ring-slate-900 flex-shrink-0" title="Barwy: ${c.label}" style="background:linear-gradient(135deg, ${c.c1} 50%, ${c.c2} 50%)"></span>`;
   },
 
-  // Podgląd „plakietki” klubu – odświeżany na żywo podczas pisania
+  /* ---------- Wspólne klocki ---------- */
+  pageTitle(icon, title, subtitle) {
+    return `
+    <div class="mb-5">
+      <h2 class="font-display text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl accent-soft flex items-center justify-center text-xl">${icon}</span>${title}
+      </h2>
+      ${subtitle ? `<p class="text-slate-400 text-sm mt-1">${subtitle}</p>` : ''}
+    </div>`;
+  },
+
+  card(icon, title, subtitle, body, extraClass = '') {
+    return `
+    <section class="${UI.CARD} p-5 ${extraClass}">
+      <header class="flex items-start gap-3 mb-4">
+        <span class="w-9 h-9 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center text-base font-display font-bold accent-text flex-shrink-0">${icon}</span>
+        <div class="min-w-0">
+          <h3 class="font-display text-lg font-bold leading-tight">${title}</h3>
+          ${subtitle ? `<p class="text-xs text-slate-400 mt-0.5">${subtitle}</p>` : ''}
+        </div>
+      </header>
+      ${body}
+    </section>`;
+  },
+
+  choice(action, value, active, title, desc) {
+    return `
+    <button data-action="${action}" data-value="${value}"
+      class="btn-press opt w-full text-left px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900/50 ${active ? 'is-active' : ''}">
+      <span class="flex items-center gap-2 font-semibold text-sm">
+        <span class="w-4 h-4 rounded-full border-2 ${active ? 'accent-border' : 'border-slate-500'} flex items-center justify-center flex-shrink-0">${active ? '<span class="w-2 h-2 rounded-full accent-bg"></span>' : ''}</span>${title}
+      </span>
+      ${desc ? `<span class="block text-xs text-slate-400 mt-1 pl-6">${desc}</span>` : ''}
+    </button>`;
+  },
+
+  smallBtn(action, attrs, label, disabled, variant = 'ink') {
+    const styles = {
+      ink: 'bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-600',
+      stamp: 'bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/40',
+      accent: 'btn-accent border border-transparent',
+    };
+    return `<button data-action="${action}" ${attrs} ${disabled ? 'disabled' : ''}
+      class="btn-press px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap ${disabled ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed' : styles[variant] || styles.ink}">${label}</button>`;
+  },
+
+  levelColor: (v, hi = 60, mid = 40) => (v >= hi ? 'bg-emerald-500' : v >= mid ? 'bg-amber-400' : 'bg-red-500'),
+
+  bar(value, colorClass) {
+    return `<div class="h-2 rounded-full bg-slate-700/80 mt-1.5 overflow-hidden"><div class="h-full rounded-full ${colorClass} transition-all duration-500" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
+  },
+
+  chip(text, tone = 'slate') {
+    const tones = {
+      slate: 'bg-slate-700/70 text-slate-200', green: 'bg-emerald-500/15 text-emerald-300', amber: 'bg-amber-400/15 text-amber-300',
+      red: 'bg-red-500/15 text-red-300', sky: 'bg-sky-500/15 text-sky-300', violet: 'bg-violet-500/15 text-violet-300', accent: 'accent-soft accent-text',
+    };
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${tones[tone] || tones.slate}">${text}</span>`;
+  },
+
+  profileBadge(profile) {
+    const pr = DATA.profiles[profile];
+    const tone = { off: 'red', def: 'sky', uni: 'slate' }[profile];
+    return `<span title="Pasuje do: ${pr.label}">${UI.chip(pr.short, tone)}</span>`;
+  },
+
+  formCircles(size = 'w-7 h-7 text-xs') {
+    return gameState.record.form.map((r) => {
+      const c = { W: 'bg-emerald-500 text-emerald-950', D: 'bg-amber-400 text-amber-950', L: 'bg-red-500 text-white' }[r];
+      return `<span class="${size} rounded-full inline-flex items-center justify-center font-display font-bold ${c}">${{ W: 'W', D: 'R', L: 'P' }[r]}</span>`;
+    }).join('');
+  },
+
+  /* ---------- KREATOR KLUBU (ekran startowy) ---------- */
+  // Podgląd herbu i stroju – odświeżany na żywo podczas pisania
   formPreview() {
     const f = gameState.ui.form;
-    const name = Selectors.formClubName(f) || '— nazwa klubu —';
+    const name = Selectors.formClubName(f) || 'Twój Klub';
     const t = DATA.townTypes[f.character];
     const c = DATA.clubColors[f.colors];
     return `
-      <div class="flex items-center gap-3">
-        ${UI.colorsBadge(f.colors, 'w-12 h-12')}
-        <div class="min-w-0">
-          <div class="font-type text-2xl leading-tight break-words">${Utils.escape(name)}</div>
-          <div class="text-xs text-ink-700">${c ? 'Nasi ' + c.nick : ''}${f.town.trim() ? ' · ' + Utils.escape(f.town.trim()) : ''}</div>
+      <div class="relative rounded-xl overflow-hidden border border-slate-700">
+        <div class="absolute inset-0 opacity-30 club-stripe"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent"></div>
+        <div class="relative flex items-end justify-center gap-4 pt-6 pb-4">
+          ${UI.crest(f.colors, name, 92)}
+          ${UI.kit(f.colors, 104)}
         </div>
       </div>
-      <div class="text-sm mt-3 space-y-1">
-        <div>🏟️ ${Utils.escape(f.stadium.trim() || Selectors.defaultStadium(f.town.trim()))}</div>
-        <div>${t.icon} ${t.label}</div>
-        <div>🧑‍💼 ${Utils.escape(f.president.trim() || 'Prezes')}</div>
-      </div>`;
+      <div class="mt-4 text-center">
+        <div class="font-display text-2xl font-extrabold leading-tight break-words">${Utils.escape(name)}</div>
+        <div class="mt-2 flex flex-wrap justify-center gap-1.5">
+          ${c ? UI.chip('Nasi ' + c.nick, 'accent') : ''}
+          ${f.town.trim() ? UI.chip('📍 ' + Utils.escape(f.town.trim())) : ''}
+        </div>
+      </div>
+      <dl class="mt-4 space-y-2 text-sm">
+        <div class="flex gap-2"><dt class="text-slate-400 w-6">🏟️</dt><dd class="text-slate-200">${Utils.escape(f.stadium.trim() || Selectors.defaultStadium(f.town.trim()))}</dd></div>
+        <div class="flex gap-2"><dt class="text-slate-400 w-6">${t.icon}</dt><dd class="text-slate-200">${t.label}</dd></div>
+        <div class="flex gap-2"><dt class="text-slate-400 w-6">🧑‍💼</dt><dd class="text-slate-200">${Utils.escape(f.president.trim() || 'Prezes')}</dd></div>
+      </dl>`;
   },
 
-  /* ---------- EKRAN STARTOWY: KARTA REJESTRACYJNA KLUBU ---------- */
   startScreen() {
     if (!gameState.ui.startQuote) gameState.ui.startQuote = Utils.rand(DATA.quotes);
     const q = gameState.ui.startQuote;
     const f = gameState.ui.form;
     const save = Storage.load();
 
-    const chip = (field, value, active, label) => `
+    const pillBtn = (field, value, active, label) => `
       <button data-action="form-set" data-field="${field}" data-value="${Utils.escape(value)}"
-        class="btn-press px-3 py-1.5 border-2 border-ink-900 text-sm font-mono ${active ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 text-ink-900 shadow-[0_2px_0_#3d362c]'}">${label}</button>`;
-    const input = (field, value, placeholder, max, extra = '') => `
+        class="btn-press opt px-3.5 py-1.5 rounded-full border border-slate-600 bg-slate-900/60 text-sm font-semibold ${active ? 'is-active' : ''}">${label}</button>`;
+    const input = (field, value, placeholder, max) => `
       <input data-field="${field}" type="text" maxlength="${max}" autocomplete="off" value="${Utils.escape(value)}" placeholder="${Utils.escape(placeholder)}"
-        class="w-full px-3 py-2 bg-paper-100 border-2 border-ink-900 font-type text-lg text-ink-900 placeholder:text-paper-400 focus:outline-none focus:ring-4 focus:ring-amber-glow/50 ${extra}" />`;
-    const section = (no, title, body) => `
-      <fieldset class="border-t-2 border-dashed border-ink-700 pt-4 mt-5">
-        <legend class="font-type text-lg pr-2"><span class="text-stamp">${no}.</span> ${title}</legend>
+        class="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:accent-border focus:ring-2 focus:ring-[color:var(--accent)]/40 font-medium" />`;
+    const step = (no, title, hint, body) => `
+      <section class="${UI.CARD} p-5">
+        <header class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full accent-bg font-display font-extrabold flex items-center justify-center">${no}</span>
+          <div><h3 class="font-display font-bold text-lg leading-tight">${title}</h3>${hint ? `<p class="text-xs text-slate-400">${hint}</p>` : ''}</div>
+        </header>
         ${body}
-      </fieldset>`;
+      </section>`;
 
-    const prefixChips = DATA.clubPrefixes.map((x) => chip('prefix', x, f.prefix === x, Utils.escape(x))).join('') + chip('prefix', 'custom', f.prefix === 'custom', '✏️ Własny');
-    const characterCards = Object.entries(DATA.townTypes).map(([id, t]) => `
+    const prefixes = DATA.clubPrefixes.map((x) => pillBtn('prefix', x, f.prefix === x, Utils.escape(x))).join('') + pillBtn('prefix', 'custom', f.prefix === 'custom', '✏️ Własny');
+    const towns = Object.entries(DATA.townTypes).map(([id, t]) => `
       <button data-action="form-set" data-field="character" data-value="${id}"
-        class="btn-press w-full text-left p-3 border-2 border-ink-900 ${f.character === id ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 shadow-[0_3px_0_#211d18]'}">
-        <span class="font-type text-lg block">${f.character === id ? '☒' : '☐'} ${t.icon} ${t.label}</span>
-        <span class="text-xs block ${f.character === id ? 'text-paper-300' : 'text-ink-700'}">${t.sub}</span>
-        <ul class="text-xs mt-1 list-disc pl-4 ${f.character === id ? 'text-paper-200' : 'text-ink-700'}">${t.perks.map((x) => `<li>${x}</li>`).join('')}</ul>
+        class="btn-press opt text-left p-4 rounded-xl border border-slate-700 bg-slate-900/50 ${f.character === id ? 'is-active' : ''}">
+        <div class="text-3xl">${t.icon}</div>
+        <div class="font-display font-bold mt-2 leading-tight">${t.label}</div>
+        <div class="text-xs text-slate-400">${t.sub}</div>
+        <ul class="text-xs text-slate-300 mt-2 space-y-1">${t.perks.map((x) => `<li class="flex gap-1.5"><span class="accent-text">›</span>${x}</li>`).join('')}</ul>
       </button>`).join('');
-    const colorSwatches = Object.entries(DATA.clubColors).map(([id, c]) => `
+    const colors = Object.entries(DATA.clubColors).map(([id, c]) => `
       <button data-action="form-set" data-field="colors" data-value="${id}"
-        class="btn-press flex items-center gap-2 px-2 py-1.5 border-2 ${f.colors === id ? 'border-stamp bg-paper-300' : 'border-ink-900 bg-paper-200 hover:bg-paper-300'}">
-        ${UI.colorsBadge(id, 'w-7 h-7')}<span class="text-sm">${c.label}</span>
+        class="btn-press opt flex items-center gap-3 p-3 rounded-xl border border-slate-700 bg-slate-900/50 ${f.colors === id ? 'is-active' : ''}">
+        <span class="w-9 h-9 rounded-full ring-2 ring-slate-900 flex-shrink-0" style="background:linear-gradient(135deg, ${c.c1} 50%, ${c.c2} 50%)"></span>
+        <span class="text-sm font-semibold text-left">${c.label}</span>
       </button>`).join('');
 
     const saveBox = save && save.club.name ? `
-      <section class="paper text-ink-900 p-5 mb-6 border-l-8 border-grass">
-        <div class="text-xs uppercase tracking-widest text-ink-700">W szufladzie leży teczka z zapisem</div>
-        <div class="font-type text-2xl mt-1">${UI.colorsBadge(save.club.colors)} ${Utils.escape(save.club.name)}</div>
-        <div class="text-sm text-ink-700">${Utils.escape(DATA.leagueLevels[save.club.leagueLevel] ? DATA.leagueLevels[save.club.leagueLevel].name : 'B-klasa')} · Sezon ${save.calendar.season}, Tydzień ${save.calendar.week} · Kasa: ${Utils.formatMoney(save.finance.budget)}</div>
-        <div class="grid sm:grid-cols-[2fr_1fr] gap-3 mt-4">
-          <button data-action="load-game" class="btn-press py-3 bg-grass hover:brightness-110 text-paper-100 font-type text-xl border-2 border-ink-900 shadow-[0_4px_0_#211d18]">📂 WCZYTAJ GRĘ</button>
-          <button data-action="clear-save" class="btn-press py-3 bg-paper-200 hover:bg-paper-300 text-stamp font-type text-sm border-2 border-stamp">🗑️ Resetuj zapis</button>
+      <section class="${UI.CARD} p-5 mb-6 club-glow">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+          ${UI.crest(save.club.colors, save.club.name, 56)}
+          <div class="flex-1 min-w-0">
+            <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold">Kontynuuj karierę</div>
+            <div class="font-display text-2xl font-extrabold truncate">${Utils.escape(save.club.name)}</div>
+            <div class="text-sm text-slate-400">${Utils.escape(DATA.leagueLevels[save.club.leagueLevel] ? DATA.leagueLevels[save.club.leagueLevel].name : 'B-klasa')} · Sezon ${save.calendar.season}, Tydzień ${save.calendar.week} · Kasa: <span class="${save.finance.budget < 0 ? 'text-red-400' : 'text-emerald-400'} font-semibold">${Utils.formatMoney(save.finance.budget)}</span></div>
+          </div>
+          <div class="flex gap-2">
+            <button data-action="load-game" class="btn-press px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-display font-bold">▶ Wczytaj grę</button>
+            <button data-action="clear-save" class="btn-press px-4 py-3 rounded-xl border border-red-500/40 text-red-300 hover:bg-red-500/10 text-sm font-semibold">Resetuj zapis</button>
+          </div>
         </div>
       </section>` : '';
 
     return `
-    <main class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-4xl">
-        <header class="text-center mb-8">
-          <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Okręgowy Związek Piłki Nożnej · Wydział Gier · Pismo L.dz. 666/B</p>
-          <h1 class="font-type text-4xl sm:text-6xl text-amber-glow crt leading-tight">B-KLASA:<br>PREZES Z ŁAPANKI</h1>
-          <p class="mt-4 text-paper-300 text-base sm:text-lg">Symulator zarządzania klubem, w którym boisko dzielisz z krowami, a budżet z tajemniczym „funduszem socjalnym” kierownika drużyny.</p>
+    <main class="min-h-screen px-4 py-8 sm:py-12">
+      <div class="w-full max-w-6xl mx-auto">
+        <header class="mb-8">
+          <div class="h-1 w-24 rounded-full club-stripe mb-5"></div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400 font-semibold">Nowa kariera · Kreator klubu</p>
+          <h1 class="font-display text-4xl sm:text-6xl font-black tracking-tight mt-2 leading-none">B-KLASA: <span class="accent-text">PREZES Z ŁAPANKI</span></h1>
+          <p class="mt-3 text-slate-300 max-w-2xl">Symulator zarządzania klubem, w którym boisko dzielisz z krowami, a budżet z tajemniczym „funduszem socjalnym” kierownika drużyny.</p>
+          <p class="mt-2 text-sm text-slate-500 italic">„${Utils.escape(q.text)}” — ${Utils.escape(q.author)}</p>
         </header>
 
         ${saveBox}
 
-        <section class="paper paper-rough text-ink-900 p-6 sm:p-8 relative">
-          <div class="stamp absolute top-4 right-4 sm:right-8 px-3 py-1 font-type text-sm bg-paper-100">WPŁYNĘŁO</div>
-          <div class="text-xs uppercase tracking-[0.3em] text-ink-700">Druk OZPN nr B-1 · wypełnić drukowanymi literami</div>
-          <h2 class="font-type text-2xl sm:text-3xl mt-1 pr-28">KARTA REJESTRACYJNA KLUBU</h2>
-          <p class="text-sm text-ink-700 mb-2">Zgłoszenie drużyny seniorów do rozgrywek B-klasy, sezon bieżący. Opłata rejestracyjna: „co łaska”.</p>
-          <blockquote class="font-type text-base border-l-4 border-stamp pl-4 my-4">
-            „${Utils.escape(q.text)}” <span class="font-mono text-xs text-ink-700">— ${Utils.escape(q.author)}</span>
-          </blockquote>
-
-          <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-            <div>
-              ${section('I', 'Nazwa klubu i miejscowość', `
-                <div class="flex flex-wrap gap-2 mb-3">${prefixChips}</div>
-                ${f.prefix === 'custom' ? `<div class="mb-3">${input('customPrefix', f.customPrefix, 'własny przedrostek, np. Coco Jambo, Sokół, Tęcza', 25)}</div>` : ''}
-                ${input('town', f.town, 'Miejscowość / nazwa własna, np. Świbie, Chrząstawa', 30)}
-                <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border-2 border-ink-900 bg-amber-glow hover:bg-yellow-400 text-ink-900 text-sm font-bold shadow-[0_3px_0_#211d18]">🎲 Wylosuj kultowy klub</button>
-              `)}
-              ${section('II', 'Charakter miejscowości', `<div class="grid gap-2">${characterCards}</div>`)}
-              ${section('III', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
-              ${section('IV', 'Obiekt sportowy', `
-                ${input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60)}
-                <p class="text-xs text-ink-700 mt-1">Nazwę może później zmienić Sponsor Tytularny. Puste pole = nazwa domyślna.</p>
-              `)}
-              ${section('V', 'Imię / ksywa Prezesa', `
-                ${input('president', f.president, 'Prezes', 30)}
-                <p class="text-xs text-ink-700 mt-1">Jak mówią na Ciebie w gminie: „Prezes Janusz”, „Prezes Mirek”… Pojawi się w pismach, telefonach i w protokole.</p>
-              `)}
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div class="space-y-5">
+            ${step(1, 'Nazwa klubu i miejscowość', 'Przedrostek + nazwa własna. Albo zdaj się na los.', `
+              <div class="flex flex-wrap gap-2 mb-4">${prefixes}</div>
+              ${f.prefix === 'custom' ? `<div class="mb-3">${input('customPrefix', f.customPrefix, 'Własny przedrostek, np. Coco Jambo, Sokół, Tęcza', 25)}</div>` : ''}
+              ${input('town', f.town, 'Miejscowość, np. Świbie, Chrząstawa', 30)}
+              <button data-action="random-club" class="btn-press mt-3 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-sm font-semibold">🎲 Wylosuj kultowy klub</button>
+            `)}
+            ${step(2, 'Charakter miejscowości', 'Lekki wpływ na ekonomię i nastroje.', `<div class="grid gap-3 md:grid-cols-3">${towns}</div>`)}
+            ${step(3, 'Barwy klubowe', 'Pokolorują cały interfejs, herb i koszulki.', `<div class="grid gap-2 grid-cols-2 sm:grid-cols-3">${colors}</div>`)}
+            <div class="grid gap-5 md:grid-cols-2">
+              ${step(4, 'Obiekt sportowy', 'Puste pole = nazwa domyślna. Sponsor może ją zmienić.', input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60))}
+              ${step(5, 'Imię / ksywa Prezesa', 'Pojawi się w pismach, telefonach i w protokole.', input('president', f.president, 'Prezes', 30))}
             </div>
-
-            <aside class="lg:sticky lg:top-6 self-start">
-              <div class="bg-paper-200 border-2 border-ink-900 p-4 shadow-[0_4px_0_#211d18]">
-                <div class="text-xs uppercase tracking-widest text-ink-700 mb-2">Plakietka klubu (podgląd)</div>
-                <div id="form-preview">${UI.formPreview()}</div>
-              </div>
-              <p id="start-error" class="text-stamp font-bold text-sm mt-3 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
-              <button data-action="start-game"
-                class="btn-press w-full mt-2 py-5 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl tracking-wider border-4 border-ink-900 shadow-[0_6px_0_#211d18]">
-                [ ROZPOCZNIJ PREZESURĘ ]
-              </button>
-              <p class="text-xs text-ink-700 text-center mt-3">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.${save && save.club.name ? ' <b>Nowa prezesura nadpisze zapis z szuflady.</b>' : ''}</p>
-              <div class="mt-4 text-right font-type text-sm text-ink-700">Podpis zgłaszającego: <span class="inline-block w-32 border-b border-ink-700"></span></div>
-            </aside>
           </div>
-        </section>
+
+          <aside class="lg:sticky lg:top-6 self-start">
+            <div class="${UI.CARD} p-5">
+              <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">Podgląd klubu</div>
+              <div id="form-preview">${UI.formPreview()}</div>
+              <p id="start-error" class="text-red-400 font-semibold text-sm mt-4 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
+              <button data-action="start-game" class="btn-press btn-accent w-full mt-1 py-4 rounded-xl font-display text-xl font-extrabold tracking-wide shadow-lg">ROZPOCZNIJ PREZESURĘ</button>
+              <p class="text-xs text-slate-500 text-center mt-3">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.${save && save.club.name ? ' <b class="text-slate-300">Nowa prezesura nadpisze zapis.</b>' : ''}</p>
+            </div>
+          </aside>
+        </div>
       </div>
     </main>`;
   },
@@ -2859,135 +3006,146 @@ const UI = {
   /* ---------- GŁÓWNY EKRAN GRY ---------- */
   gameScreen() {
     return `
-    <div id="game-root" class="min-h-screen flex flex-col pb-44 sm:pb-28">
-      ${UI.statusBar()}
-      <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
-        ${UI.navigation()}
-        <main class="flex-1 min-w-0 p-4 sm:p-6">${UI.activeTabContent()}</main>
-      </div>
-      ${UI.actionBar()}
+    <div id="game-root" class="min-h-screen flex flex-col pb-28 lg:pb-10">
+      <div class="lg:sticky lg:top-0 z-40">${UI.header()}${UI.tabsBar()}</div>
+      ${UI.blockedBanner()}
+      <main class="flex-1 w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-6">${UI.activeTabContent()}</main>
+      ${UI.fab()}
     </div>`;
   },
 
-  // Stały pasek na dole – [NASTĘPNY TYDZIEŃ] dostępny z każdej zakładki.
-  actionBar() {
-    const canAdvance = Engine.canAdvanceWeek();
+  nextWeekLabel() {
     const pending = gameState.pendingDecisions.length;
-    const msg = canAdvance
-      ? (Selectors.isMatchWeek() ? '⚽ W ten weekend gramy! Kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
-      : '📌 Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '! Nikt nie lubi czekać.';
-    return `
-    <div id="action-bar" class="fixed bottom-0 left-0 right-0 z-50 bg-desk-800 border-t-4 border-desk-600 shadow-[0_-8px_20px_rgba(0,0,0,0.5)]" style="position:fixed;bottom:0;left:0;right:0;z-index:50;">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-        <p class="flex-1 text-sm text-center sm:text-left ${canAdvance ? 'text-paper-300' : 'text-amber-glow font-bold'}">
-          ${msg}
-          ${!canAdvance && gameState.activeTab !== 'desk' ? '<button data-action="switch-tab" data-tab="desk" class="underline underline-offset-4 ml-2 text-paper-100">Idź na Biurko →</button>' : ''}
-        </p>
-        <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
-          class="btn-press w-full sm:w-auto px-8 py-3 font-type text-xl sm:text-2xl tracking-wider border-4 border-ink-900
-          ${canAdvance
-            ? 'bg-amber-glow text-ink-900 hover:bg-yellow-400 shadow-[0_5px_0_#000]'
-            : 'bg-desk-700 text-paper-400 cursor-not-allowed shadow-none'}">
-          NASTĘPNY TYDZIEŃ &gt;&gt;
-        </button>
-      </div>
-    </div>`;
+    if (pending) return { ok: false, main: '🔒 Najpierw sprawy', sub: pending + ' w Komunikatorze' };
+    return { ok: true, main: 'Następny tydzień »', sub: Selectors.isMatchWeek() ? '⚽ w ten weekend gramy' : 'przedsezon' };
   },
 
-  statusBar() {
+  header() {
     const s = gameState;
-    const budgetClass = s.finance.budget < 0 ? 'text-stamp' : 'text-amber-glow';
+    const played = s.season.table[US] && s.season.table[US].p;
+    const fx = Selectors.currentFixture();
+    const nw = UI.nextWeekLabel();
+    const pill = (inner, extra = '') => `<div class="flex-shrink-0 rounded-xl bg-slate-800/80 border border-slate-700 px-3 py-2 ${extra}">${inner}</div>`;
+    const gauge = (icon, label, v) => pill(`
+      <div class="flex items-center justify-between gap-3 text-xs"><span class="text-slate-400 font-semibold">${icon} ${label}</span><span class="font-display font-bold text-base">${v}%</span></div>
+      <div class="w-32">${UI.bar(v, UI.levelColor(v))}</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">${Selectors.moodLabel(v)}</div>`);
     return `
-    <header class="bg-desk-800 border-b-4 border-desk-600 shadow-lg">
-      <div class="max-w-7xl mx-auto px-4 py-4 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1.5fr] items-stretch">
-
-        <div class="flex flex-col justify-center min-w-0">
-          <div class="text-xs text-paper-400 uppercase tracking-widest">Klub</div>
-          <div class="font-type text-2xl text-paper-100 leading-tight break-words">${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(Selectors.clubDisplayName())}</div>
-          <div class="text-sm text-paper-300">Poziom ${s.club.leagueLevel}: <span class="text-amber-glow">${Selectors.leagueName()}</span> · 📊 ${gameState.season.table[US] && gameState.season.table[US].p ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'}</div>
-          <div class="text-sm text-paper-300">🏟️ ${Utils.escape(Selectors.stadiumName())}</div>
-          <div class="text-sm text-paper-300 mt-1">📅 ${Selectors.weekLabel()}</div>
+    <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800">
+      <div class="h-1 club-stripe"></div>
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5">
+        <div class="flex items-center gap-3 min-w-0 lg:w-[300px] flex-shrink-0">
+          ${UI.crest(s.club.colors, s.club.name, 50)}
+          <div class="min-w-0 flex-1">
+            <div class="font-display text-xl font-extrabold leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
+            <div class="flex flex-wrap items-center gap-1.5 mt-1">
+              ${UI.chip(Selectors.leagueName(), 'accent')}
+              ${UI.chip(played ? '#' + Selectors.ourPosition() + ' w tabeli' : 'przed 1. kolejką')}
+              ${UI.chip('S' + s.calendar.season + ' · T' + s.calendar.week)}
+            </div>
+          </div>
+          <div class="flex gap-1 lg:hidden">${UI.headerIcons()}</div>
         </div>
 
-        <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
-          <div class="text-xs text-paper-400 uppercase tracking-widest">Budżet klubu</div>
-          <div class="font-type text-3xl ${budgetClass} crt">${Utils.formatMoney(s.finance.budget)}</div>
-          <div class="text-xs text-paper-400 mt-1">Wypłaty: <span class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</span></div>
-          ${UI.threats()}
-          <div class="text-xs text-paper-400">DNA: <span class="text-paper-200 italic">„${Utils.escape(Selectors.dnaLabel())}”</span></div>
+        <div class="flex-1 min-w-0 flex gap-2 overflow-x-auto no-scrollbar lg:justify-center">
+          ${pill(`<div class="text-xs text-slate-400 font-semibold">💰 Budżet</div>
+            <div class="font-display text-xl font-extrabold ${s.finance.budget < 0 ? 'text-red-400' : 'text-emerald-400'}">${Utils.formatMoney(s.finance.budget)}</div>
+            <div class="text-[11px] text-slate-400">wypłaty ${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</div>`)}
+          ${gauge('🧦', 'Szatnia', s.morale.lockerRoom)}
+          ${gauge('📣', 'Kibice', s.morale.fans)}
+          ${pill(`<div class="text-xs text-slate-400 font-semibold">🧬 DNA klubu</div>
+            <div class="font-semibold text-sm mt-1 max-w-[150px] leading-tight">${Utils.escape(Selectors.dnaLabel())}</div>
+            ${UI.threats()}`)}
+          ${pill(`<div class="text-xs text-slate-400 font-semibold">${Selectors.isMatchWeek() ? '⚽ Kolejka ' + (s.calendar.round + 1) : '⏳ Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.'}</div>
+            <div class="font-semibold text-sm mt-1 whitespace-nowrap">${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${Selectors.rival(fx.rival).derby ? ' 🔥' : ''}</div>
+            <div class="text-[11px] text-slate-400">${s.weather.icon} ${fx.home ? 'u siebie' : 'na wyjeździe'}</div>`, 'hidden 2xl:block')}
         </div>
 
-        ${UI.meter('Szatnia', '🧦', s.morale.lockerRoom)}
-        ${UI.meter('Kibice', '📣', s.morale.fans)}
-
-        ${UI.matchBox()}
+        <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
+          <button data-action="next-week" ${nw.ok ? '' : 'disabled'}
+            class="btn-press rounded-xl px-5 py-2.5 text-left ${nw.ok ? 'btn-accent shadow-lg' : 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'}">
+            <div class="font-display font-extrabold text-lg leading-tight">${nw.main}</div>
+            <div class="text-[11px] opacity-80">${nw.sub}</div>
+          </button>
+          ${UI.headerIcons()}
+        </div>
       </div>
     </header>`;
   },
 
-  matchBox() {
-    const fx = Selectors.currentFixture();
-    const w = gameState.weather;
-    const rival = Selectors.rival(fx.rival);
-    const inPreseason = !Selectors.isMatchWeek();
-    const kolejka = gameState.calendar.round + 1;
-    const form = gameState.record.form.map((r) => {
-      const c = { W: 'bg-grass', D: 'bg-amber-glow text-ink-900', L: 'bg-stamp' }[r];
-      return `<span class="inline-block w-5 text-center text-[10px] font-bold ${c}">${{ W: 'W', D: 'R', L: 'P' }[r]}</span>`;
-    }).join(' ');
-    const head = inPreseason
-      ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - gameState.calendar.week) + ' tyg.'
-      : 'Kolejka ' + kolejka + ' – w tym tygodniu';
-    const extra = !inPreseason && fx.home
-      ? ' · szac. ' + Engine.estimateAttendance(fx) + ' widzów'
-      : '';
+  headerIcons() {
+    const icon = (action, glyph, title, extra = '') => `<button data-action="${action}" title="${title}" class="btn-press w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 flex items-center justify-center ${extra}">${glyph}</button>`;
     return `
-    <div class="bg-desk-900 border border-desk-600 p-3 flex items-center gap-3 md:col-span-2 xl:col-span-1 min-w-0">
-      <div class="text-4xl" title="${Utils.escape(w.label)}">${w.icon}</div>
-      <div class="min-w-0">
-        <div class="text-xs text-paper-400 uppercase tracking-widest">${head}</div>
-        <div class="text-paper-100 font-bold">${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)} ${rival.derby ? '<span class="text-stamp whitespace-nowrap">🔥 KOSA</span>' : ''}</div>
-        <div class="text-xs text-paper-300">${fx.home ? 'U siebie' : 'Na wyjeździe'}${extra} · ${inPreseason ? 'za oknem: ' : ''}${Utils.escape(w.label)}</div>
-        ${form ? `<div class="mt-1 text-paper-100">${form}</div>` : ''}
-      </div>
-    </div>`;
+      <span title="Autozapis: Tydzień ${gameState.calendar.week}" class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-center">💾</span>
+      ${icon('exit-menu', '⏏', 'Wyjdź do menu (zapis zostaje)')}
+      ${icon('reset-game', '🗑', 'Rzuć papierami – nowa gra (kasuje zapis)', 'hover:border-red-500/50')}`;
   },
 
-  meter(label, icon, value) {
-    return `
-    <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
-      <div class="flex justify-between text-xs uppercase tracking-widest text-paper-400">
-        <span>${icon} ${label}</span><span class="text-paper-200">${value}%</span>
-      </div>
-      <div class="mt-2 h-4 bg-desk-700 border border-desk-600">
-        <div class="h-full ${Selectors.moodColor(value)} bar-stripes transition-all duration-500" style="width:${value}%"></div>
-      </div>
-      <div class="text-xs text-paper-300 mt-1">${Selectors.moodLabel(value)}</div>
-    </div>`;
+  // Ostrzeżenia: długi, komornik, walne zebranie, prokuratura
+  threats() {
+    const t = Selectors.debtThresholds();
+    const b = gameState.finance.budget;
+    const items = [];
+    if (gameState.debt.deepWeeks > 0) items.push(UI.chip('☠️ Walne za ' + (CONFIG.debtGameOverWeeks - gameState.debt.deepWeeks) + ' tyg.!', 'red'));
+    else if (b < t.bailiff) items.push(UI.chip('⚖️ Komornik', 'red'));
+    else if (b < t.warn) items.push(UI.chip('💸 Odsetki + strajk', 'amber'));
+    if (Selectors.underInvestigation()) items.push(UI.chip('🔍 Pod lupą', 'red'));
+    if (gameState.season.promotionBan) items.push(UI.chip('⛔ Zakaz awansu', 'red'));
+    return items.length ? `<div class="flex flex-wrap gap-1 mt-1">${items.join('')}</div>` : '';
   },
 
-  navigation() {
+  tabBadge(id) {
+    if (id === 'desk') return gameState.pendingDecisions.length;
+    if (id === 'scouting') {
+      const key = gameState.scouting.candidates.map((p) => p.id).join(',');
+      return key && key !== gameState.ui.seenScoutKey ? gameState.scouting.candidates.length : 0;
+    }
+    if (id === 'virtualx') {
+      const n = gameState.feed.filter((p) => p.id > (gameState.ui.seenFeedId || 0)).length;
+      return n > 9 ? '9+' : n;
+    }
+    if (id === 'finance') return gameState.finance.budget < 0 ? '!' : 0;
+    return 0;
+  },
+
+  tabsBar() {
     const items = DATA.tabs.map((t) => {
       const active = t.id === gameState.activeTab;
-      const locked = !UI.tabRenderers[t.id];
+      const badge = UI.tabBadge(t.id);
       return `
       <button data-action="switch-tab" data-tab="${t.id}"
-        class="flex-shrink-0 lg:w-full text-left px-4 py-3 border-l-4 font-mono text-sm transition-colors
-        ${active ? 'border-amber-glow bg-desk-700 text-amber-glow' : 'border-transparent text-paper-300 hover:bg-desk-800 hover:text-paper-100'}">
-        <span class="mr-2">${t.icon}</span>${t.label}${locked ? ' <span class="text-paper-400">🔒</span>' : ''}
+        class="relative flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-semibold transition-colors ${active ? 'tab-active' : 'border-transparent text-slate-400 hover:text-slate-200'}">
+        <span>${t.icon}</span><span>${t.label}</span>
+        ${badge ? `<span class="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${t.id === 'finance' ? 'bg-red-500 text-white' : 'btn-accent'}">${badge}</span>` : ''}
       </button>`;
     }).join('');
-
     return `
-    <nav class="lg:w-60 bg-desk-900 lg:border-r border-b lg:border-b-0 border-desk-600 lg:py-4">
-      <div class="hidden lg:block px-4 pb-3 text-xs text-paper-400 uppercase tracking-[0.3em]">Pokoje klubowe</div>
-      <div class="flex lg:flex-col overflow-x-auto">${items}</div>
-      <div class="flex lg:flex-col gap-3 px-4 py-3 lg:pt-6 text-xs">
-        <span class="text-grass">💾 Autozapis: Tydzień ${gameState.calendar.week}</span>
-        <button data-action="exit-menu" class="text-paper-400 hover:text-paper-100 underline underline-offset-4 text-left">Wyjdź do menu</button>
-        <button data-action="reset-game" class="text-paper-400 hover:text-stamp underline underline-offset-4 text-left">Rzuć papierami (nowa gra)</button>
-      </div>
+    <nav class="bg-slate-900/90 border-b border-slate-800 backdrop-blur">
+      <div class="max-w-[1400px] mx-auto px-2 sm:px-4 flex overflow-x-auto no-scrollbar">${items}</div>
     </nav>`;
+  },
+
+  blockedBanner() {
+    const pending = gameState.pendingDecisions.length;
+    if (!pending || gameState.activeTab === 'desk') return '';
+    return `
+    <div class="max-w-[1400px] mx-auto w-full px-4 sm:px-6 pt-4">
+      <div class="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 flex flex-wrap items-center gap-3 text-sm">
+        <span class="text-amber-300 font-semibold">📲 ${pending} ${pending === 1 ? 'nieobsłużona sprawa' : 'nieobsłużone sprawy'} w Komunikatorze – tydzień nie ruszy, dopóki ich nie załatwisz.</span>
+        <button data-action="switch-tab" data-tab="desk" class="btn-press ml-auto px-3 py-1.5 rounded-lg btn-accent font-semibold">Otwórz Centrum →</button>
+      </div>
+    </div>`;
+  },
+
+  // Pływający przycisk na telefonie
+  fab() {
+    const nw = UI.nextWeekLabel();
+    return `
+    <button id="action-bar" data-action="next-week" ${nw.ok ? '' : 'disabled'}
+      class="lg:hidden fixed bottom-4 right-4 left-4 sm:left-auto z-50 btn-press rounded-2xl px-6 py-3.5 text-left shadow-2xl shadow-black/50 ${nw.ok ? 'btn-accent' : 'bg-slate-800 border border-slate-700 text-slate-400'}">
+      <div class="font-display font-extrabold text-lg leading-tight">${nw.main}</div>
+      <div class="text-xs opacity-80">${nw.sub}</div>
+    </button>`;
   },
 
   activeTabContent() {
@@ -3009,221 +3167,304 @@ const UI = {
   underConstruction() {
     const tab = DATA.tabs.find((t) => t.id === gameState.activeTab);
     const idx = DATA.tabs.indexOf(tab) % DATA.underConstruction.length;
-    return `
-    <section class="paper text-ink-900 p-8 max-w-2xl mx-auto mt-6 relative">
-      <div class="stamp absolute top-4 right-4 px-3 py-1 font-type text-sm">ZAMKNIĘTE</div>
-      <h2 class="font-type text-3xl mb-4">${tab.icon} ${tab.label}</h2>
-      <p class="text-lg">${DATA.underConstruction[idx]}</p>
-      <p class="text-sm text-ink-700 mt-6">Na drzwiach kartka: „Wracam za 5 min” — data: lipiec 2017.</p>
-    </section>`;
+    return UI.card(tab.icon, tab.label, 'Zamknięte', `<p>${DATA.underConstruction[idx]}</p>`, 'max-w-2xl mx-auto');
   },
 
-  /* ---------- Wspólne klocki UI ---------- */
-  card(letter, title, subtitle, body, extraClass = '') {
-    return `
-    <section class="paper text-ink-900 p-5 ${extraClass}">
-      <div class="flex items-baseline gap-3 border-b-2 border-ink-900 pb-2 mb-4">
-        <span class="font-type text-3xl text-stamp">${letter}</span>
-        <div><h3 class="font-type text-xl leading-tight">${title}</h3><p class="text-xs text-ink-700">${subtitle}</p></div>
-      </div>
-      ${body}
-    </section>`;
-  },
-
-  choice(action, value, active, title, desc) {
-    return `
-    <button data-action="${action}" data-value="${value}"
-      class="btn-press w-full text-left px-3 py-2 border-2 border-ink-900 ${active ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 shadow-[0_3px_0_#211d18]'}">
-      <span class="font-type block">${active ? '☑' : '☐'} ${title}</span>
-      ${desc ? `<span class="text-xs ${active ? 'text-paper-300' : 'text-ink-700'}">${desc}</span>` : ''}
-    </button>`;
-  },
-
-  smallBtn(action, attrs, label, disabled, variant = 'ink') {
-    const colors = variant === 'stamp'
-      ? 'bg-stamp text-paper-100 hover:bg-red-700'
-      : 'bg-ink-900 text-paper-100 hover:bg-ink-700';
-    return `<button data-action="${action}" ${attrs} ${disabled ? 'disabled' : ''}
-      class="btn-press px-3 py-1.5 text-sm font-bold border-2 border-ink-900 ${disabled ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : colors + ' shadow-[0_3px_0_#3d362c]'}">${label}</button>`;
-  },
-
-  bar(value, colorClass) {
-    return `<div class="h-4 bg-paper-300 border border-ink-900 mt-1"><div class="h-full ${colorClass} bar-stripes" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
-  },
-
-  profileBadge(profile) {
-    const pr = DATA.profiles[profile];
-    return `<span class="inline-block px-1.5 text-[10px] font-bold ${pr.color}" title="Pasuje do: ${pr.label}">${pr.short}</span>`;
-  },
-
-  /* ---------- ZAKŁADKA: BIURKO ---------- */
+  /* ---------- CENTRUM DOWODZENIA (Biurko) ---------- */
   deskTab() {
     return `
-    <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
-      <section>
-        <h2 class="font-type text-2xl text-amber-glow crt mb-3">📌 Pilne Sprawy / Decyzje</h2>
-        ${UI.decisions()}
-      </section>
-
-      <section>
-        <h2 class="font-type text-2xl text-amber-glow crt mb-3">📒 Dziennik Zdarzeń</h2>
-        ${UI.logPanel()}
-      </section>
+    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-[290px_minmax(0,1fr)_350px] items-start">
+      <div class="order-2 xl:order-1 space-y-5">${UI.matchCenter()}${UI.miniTable()}</div>
+      <div class="order-1 xl:order-2 md:col-span-2 xl:col-span-1">${UI.phone()}</div>
+      <div class="order-3">${UI.timeline()}</div>
     </div>`;
   },
 
-  decisions() {
-    if (gameState.pendingDecisions.length === 0) {
-      return `
-      <div class="paper text-ink-900 p-6 text-center">
-        <p class="font-type text-xl">Biurko puste.</p>
-        <p class="text-sm text-ink-700 mt-1">Tylko kubek z napisem „Najlepszy Dziadek” i pieczątka klubowa bez tuszu.</p>
-      </div>`;
-    }
-    return gameState.pendingDecisions.map((id) => {
-      const d = DATA.decisions[id];
-      const cols = d.options.length >= 3 ? 'grid-cols-1' : 'sm:grid-cols-2';   // 3 opcje: pełna szerokość, żeby długie słowa się mieściły
-      const opts = d.options.map((o, i) => `
-        <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
-          class="btn-press w-full min-w-0 text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 border-2 border-ink-900 shadow-[0_3px_0_#211d18] [overflow-wrap:anywhere]">
-          <span class="font-type text-lg block">▸ ${Utils.escape(Utils.val(o.label))}</span>
-          <span class="text-xs text-ink-700">${Utils.escape(Utils.val(o.hint))}</span>
-        </button>`).join('');
-      return `
-      <article class="paper text-ink-900 p-6 relative mb-4">
-        <div class="stamp absolute top-3 right-3 px-2 py-0.5 font-type text-xs">PILNE</div>
-        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Od: ${Utils.escape(Utils.val(d.from))}</div>
-        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
-        <h3 class="font-type text-2xl mt-1 mb-3 pr-16">${Utils.escape(Utils.val(d.title))}</h3>
-        <p class="leading-relaxed mb-5">${Utils.escape(Utils.val(d.body))}</p>
-        <div class="grid gap-3 ${cols}">${opts}</div>
-      </article>`;
-    }).join('');
+  matchCenter() {
+    const fx = Selectors.currentFixture();
+    const w = gameState.weather;
+    const rival = Selectors.rival(fx.rival);
+    const inPre = !Selectors.isMatchWeek();
+    const us = { html: UI.crest(gameState.club.colors, gameState.club.name, 52), name: gameState.club.name };
+    const them = { html: UI.crest(null, fx.rival, 52, true), name: fx.rival };
+    const [home, away] = fx.home ? [us, them] : [them, us];
+    const side = (t) => `<div class="flex flex-col items-center gap-2 w-24 text-center">${t.html}<div class="text-xs font-semibold leading-tight">${Utils.escape(t.name)}</div></div>`;
+    const form = UI.formCircles();
+    return `
+    <section class="${UI.CARD} overflow-hidden">
+      <div class="px-5 pt-4 flex items-center justify-between">
+        <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold">Centrum meczowe</div>
+        ${inPre ? UI.chip('Start za ' + (CONFIG.preseasonWeeks + 1 - gameState.calendar.week) + ' tyg.') : UI.chip('Kolejka ' + (gameState.calendar.round + 1), 'accent')}
+      </div>
+      <div class="px-5 py-4 flex items-center justify-between">
+        ${side(home)}
+        <div class="text-center">
+          <div class="font-display text-2xl font-black text-slate-500">VS</div>
+          ${rival.derby ? `<div class="mt-1">${UI.chip('🔥 KOSA', 'red')}</div>` : ''}
+        </div>
+        ${side(away)}
+      </div>
+      <div class="mx-5 mb-4 rounded-xl bg-slate-900/70 border border-slate-700 p-3 flex items-center gap-3">
+        <div class="text-4xl">${w.icon}</div>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold">${Utils.escape(w.label)}</div>
+          <div class="text-xs text-slate-400">${fx.home ? '🏟️ U siebie' : '🚌 Na wyjeździe'}${!inPre && fx.home ? ' · szac. <b class="text-slate-200">' + Engine.estimateAttendance(fx) + '</b> widzów' : ''}${inPre ? ' · pogoda za oknem' : ''}</div>
+        </div>
+      </div>
+      <div class="px-5 pb-4">
+        <div class="text-xs text-slate-400 font-semibold mb-2">Ostatnie wyniki</div>
+        <div class="flex gap-1.5">${form || '<span class="text-sm text-slate-500">Brak rozegranych meczów</span>'}</div>
+      </div>
+    </section>`;
   },
 
-  logPanel() {
-    // Tygodnie od najnowszego, wpisy w tygodniu chronologicznie (czyta się jak raport).
+  miniTable() {
+    const rows = Selectors.standings();
+    const pos = rows.findIndex((r) => r.team === US);
+    const show = new Set([0, 1, 2, pos - 1, pos, pos + 1].filter((i) => i >= 0 && i < rows.length));
+    let last = -1;
+    const html = [...show].sort((a, b) => a - b).map((i) => {
+      const r = rows[i];
+      const gap = last >= 0 && i - last > 1 ? '<tr><td colspan="4" class="text-center text-slate-600 text-xs py-0.5">⋯</td></tr>' : '';
+      last = i;
+      const us = r.team === US;
+      const zone = i < CONFIG.promotionSpots && gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'border-l-emerald-500' : i === rows.length - 1 ? 'border-l-red-500' : 'border-l-transparent';
+      return gap + `
+        <tr class="${us ? 'accent-soft font-bold' : ''}">
+          <td class="py-1.5 pl-2 border-l-2 ${zone} text-slate-400 w-7">${i + 1}</td>
+          <td class="py-1.5 truncate max-w-[150px]">${Utils.escape(Selectors.teamName(r.team))}</td>
+          <td class="py-1.5 text-center text-slate-400 w-8">${r.p}</td>
+          <td class="py-1.5 pr-2 text-right font-display font-bold w-10">${r.pts}</td>
+        </tr>`;
+    }).join('');
+    return `
+    <section class="${UI.CARD} p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold">${Selectors.leagueName()}</div>
+        <button data-action="switch-tab" data-tab="table" class="text-xs accent-text font-semibold hover:underline">Pełna tabela →</button>
+      </div>
+      <table class="w-full text-sm"><tbody>${html}</tbody></table>
+    </section>`;
+  },
+
+  decisionKinds: {
+    welcomeWojt:       { kind: 'msg',   icon: '🏛️', tag: 'Wiadomość z Gminy' },
+    seasonTickets:     { kind: 'msg',   icon: '🎟️', tag: 'Wiadomość' },
+    derbySecurity:     { kind: 'alert', icon: '🚓', tag: 'Ostrzeżenie' },
+    veteranStaff:      { kind: 'call',  icon: '👴', tag: 'Połączenie przychodzące' },
+    fansVsCoach:       { kind: 'alert', icon: '📢', tag: 'Protest kibiców' },
+    wageDemand:        { kind: 'call',  icon: '📞', tag: 'Połączenie przychodzące' },
+    passatSell:        { kind: 'meet',  icon: '🚗', tag: 'Spotkanie na parkingu' },
+    passatBuy:         { kind: 'meet',  icon: '🚗', tag: 'Spotkanie na parkingu' },
+    feta:              { kind: 'msg',   icon: '🎉', tag: 'Wiadomość od Zarządu' },
+    lastPlaceShame:    { kind: 'alert', icon: '🙈', tag: 'Zebranie wiejskie' },
+    lifelineRadny:     { kind: 'msg',   icon: '🛟', tag: 'Propozycja pomocy' },
+    lifelineEmigracja: { kind: 'msg',   icon: '🇩🇪', tag: 'Wiadomość z zagranicy' },
+    lifelineTaca:      { kind: 'msg',   icon: '⛪', tag: 'Wiadomość z parafii' },
+    brakeSanepid:      { kind: 'alert', icon: '🧪', tag: 'Kontrola' },
+    brakeRoof:         { kind: 'alert', icon: '🌪️', tag: 'Awaria' },
+    brakeBonus:        { kind: 'alert', icon: '💰', tag: 'Żądanie drużyny' },
+  },
+
+  phone() {
+    const pending = gameState.pendingDecisions;
+    const cards = pending.map((id) => UI.decisionCard(DATA.decisions[id])).join('');
+    return `
+    <section class="rounded-[1.75rem] border border-slate-700 bg-slate-950/80 p-2 shadow-2xl shadow-black/40">
+      <div class="rounded-[1.4rem] bg-slate-900 border border-slate-800 overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-2 text-[11px] text-slate-400 font-semibold">
+          <span>Tydz. ${gameState.calendar.week}</span>
+          <span class="w-20 h-1.5 rounded-full bg-slate-800"></span>
+          <span>📶 🔋</span>
+        </div>
+        <div class="px-5 pb-3 flex items-center justify-between border-b border-slate-800">
+          <div>
+            <h2 class="font-display text-xl font-extrabold">Komunikator Prezesa</h2>
+            <p class="text-xs text-slate-400">Pilne sprawy · tydzień nie ruszy bez decyzji</p>
+          </div>
+          ${pending.length ? UI.chip(pending.length + ' nowe', 'accent') : UI.chip('✓ czysto', 'green')}
+        </div>
+        <div class="p-3 sm:p-4 space-y-4 bg-gradient-to-b from-slate-900 to-slate-950 min-h-[260px]">
+          ${cards || `
+            <div class="text-center py-14 px-4">
+              <div class="text-5xl mb-3">📵</div>
+              <div class="font-display text-lg font-bold">Brak nowych wiadomości</div>
+              <p class="text-sm text-slate-400 mt-1">Telefon milczy jak sędzia po meczu. Kubek „Najlepszy Dziadek” stoi obok, pieczątka bez tuszu.</p>
+            </div>`}
+        </div>
+      </div>
+    </section>`;
+  },
+
+  decisionCard(d) {
+    const meta = UI.decisionKinds[d.id] || { kind: 'msg', icon: '✉️', tag: 'Wiadomość' };
+    const look = {
+      msg:   { border: 'border-sky-500/30', avatar: 'bg-sky-500/15', tag: 'text-sky-300' },
+      call:  { border: 'border-emerald-500/40', avatar: 'bg-emerald-500/20 ring-pulse', tag: 'text-emerald-300' },
+      meet:  { border: 'border-red-500/50', avatar: 'bg-red-500/15', tag: 'text-red-300' },
+      alert: { border: 'border-amber-400/40', avatar: 'bg-amber-400/15', tag: 'text-amber-300' },
+    }[meta.kind];
+    const bubble = meta.kind === 'call' || meta.kind === 'meet';
+    const body = Utils.escape(Utils.val(d.body));
+    const opts = d.options.map((o, i) => `
+      <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
+        class="btn-press opt w-full min-w-0 text-left px-4 py-3 rounded-xl border border-slate-600 bg-slate-900/70 [overflow-wrap:anywhere]">
+        <span class="block font-semibold text-sm">${Utils.escape(Utils.val(o.label))}</span>
+        <span class="block text-xs text-slate-400 mt-0.5">${Utils.escape(Utils.val(o.hint))}</span>
+      </button>`).join('');
+    return `
+    <article class="rounded-2xl border ${look.border} bg-slate-800/80 p-4 shadow-lg">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-full ${look.avatar} flex items-center justify-center text-xl flex-shrink-0">${meta.icon}</div>
+        <div class="min-w-0 flex-1">
+          <div class="text-[11px] uppercase tracking-wider font-bold ${look.tag}">${meta.kind === 'call' ? '● ' : ''}${meta.tag}</div>
+          <div class="font-semibold text-slate-100 leading-tight">${Utils.escape(Utils.val(d.from))}</div>
+          <div class="text-xs text-slate-500">do: ${Utils.escape(Selectors.presName())} · ${Utils.escape(Selectors.clubDisplayName())}</div>
+        </div>
+        <span class="text-[11px] text-slate-500 flex-shrink-0">teraz</span>
+      </div>
+      <h3 class="font-display text-lg font-bold mt-3 leading-snug">${Utils.escape(Utils.val(d.title))}</h3>
+      ${bubble
+        ? `<div class="mt-2 rounded-2xl rounded-tl-sm bg-slate-700/60 px-4 py-3 text-sm text-slate-200 leading-relaxed">${body}</div>`
+        : `<p class="mt-1 text-sm text-slate-300 leading-relaxed">${body}</p>`}
+      <div class="grid gap-2 mt-4 ${d.options.length === 2 ? 'sm:grid-cols-2' : ''}">${opts}</div>
+    </article>`;
+  },
+
+  timeline() {
+    // Tygodnie od najnowszego, wpisy w tygodniu chronologicznie (czyta się jak relację).
     const groups = [];
     gameState.log.forEach((entry) => {
       let g = groups.find((x) => x.week === entry.week);
       if (!g) { g = { week: entry.week, entries: [] }; groups.push(g); }
       g.entries.unshift(entry);
     });
-
-    const typeStyle = {
-      system:   'border-ink-900',
-      decision: 'border-stamp',
-      event:    'border-amber-glow',
-      match:    'border-grass font-bold',
-      coach:    'border-grass italic',
-      finance:  'border-ink-700',
-      summary:  'border-ink-900 font-bold bg-paper-200 py-1',
-      flavor:   'border-paper-400',
+    const dot = {
+      system: 'bg-slate-300', decision: 'bg-sky-400', event: 'bg-amber-400', match: 'bg-emerald-400',
+      coach: 'bg-teal-300', finance: 'bg-slate-500', summary: 'bg-violet-400', flavor: 'bg-slate-600',
     };
     const seenId = UI.lastSeenLogId;
     UI.lastSeenLogId = gameState.ui.lastLogId;
-
     const html = groups.map((g) => `
-      <div class="mb-4">
-        <div class="font-type text-sm text-ink-900 border-b border-dashed border-ink-700 mb-2">— Tydzień ${g.week} —</div>
-        <ul class="space-y-2">
+      <div class="mb-5">
+        <div class="sticky top-0 z-10 bg-slate-800/95 py-1 mb-2"><span class="inline-flex px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-xs font-bold">Tydzień ${g.week}</span></div>
+        <ol class="relative border-l border-slate-700 ml-1.5 space-y-2">
           ${g.entries.map((e) => `
-            <li class="border-l-4 ${typeStyle[e.type] || typeStyle.flavor} pl-3 text-sm leading-snug text-ink-900 ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
-          `).join('')}
-        </ul>
+            <li class="pl-4 relative rounded-r-md ${e.id > seenId ? 'log-new' : ''}">
+              <span class="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ${dot[e.type] || dot.flavor} ring-4 ring-slate-800"></span>
+              <p class="text-sm leading-snug ${e.type === 'match' || e.type === 'summary' ? 'font-semibold text-slate-100' : e.type === 'coach' ? 'italic text-slate-300' : 'text-slate-300'}">${Utils.escape(e.text)}</p>
+            </li>`).join('')}
+        </ol>
       </div>`).join('');
-
-    return `<div class="paper text-ink-900 p-5 max-h-[36rem] overflow-y-auto scroll-thin">${html || '<p class="text-sm">Pusto. Nawet plotek brak.</p>'}</div>`;
+    return `
+    <section class="${UI.CARD} p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display text-lg font-extrabold">Oś czasu</h2>
+        <span class="text-[11px] text-slate-400 flex gap-2">
+          <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-emerald-400"></i>mecz</span>
+          <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-amber-400"></i>zdarzenie</span>
+          <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-sky-400"></i>decyzja</span>
+        </span>
+      </div>
+      <div class="max-h-[70vh] overflow-y-auto scroll-thin pr-1">${html || '<p class="text-sm text-slate-400">Pusto. Nawet plotek brak.</p>'}</div>
+    </section>`;
   },
 
-  /* ---------- ZAKŁADKA: TABELA ---------- */
+  /* ---------- TABELA ---------- */
   tableTab() {
+    const lvl = gameState.club.leagueLevel;
+    const top = lvl < DATA.leagueLevels.length - 1;
     const rows = Selectors.standings().map((r, i) => {
       const us = r.team === US;
       const rival = Selectors.rival(r.team);
+      const zone = i < CONFIG.promotionSpots && top ? 'border-l-emerald-500' : i === 9 ? 'border-l-red-500' : 'border-l-transparent';
       return `
-      <tr class="border-b border-dashed border-paper-400 ${us ? 'bg-amber-glow/40 font-bold' : ''} ${i < CONFIG.promotionSpots && gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'border-l-4 border-l-grass' : ''} ${i === 9 ? 'border-l-4 border-l-stamp' : ''}">
-        <td class="py-1.5 pr-2 text-right font-type">${i + 1}.</td>
-        <td class="py-1.5 pr-2">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp text-xs">🔥</span>' : ''}</td>
-        <td class="text-center">${r.p}</td><td class="text-center">${r.w}</td><td class="text-center">${r.d}</td><td class="text-center">${r.l}</td>
-        <td class="text-center whitespace-nowrap">${r.gf}:${r.ga}</td>
-        <td class="text-center font-type text-lg">${r.pts}</td>
+      <tr class="border-b border-slate-700/60 ${us ? 'accent-soft font-bold' : ''}">
+        <td class="py-2 pl-3 pr-2 border-l-4 ${zone} text-slate-400 font-display">${i + 1}</td>
+        <td class="py-2 pr-2 whitespace-nowrap">${us ? UI.colorsBadge(gameState.club.colors, 'w-3.5 h-3.5') + ' ' : ''}${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-xs">🔥</span>' : ''}</td>
+        <td class="text-center text-slate-300">${r.p}</td><td class="text-center text-slate-300">${r.w}</td><td class="text-center text-slate-300">${r.d}</td><td class="text-center text-slate-300">${r.l}</td>
+        <td class="text-center whitespace-nowrap text-slate-300">${r.gf}:${r.ga}</td>
+        <td class="text-center font-display text-lg font-extrabold pr-3">${r.pts}</td>
       </tr>`;
     }).join('');
     const results = gameState.season.lastResults.map((m) => {
       const us = m.home === US || m.away === US;
-      return `<li class="${us ? 'font-bold' : ''}">${Utils.escape(Selectors.teamName(m.home))} <b>${m.hg}:${m.ag}</b> ${Utils.escape(Selectors.teamName(m.away))}</li>`;
+      return `<li class="flex items-center justify-between gap-2 py-1.5 border-b border-slate-700/50 ${us ? 'font-bold' : 'text-slate-300'}"><span class="truncate">${Utils.escape(Selectors.teamName(m.home))}</span><span class="font-display font-extrabold px-2 rounded bg-slate-900">${m.hg}:${m.ag}</span><span class="truncate text-right">${Utils.escape(Selectors.teamName(m.away))}</span></li>`;
     }).join('');
     const upcoming = [];
     for (let i = gameState.calendar.round; i < Math.min(gameState.calendar.round + 4, gameState.season.rounds.length); i++) {
       const f = Selectors.fixtureAt(i);
-      upcoming.push(`<li>Kolejka ${i + 1}: ${f.home ? 'u siebie vs' : 'wyjazd do'} <b>${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
+      upcoming.push(`<li class="flex items-center gap-2 py-1.5 border-b border-slate-700/50">${UI.chip('K' + (i + 1))}<span class="text-slate-400 text-xs">${f.home ? 'dom' : 'wyjazd'}</span><b class="truncate">${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? UI.chip('🔥 KOSA', 'red') : ''}</li>`);
     }
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
-    <p class="text-paper-400 text-sm mb-5">Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>
-    <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-      ${UI.card('§', 'Tabela', 'M – mecze, W – wygrane, R – remisy, P – porażki', `
-        <div class="overflow-x-auto"><table class="w-full text-sm">
-          <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Bramki</th><th>Pkt</th></tr>
-          ${rows}
+    ${UI.pageTitle('📊', Selectors.leagueName() + ' · Sezon ' + gameState.calendar.season, 'Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.')}
+    <div class="grid gap-5 xl:grid-cols-[1.6fr_1fr] items-start">
+      ${UI.card('#', 'Tabela', 'M – mecze, W – wygrane, R – remisy, P – porażki', `
+        <div class="overflow-x-auto -mx-2"><table class="w-full text-sm">
+          <thead><tr class="text-[11px] uppercase tracking-wider text-slate-400"><th class="text-left pl-3">#</th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Bramki</th><th class="pr-3">Pkt</th></tr></thead>
+          <tbody>${rows}</tbody>
         </table></div>
-        <p class="text-xs text-ink-700 mt-3"><span class="inline-block w-3 h-3 bg-grass align-middle"></span> ${gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'Miejsca 1–' + CONFIG.promotionSpots + ': awans do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel + 1].name : 'Miejsce 1: Mistrz Polski'}
-          · <span class="inline-block w-3 h-3 bg-stamp align-middle"></span> ${gameState.club.leagueLevel > 1 ? 'Miejsce 10: spadek do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel - 1].name : 'Miejsce 10: wstyd na cały powiat'}
-          ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>
-        <p class="text-xs text-ink-700 mt-1">Drabina: ${DATA.leagueLevels.slice(1).map((l, i) => i + 1 === gameState.club.leagueLevel ? '<b>' + l.name + '</b>' : l.name).join(' → ')}</p>`)}
-      <div class="grid gap-6 content-start">
-        ${UI.card('⚽', 'Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-sm space-y-1">${results}</ul>` : '<p class="text-sm">Liga jeszcze nie ruszyła.</p>')}
-        ${UI.card('📅', 'Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-sm space-y-1">${upcoming.join('')}</ul>` : '<p class="text-sm">Koniec sezonu.</p>')}
+        <div class="flex flex-wrap gap-2 mt-4 text-xs">
+          ${UI.chip(top ? '▲ Miejsca 1–' + CONFIG.promotionSpots + ': awans do ligi ' + DATA.leagueLevels[lvl + 1].name : '🏆 Miejsce 1: Mistrz Polski', 'green')}
+          ${UI.chip(lvl > 1 ? '▼ Miejsce 10: spadek do ligi ' + DATA.leagueLevels[lvl - 1].name : '▼ Miejsce 10: wstyd na cały powiat', 'red')}
+          ${gameState.season.promotionBan ? UI.chip('⛔ ZAKAZ AWANSU (afera)', 'red') : ''}
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-1 text-xs text-slate-400">
+          ${DATA.leagueLevels.slice(1).map((l, i) => i + 1 === lvl ? UI.chip(l.name, 'accent') : `<span>${l.name}</span>`).join('<span class="text-slate-600">›</span>')}
+        </div>`)}
+      <div class="grid gap-5">
+        ${UI.card('⚽', 'Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-sm">${results}</ul>` : '<p class="text-sm text-slate-400">Liga jeszcze nie ruszyła.</p>')}
+        ${UI.card('📅', 'Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-sm">${upcoming.join('')}</ul>` : '<p class="text-sm text-slate-400">Koniec sezonu.</p>')}
       </div>
     </div>`;
   },
 
-  /* ---------- ZAKŁADKA: SZTAB I TRENER ---------- */
+  /* ---------- SZTAB I TRENER ---------- */
   staffTab() {
     const c = gameState.coach;
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
     const lineup = Selectors.projectedLineup();
     const chem = Engine.chemistry(lineup);
-    const chemColor = chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-glow' : 'bg-stamp';
     const carpetReady = gameState.calendar.week - c.lastCarpetWeek >= CONFIG.carpetCooldown;
     const isTemp = c.id === 'mirek';
+    const stat = (label, value, sub) => `<div class="rounded-lg bg-slate-900/60 border border-slate-700 p-3"><div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${label}</div><div class="font-display font-bold text-lg">${value}</div><div class="text-xs text-slate-400">${sub}</div></div>`;
 
-    const coachCard = UI.card('A', 'Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
-      <p class="text-sm mb-3">${Utils.escape(coach.desc)}</p>
-      <div class="grid sm:grid-cols-2 gap-3 mb-3 text-sm">
-        <div class="bg-paper-200 border border-paper-400 p-2">Styl: <b>${style.label}</b><br><span class="text-xs text-ink-700">„${style.motto}” · ustawienie ${style.formation.slice(1).join('-')}</span></div>
-        <div class="bg-paper-200 border border-paper-400 p-2">Pensja: <b>${Utils.formatMoney(Selectors.coachWeekly())}/tydz.</b><br><span class="text-xs text-ink-700">${coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach'}</span></div>
+    const coachCard = UI.card('🧢', 'Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
+      <p class="text-sm text-slate-300 mb-4">${Utils.escape(coach.desc)}</p>
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        ${stat('Styl', style.label, '„' + style.motto + '” · ustawienie ' + style.formation.slice(1).join('-'))}
+        ${stat('Pensja', Utils.formatMoney(Selectors.coachWeekly()) + '/tydz.', coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach')}
       </div>
-      <div class="mb-3">
-        <div class="flex justify-between text-sm"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span>${chem}%</span></div>
-        ${UI.bar(chem, chemColor)}
-        <p class="text-xs text-ink-700 mt-1">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
+      <div class="mb-4">
+        <div class="flex justify-between text-sm"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span class="font-display font-bold">${chem}%</span></div>
+        ${UI.bar(chem, UI.levelColor(chem, 65, 45))}
+        <p class="text-xs text-slate-400 mt-2">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
       </div>
-      ${c.lastReport ? `<blockquote class="border-l-4 border-grass pl-3 italic text-sm mb-3">„${Utils.escape(c.lastReport)}”</blockquote>` : ''}
+      ${c.lastReport ? `<blockquote class="rounded-lg accent-soft border-l-4 accent-border px-4 py-3 italic text-sm mb-4">„${Utils.escape(c.lastReport)}”</blockquote>` : ''}
       <div class="flex flex-wrap gap-2">
         ${UI.smallBtn('carpet-coach', '', '🟥 Wezwij na dywanik', !carpetReady)}
         ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="severance"', 'Zwolnij z odprawą (' + Utils.formatMoney(Engine.severance()) + ')', gameState.finance.budget < Engine.severance(), 'stamp')}
         ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="cold"', 'Zwolnij bez odprawy (foch szatni)', false, 'stamp')}
       </div>
-      <p class="text-xs text-ink-700 mt-2">${carpetReady ? 'Dywanik: krótka rozmowa ostrzegawcza. Zwykle mobilizuje, czasem obraża.' : 'Na dywanik można wezwać ponownie w Tygodniu ' + (c.lastCarpetWeek + CONFIG.carpetCooldown) + '.'}</p>
+      <p class="text-xs text-slate-400 mt-2">${carpetReady ? 'Dywanik: krótka rozmowa ostrzegawcza. Zwykle mobilizuje, czasem obraża.' : 'Na dywanik można wezwać ponownie w Tygodniu ' + (c.lastCarpetWeek + CONFIG.carpetCooldown) + '.'}</p>
     `);
 
     const market = Object.entries(DATA.coaches).filter(([id]) => id !== 'mirek' && id !== c.id).map(([id, co]) => {
       const st = DATA.styles[co.style];
-      const testLineup = (() => { const prev = c.id; c.id = id; const l = Engine.pickLineup([]); const ch = Engine.chemistry(l); c.id = prev; return ch; })();
+      const testChem = (() => { const prev = c.id; c.id = id; const ch = Engine.chemistry(Engine.pickLineup([])); c.id = prev; return ch; })();
       return `
-      <div class="border-b border-dashed border-paper-400 py-3">
+      <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-4">
         <div class="flex justify-between gap-3 items-start">
-          <div>
-            <div class="font-type text-lg">${Utils.escape(co.name)} <span class="text-sm font-mono text-ink-700">– ${Utils.escape(co.title)}</span></div>
-            <div class="text-sm">Styl: <b>${st.label}</b> („${st.motto}”) · podpis ${Utils.formatMoney(Selectors.coachOffer(co).sign)} · <b>${Utils.formatMoney(Selectors.coachOffer(co).weekly)}/tydz.</b></div>
-            <div class="text-xs text-ink-700">${Utils.escape(co.desc)}</div>
-            <div class="text-xs mt-1">Przewidywana chemia z naszą kadrą: <b>${testLineup}%</b> (${Selectors.chemLabel(testLineup)})</div>
+          <div class="min-w-0">
+            <div class="font-display font-bold text-lg leading-tight">${Utils.escape(co.name)}</div>
+            <div class="text-xs text-slate-400">${Utils.escape(co.title)}</div>
           </div>
-          <div class="flex-shrink-0">${UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < Selectors.coachOffer(co).sign)}</div>
+          <div class="flex-shrink-0">${UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < Selectors.coachOffer(co).sign, 'accent')}</div>
         </div>
+        <div class="flex flex-wrap gap-1.5 mt-2">${UI.chip(st.label + ' · „' + st.motto + '”', 'accent')}${UI.chip('podpis ' + Utils.formatMoney(Selectors.coachOffer(co).sign))}${UI.chip(Utils.formatMoney(Selectors.coachOffer(co).weekly) + '/tydz.')}</div>
+        <p class="text-xs text-slate-400 mt-2">${Utils.escape(co.desc)}</p>
+        <div class="text-xs mt-2">Przewidywana chemia z naszą kadrą: <b>${testChem}%</b> <span class="text-slate-400">(${Selectors.chemLabel(testChem)})</span></div>
       </div>`;
     }).join('');
 
@@ -3232,22 +3473,22 @@ const UI = {
       const cand = DATA.staffCandidates[slot];
       const canHireExt = !m || m.kind === 'volunteer';
       return `
-      <div class="border-b border-dashed border-paper-400 py-3">
-        <div class="text-xs uppercase tracking-widest text-ink-700">${def.icon} ${def.label}</div>
+      <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-4">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${def.icon} ${def.label}</div>
         ${m ? `
           <div class="flex justify-between gap-3 items-start mt-1">
-            <div>
-              <div class="font-bold">${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}</div>
-              <div class="text-xs text-ink-700">${Utils.escape(m.desc)}</div>
-              <div class="text-xs">${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}</div>
+            <div class="min-w-0">
+              <div class="font-semibold">${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}</div>
+              <div class="text-xs text-slate-400">${Utils.escape(m.desc)}</div>
+              <div class="flex flex-wrap gap-1 mt-1.5">${UI.chip(m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie')}${m.chem ? UI.chip('chemia +' + m.chem, 'sky') : ''}${m.lockerBase ? UI.chip('atmosfera +' + m.lockerBase, 'green') : ''}</div>
             </div>
             <div class="flex-shrink-0">${m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp')}</div>
-          </div>` : '<div class="text-sm italic text-ink-700 mt-1">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
+          </div>` : '<div class="text-sm italic text-slate-500 mt-1">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
         ${canHireExt ? `
-          <div class="flex justify-between gap-3 items-start mt-2 bg-paper-200 p-2">
-            <div>
-              <div class="text-sm"><b>Kandydat z zewnątrz:</b> ${Utils.escape(cand.name)}</div>
-              <div class="text-xs text-ink-700">${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}</div>
+          <div class="flex justify-between gap-3 items-start mt-3 pt-3 border-t border-slate-700/70">
+            <div class="min-w-0">
+              <div class="text-sm"><span class="text-slate-400">Kandydat z zewnątrz:</span> <b>${Utils.escape(cand.name)}</b></div>
+              <div class="text-xs text-slate-400">${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}</div>
             </div>
             <div class="flex-shrink-0">${UI.smallBtn('hire-staff', `data-slot="${slot}"`, 'Zatrudnij', false)}</div>
           </div>` : ''}
@@ -3255,17 +3496,16 @@ const UI = {
     }).join('');
 
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">📋 Sztab i Trener</h2>
-    <p class="text-paper-400 text-sm mb-5">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    ${UI.pageTitle('📋', 'Sztab i Trener', 'Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.')}
+    <div class="grid gap-5 xl:grid-cols-2 items-start">
       ${coachCard}
-      ${UI.card('B', 'Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market)}
-      ${UI.card('C', 'Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', staffRows + `
-        <p class="text-xs text-ink-700 mt-3">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę po sezonie, sam zgłosi się na Biurko.</p>`, 'xl:col-span-2')}
+      ${UI.card('🔁', 'Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', `<div class="grid gap-3">${market}</div>`)}
+      ${UI.card('🧑‍🤝‍🧑', 'Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', `<div class="grid gap-3 lg:grid-cols-3">${staffRows}</div>
+        <p class="text-xs text-slate-400 mt-3">Koszt sztabu: <b class="text-slate-200">${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę po sezonie, sam zgłosi się do Komunikatora.</p>`, 'xl:col-span-2')}
     </div>`;
   },
 
-  /* ---------- ZAKŁADKA: KADRA I SZATNIA ---------- */
+  /* ---------- KADRA I SZATNIA ---------- */
   squadTab() {
     const coach = Selectors.coach();
     const lineup = Selectors.projectedLineup();
@@ -3273,111 +3513,46 @@ const UI = {
     const squad = gameState.squad.slice().sort((a, b) => DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill);
     const count = (pr) => gameState.squad.filter((p) => p.profile === pr).length;
     const canRelease = gameState.squad.length > CONFIG.minSquad;
+    const kpi = (label, value, extra) => `<div class="${UI.CARD} p-4"><div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${label}</div><div class="font-display text-2xl font-extrabold mt-1">${value}</div>${extra || ''}</div>`;
 
     const cards = squad.map((p) => {
       const inXI = lineup.includes(p);
       return `
-      <article class="paper text-ink-900 p-4 relative ${inXI ? 'border-l-8 border-grass' : 'border-l-8 border-paper-400'}">
+      <article class="${UI.CARD} p-4 flex flex-col ${inXI ? 'accent-border' : ''}">
         <div class="flex justify-between items-start gap-2">
-          <div>
-            <div class="text-xs uppercase tracking-widest text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
-            <div class="font-type text-lg leading-tight">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
+          <div class="min-w-0">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
+            <div class="font-display text-lg font-bold leading-tight">${Utils.escape(p.first)} <span class="accent-text">„${Utils.escape(p.nick)}”</span> ${Utils.escape(p.last)}</div>
           </div>
           ${UI.profileBadge(p.profile)}
         </div>
-        <p class="text-sm italic my-2">„${Utils.escape(p.trait)}”</p>
-        <div class="text-xs space-y-0.5">
-          <div>Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b></div>
-          <div>Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
+        <p class="text-sm italic text-slate-300 my-2">„${Utils.escape(p.trait)}”</p>
+        <div class="text-xs text-slate-400 space-y-0.5">
+          <div>Klasa: <b class="text-slate-200">${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b class="text-slate-200">${DATA.profiles[p.profile].label}</b></div>
+          <div>Utrzymanie: <b class="text-slate-200">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
           <div>W klubie: ${p.apps} meczów, ${p.goals} goli${p.seasonApps ? ' · w sezonie: ' + p.seasonApps + ' / ' + p.seasonGoals : ''}</div>
         </div>
-        <div class="flex flex-wrap gap-1 mt-2">
-          ${inXI ? '<span class="px-1.5 text-[10px] font-bold bg-grass text-paper-100">W SKŁADZIE TRENERA</span>' : '<span class="px-1.5 text-[10px] font-bold bg-paper-300 text-ink-700">ŁAWKA</span>'}
-          ${p.favorite ? '<span class="px-1.5 text-[10px] font-bold bg-amber-glow text-ink-900">⭐ ULUBIENIEC TRYBUN</span>' : ''}
-          ${p.legend ? '<span class="px-1.5 text-[10px] font-bold bg-stamp text-paper-100">🏆 LEGENDA KLUBU</span>' : ''}
-          ${p.talent ? '<span class="px-1.5 text-[10px] font-bold bg-ink-900 text-amber-glow">💎 PEREŁKA POWIATU</span>' : ''}
+        <div class="flex flex-wrap gap-1 mt-3">
+          ${inXI ? UI.chip('W SKŁADZIE TRENERA', 'accent') : UI.chip('ŁAWKA')}
+          ${p.favorite ? UI.chip('⭐ ULUBIENIEC TRYBUN', 'amber') : ''}
+          ${p.legend ? UI.chip('🏆 LEGENDA KLUBU', 'violet') : ''}
+          ${p.talent ? UI.chip('💎 PEREŁKA POWIATU', 'sky') : ''}
         </div>
-        <div class="mt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
+        <div class="mt-auto pt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
       </article>`;
     }).join('');
 
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">👟 Kadra i Szatnia</h2>
-    <p class="text-paper-400 text-sm mb-5">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
-    <div class="grid gap-4 md:grid-cols-3 mb-6">
-      <div class="paper text-ink-900 p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Chemia z trenerem (${DATA.styles[coach.style].label.toLowerCase()})</div>
-        <div class="font-type text-2xl">${chem}% – ${Selectors.chemLabel(chem)}</div>
-        ${UI.bar(chem, chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-glow' : 'bg-stamp')}
-      </div>
-      <div class="paper text-ink-900 p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Profil kadry (${gameState.squad.length}/${CONFIG.maxSquad} ludzi)</div>
-        <div class="text-sm mt-1">${UI.profileBadge('off')} Ofensywni: <b>${count('off')}</b></div>
-        <div class="text-sm">${UI.profileBadge('def')} Defensywni: <b>${count('def')}</b></div>
-        <div class="text-sm">${UI.profileBadge('uni')} Uniwersalni: <b>${count('uni')}</b></div>
-      </div>
-      <div class="paper text-ink-900 p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Koszt utrzymania kadry</div>
-        <div class="font-type text-2xl">${Utils.formatMoney(Selectors.squadWages())}/tydz.</div>
-        <div class="text-xs text-ink-700">Bazowy nastrój szatni: <b>${Selectors.lockerBaseline()}%</b> (Legendy, liderzy, sztab i bojler go podnoszą).</div>
-      </div>
+    ${UI.pageTitle('👟', 'Kadra i Szatnia', 'Skład ustala trener ' + Utils.escape(coach.name) + '. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.')}
+    <div class="grid gap-4 md:grid-cols-3 mb-5">
+      ${kpi('Chemia z trenerem (' + DATA.styles[coach.style].label.toLowerCase() + ')', chem + '%', `<div class="text-xs text-slate-400">${Selectors.chemLabel(chem)}</div>${UI.bar(chem, UI.levelColor(chem, 65, 45))}`)}
+      ${kpi('Profil kadry', gameState.squad.length + '/' + CONFIG.maxSquad, `<div class="flex flex-wrap gap-1.5 mt-2">${UI.chip('OF ' + count('off'), 'red')}${UI.chip('DF ' + count('def'), 'sky')}${UI.chip('UNI ' + count('uni'))}</div>`)}
+      ${kpi('Koszt utrzymania kadry', Utils.formatMoney(Selectors.squadWages()) + '/tydz.', `<div class="text-xs text-slate-400 mt-1">Bazowy nastrój szatni: <b class="text-slate-200">${Selectors.lockerBaseline()}%</b> (Legendy, liderzy, sztab i bojler go podnoszą).</div>`)}
     </div>
-    <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">${cards}</div>`;
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">${cards}</div>`;
   },
 
-  // Ostrzeżenia w pasku: długi, komornik, walne zebranie, prokuratura
-  threats() {
-    const t = Selectors.debtThresholds();
-    const b = gameState.finance.budget;
-    const items = [];
-    if (gameState.debt.deepWeeks > 0) items.push('<span class="text-stamp font-bold">☠️ Walne zebranie za ' + (CONFIG.debtGameOverWeeks - gameState.debt.deepWeeks) + ' tyg.!</span>');
-    else if (b < t.bailiff) items.push('<span class="text-stamp font-bold">⚖️ Komornik na obiekcie</span>');
-    else if (b < t.warn) items.push('<span class="text-amber-glow font-bold">💸 Odsetki + strajk</span>');
-    if (Selectors.underInvestigation()) items.push('<span class="text-stamp font-bold">🔍 Pod lupą prokuratury</span>');
-    if (gameState.season.promotionBan) items.push('<span class="text-stamp font-bold">⛔ Zakaz awansu</span>');
-    return items.length ? `<div class="text-xs mt-1 space-x-2">${items.join(' ')}</div>` : '';
-  },
-
-  /* ---------- EKRAN KOŃCA GRY ---------- */
-  gameOverScreen() {
-    const g = gameState.gameOver || {};
-    const st = gameState.stats;
-    const row = (k, v) => `<tr class="border-b border-dashed border-paper-400"><td class="py-1.5 pr-3">${k}</td><td class="py-1.5 text-right font-bold">${v}</td></tr>`;
-    return `
-    <main class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-2xl">
-        <header class="text-center mb-6">
-          <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Protokół z Walnego Zgromadzenia · Remiza OSP · Sezon ${g.season}, Tydzień ${g.week}</p>
-          <h1 class="font-type text-4xl sm:text-5xl text-stamp leading-tight">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
-          <p class="mt-4 text-paper-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>
-        </header>
-        <section class="paper paper-rough text-ink-900 p-6 sm:p-8 relative">
-          <div class="stamp absolute top-4 right-4 px-3 py-1 font-type text-lg bg-paper-100">ODWOŁANY</div>
-          <h2 class="font-type text-xl mb-2">Powód upadku</h2>
-          <p class="mb-5 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
-          <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
-          <h2 class="font-type text-xl mb-2">Bilans prezesury</h2>
-          <table class="w-full text-sm mb-6">
-            ${row('Rozegrane sezony (pełne)', st.seasons)}
-            ${row('Mecze (W-R-P)', st.matches + ' (' + st.wins + '-' + st.draws + '-' + st.losses + ')')}
-            ${row('Bramki', st.goalsFor + ':' + st.goalsAgainst)}
-            ${row('Najwyższa liga', DATA.leagueLevels[st.topLevel].name)}
-            ${row('Liga w chwili odwołania', Utils.escape(g.league || ''))}
-            ${row('Awanse / spadki', st.promotions + ' / ' + st.relegations)}
-            ${row('Tytuły Mistrza Polski', st.titles)}
-            ${row('Zjedzone kiełbaski u Pana Zenka', st.sausages)}
-            ${row('Stan konta na koniec', Utils.formatMoney(g.budget || 0))}
-            ${row('DNA klubu', '„' + Utils.escape(g.dna || '') + '”')}
-            ${row('Skandale w kartotece', gameState.club.scandals)}
-          </table>
-          <button data-action="restart" class="btn-press w-full py-4 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl tracking-wider border-4 border-ink-900 shadow-[0_6px_0_#211d18]">[ SPRÓBUJ JESZCZE RAZ ]</button>
-          <p class="text-xs text-ink-700 text-center mt-3">Zapis gry został spalony w beczce za blaszakiem.</p>
-        </section>
-      </div>
-    </main>`;
-  },
-
-  /* ---------- ZAKŁADKA: SKAUTING I MŁODZIEŻ ---------- */
+  /* ---------- SKAUTING I MŁODZIEŻ ---------- */
   scoutingTab() {
     const sc = gameState.scouting;
     const tier = Selectors.scoutTier();
@@ -3387,81 +3562,77 @@ const UI = {
     const full = gameState.squad.length >= CONFIG.maxSquad;
     const fitInfo = (p) => {
       const f = Engine.profileFit(p, coach.style);
-      if (f >= 1) return '<span class="text-grass font-bold">✓ pasuje do stylu trenera</span>';
-      if (f >= 0.5) return '<span class="text-ink-700 font-bold">~ trener jakoś go wkomponuje</span>';
-      return '<span class="text-stamp font-bold">✗ trener będzie kręcił nosem</span>';
+      if (f >= 1) return UI.chip('✓ pasuje do stylu trenera', 'green');
+      if (f >= 0.5) return UI.chip('~ trener jakoś go wkomponuje', 'amber');
+      return UI.chip('✗ trener będzie kręcił nosem', 'red');
     };
     const cands = sc.candidates.map((p) => `
-      <article class="bg-paper-200 border-2 border-ink-900 p-3">
+      <article class="rounded-xl bg-slate-900/60 border border-slate-700 p-4 flex flex-col">
         <div class="flex justify-between items-start gap-2">
-          <div>
-            <div class="text-xs uppercase tracking-widest text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
-            <div class="font-type text-lg leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
+          <div class="min-w-0">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
+            <div class="font-display text-lg font-bold leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
           </div>
           ${UI.profileBadge(p.profile)}
         </div>
-        <p class="text-sm italic my-2">Szwagier: „${Utils.escape(p.trait)}”</p>
-        <div class="text-xs space-y-0.5">
-          <div>${Utils.escape(tier.who)} szacuje: <b>${Selectors.skillLabel(p.rumorSkill)}</b> <span class="text-ink-700">${tier.accuracy >= 1 ? '(szwagier lubi przesadzać)' : tier.accuracy > 0 ? '(czasem się myli)' : '(ocena pewna)'}</span></div>
-          <div>Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · ${fitInfo(p)}</div>
-          <div>Chce: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · odstępne: <b>${Utils.formatMoney(p.fee)}</b></div>
+        <p class="text-sm italic text-slate-300 my-2">${Utils.escape(tier.who)}: „${Utils.escape(p.trait)}”</p>
+        <div class="text-xs text-slate-400 space-y-1">
+          <div>${Utils.escape(tier.who)} szacuje: <b class="text-slate-200">${Selectors.skillLabel(p.rumorSkill)}</b> ${tier.accuracy >= 1 ? '(szwagier lubi przesadzać)' : tier.accuracy > 0 ? '(czasem się myli)' : '(ocena pewna)'}</div>
+          <div class="flex flex-wrap items-center gap-1">Pasuje do: <b class="text-slate-200">${DATA.profiles[p.profile].label}</b> ${fitInfo(p)}</div>
+          <div>Chce: <b class="text-slate-200">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · odstępne: <b class="text-slate-200">${Utils.formatMoney(p.fee)}</b></div>
         </div>
-        <div class="mt-2 text-right">${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee)}</div>
+        <div class="mt-auto pt-3 text-right">${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee, 'accent')}</div>
       </article>`).join('');
 
-    const scoutCard = UI.card('A', 'Siatka Skautingowa: ' + Utils.escape(tier.name), Utils.escape(tier.desc), `
-      <p class="text-sm mb-3">Wyjazd kosztuje <b>${Utils.formatMoney(Selectors.scoutTier().cost)}</b> i trwa <b>${CONFIG.scoutWeeks} tygodnie</b>. Wraca z ${tier.count[0]}–${tier.count[1]} nazwiskami. Na wyższym poziomie ligowym przywozi lepszych (i droższych) grajków.</p>
-      ${nextTier ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm flex justify-between gap-3 items-center">
-        <div><b>Ulepszenie: ${Utils.escape(nextTier.name)}</b> – ${Utils.formatMoney(nextTier.upgradeCost)}<br><span class="text-xs text-ink-700">${Utils.escape(nextTier.desc)} Dostępne od ligi: ${DATA.leagueLevels[nextTier.minLevel].name}.</span></div>
-        <div class="flex-shrink-0">${UI.smallBtn('upgrade-scout', '', 'Ulepsz', gameState.club.leagueLevel < nextTier.minLevel || budget < nextTier.upgradeCost || !!sc.missionReturnWeek)}</div>
+    const scoutCard = UI.card('🕵️', 'Siatka Skautingowa: ' + Utils.escape(tier.name), Utils.escape(tier.desc), `
+      <p class="text-sm text-slate-300 mb-4">Wyjazd kosztuje <b>${Utils.formatMoney(tier.cost)}</b> i trwa <b>${CONFIG.scoutWeeks} tygodnie</b>. Wraca z ${tier.count[0]}–${tier.count[1]} nazwiskami. Na wyższym poziomie ligowym przywozi lepszych (i droższych) grajków.</p>
+      ${nextTier ? `<div class="rounded-xl bg-slate-900/60 border border-slate-700 p-4 mb-4 flex flex-wrap justify-between gap-3 items-center">
+        <div class="min-w-0"><div class="font-semibold">⬆ Ulepszenie: ${Utils.escape(nextTier.name)} · ${Utils.formatMoney(nextTier.upgradeCost)}</div><div class="text-xs text-slate-400">${Utils.escape(nextTier.desc)} Dostępne od ligi: ${DATA.leagueLevels[nextTier.minLevel].name}.</div></div>
+        ${UI.smallBtn('upgrade-scout', '', 'Ulepsz', gameState.club.leagueLevel < nextTier.minLevel || budget < nextTier.upgradeCost || !!sc.missionReturnWeek)}
       </div>` : ''}
       ${sc.missionReturnWeek
-        ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm">🚗 ${Utils.escape(tier.who)} jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
-        : `<div class="mb-3">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(Selectors.scoutTier().cost) + ')', budget < Selectors.scoutTier().cost)}</div>`}
-      <div class="text-xs text-ink-700 mb-2">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
-      ${cands ? `<div class="grid gap-3 md:grid-cols-2">${cands}</div>` : '<p class="text-sm italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
+        ? `<div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 mb-4 text-sm">🚗 ${Utils.escape(tier.who)} jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
+        : `<div class="mb-4">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(tier.cost) + ')', budget < tier.cost, 'accent')}</div>`}
+      <div class="flex flex-wrap gap-1.5 mb-3">${UI.chip('Kadra ' + gameState.squad.length + '/' + CONFIG.maxSquad, full ? 'red' : 'slate')}${UI.chip('Trener: ' + DATA.styles[coach.style].label)}${full ? UI.chip('pełna! Najpierw komuś podziękuj w Kadrze', 'red') : ''}</div>
+      ${cands ? `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${cands}</div>` : '<p class="text-sm italic text-slate-400">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
     `, 'xl:col-span-2');
 
     const lvl = DATA.youthLevels[Selectors.youthLevel()];
     const ups = Object.entries(DATA.youthUpgrades).map(([id, u]) => {
       const owned = sc.youthUpgrades[id];
       return `
-      <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(u.cost)}</span></div>
-          <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
-        </div>
-        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-youth', `data-id="${id}"`, 'Kup', budget < u.cost)}</div>
+      <div class="flex justify-between gap-3 items-center py-3 border-b border-slate-700/60">
+        <div class="min-w-0"><div class="font-semibold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="text-slate-400 font-normal">· ${Utils.formatMoney(u.cost)}</span></div><div class="text-xs text-slate-400">${Utils.escape(u.desc)}</div></div>
+        ${owned ? UI.chip('ZROBIONE', 'green') : UI.smallBtn('buy-youth', `data-id="${id}"`, 'Kup', budget < u.cost)}
       </div>`;
     }).join('');
     const pulled = sc.lastYouthPullKey === Selectors.youthPullKey();
     const juniors = gameState.squad.filter((p) => p.age <= 19).map((p) =>
-      `<li>${p.talent ? '💎 ' : ''}<b>${Utils.escape(Selectors.playerName(p))}</b> – ${p.age} l., ${DATA.positions[p.pos].label.toLowerCase()} · ${Selectors.skillLabel(p.skill)}</li>`).join('');
+      `<li class="flex items-center gap-2 py-1.5 border-b border-slate-700/50">${p.talent ? '💎' : '🌱'}<b class="truncate">${Utils.escape(Selectors.playerName(p))}</b><span class="text-xs text-slate-400 ml-auto whitespace-nowrap">${p.age} l. · ${DATA.positions[p.pos].label.toLowerCase()} · ${Selectors.skillLabel(p.skill)}</span></li>`).join('');
 
-    const youthCard = UI.card('B', 'Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
-      <div class="bg-paper-200 border border-paper-400 p-3 mb-3">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Poziom szkółki</div>
-        <div class="font-type text-lg">${Utils.escape(lvl.label)}</div>
-        <div class="text-xs text-ink-700">${Utils.escape(lvl.desc)}</div>
+    const youthCard = UI.card('🌱', 'Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
+      <div class="rounded-xl accent-soft p-4 mb-4">
+        <div class="text-[11px] uppercase tracking-wider text-slate-300 font-semibold">Poziom szkółki</div>
+        <div class="font-display text-lg font-bold">${Utils.escape(lvl.label)}</div>
+        <div class="text-xs text-slate-300">${Utils.escape(lvl.desc)}</div>
       </div>
-      <p class="text-sm mb-3">Juniorzy zwykle: <b>${Selectors.skillLabel(lvl.skillMin)}</b> – <b>${Selectors.skillLabel(lvl.skillMax)}</b>. Szansa na 💎 Perełkę powiatu: <b>${Math.round(lvl.talentChance * 100)}%</b>. Perełki rozwijają się dużo szybciej.</p>
-      <h4 class="font-type mb-1">Inwestycje w szkółkę</h4>
+      <p class="text-sm text-slate-300 mb-2">Juniorzy zwykle: <b>${Selectors.skillLabel(lvl.skillMin)}</b> – <b>${Selectors.skillLabel(lvl.skillMax)}</b>. Szansa na 💎 Perełkę powiatu: <b>${Math.round(lvl.talentChance * 100)}%</b>. Perełki rozwijają się dużo szybciej.</p>
+      <h4 class="font-display font-bold mt-4">Inwestycje w szkółkę</h4>
       ${ups}
-      <h4 class="font-type mt-4 mb-1">Wyciągnij juniora z Orlika</h4>
-      <p class="text-xs text-ink-700 mb-2">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
+      <h4 class="font-display font-bold mt-4 mb-1">Wyciągnij juniora z Orlika</h4>
+      <p class="text-xs text-slate-400 mb-2">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
       ${UI.smallBtn('pull-junior', '', pulled ? 'W tej rundzie już wyciągnięty' : '🌱 Wyciągnij juniora', pulled || full)}
-      <h4 class="font-type mt-4 mb-1">Młodzież w kadrze (do 19 lat)</h4>
-      ${juniors ? `<ul class="text-sm space-y-1">${juniors}</ul>` : '<p class="text-sm italic">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
+      <h4 class="font-display font-bold mt-4 mb-1">Młodzież w kadrze (do 19 lat)</h4>
+      ${juniors ? `<ul class="text-sm">${juniors}</ul>` : '<p class="text-sm italic text-slate-400">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
     `);
 
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">🔭 Skauting i Młodzież</h2>
-    <p class="text-paper-400 text-sm mb-5">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    ${UI.pageTitle('🔭', 'Skauting i Młodzież', 'Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.')}
+    <div class="grid gap-5 xl:grid-cols-2 items-start">
       ${scoutCard}
       ${youthCard}
-      ${UI.card('C', 'Notatki Szwagra', 'Złote myśli z objazdów', `
-        <ul class="text-sm space-y-2 list-disc pl-5">
+      ${UI.card('📝', 'Notatki Szwagra', 'Złote myśli z objazdów', `
+        <ul class="text-sm text-slate-300 space-y-2">
           <li>„Profil zawodnika ważniejszy niż ksywa. Jak trener chce tiki-taki, to drwala mu nie wciskaj.”</li>
           <li>„Ja zawsze trochę przesadzam. Ale tylko trochę. Plus minus jedna klasa.”</li>
           <li>„Najlepsi grajkowie są na festynach strażackich. Najgorsi – też.”</li>
@@ -3470,58 +3641,56 @@ const UI = {
     </div>`;
   },
 
-  /* ---------- ZAKŁADKA: WIRTUALNY X ---------- */
+  /* ---------- WIRTUALNY X ---------- */
   virtualXTab() {
     const x = gameState.x;
     const posted = x.lastPostWeek === gameState.calendar.week;
     const dna = gameState.club.professionalism;
     const tones = Object.entries(DATA.xTones).map(([id, t]) => `
       <button data-action="x-post" data-tone="${id}" ${posted ? 'disabled' : ''}
-        class="btn-press w-full text-left px-3 py-2 border-2 border-ink-900 ${posted ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : 'bg-paper-200 hover:bg-paper-300 shadow-[0_3px_0_#211d18]'}">
-        <span class="font-type block">${t.icon} ${t.label}</span>
-        <span class="text-xs ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
+        class="btn-press opt w-full text-left p-3 rounded-xl border border-slate-700 bg-slate-900/60 ${posted ? 'opacity-50 cursor-not-allowed' : ''}">
+        <span class="font-semibold flex items-center gap-2"><span class="text-lg">${t.icon}</span>${t.label}</span>
+        <span class="block text-xs text-slate-400 mt-1">${t.desc}</span>
       </button>`).join('');
     const feed = gameState.feed.slice(0, 40).map((p) => `
-      <article class="paper text-ink-900 p-4 ${p.official ? 'border-l-8 border-amber-glow' : ''}">
+      <article class="${UI.CARD} p-4 ${p.official ? 'accent-border' : ''}">
         <div class="flex gap-3">
-          <div class="w-10 h-10 flex-shrink-0 rounded-full bg-ink-900 flex items-center justify-center text-xl">${p.avatar}</div>
-          <div class="min-w-0">
-            <div class="text-sm"><b>${Utils.escape(p.handle)}</b> <span class="text-ink-700">· Tydzień ${p.week}</span>${p.official ? ' <span class="text-[10px] bg-amber-glow px-1 font-bold">✔ OFICJALNY</span>' : ''}</div>
-            <p class="text-sm mt-1 break-words">${Utils.escape(p.text)}</p>
-            <div class="text-xs text-ink-700 mt-2 flex gap-4"><span>💬 ${p.replies}</span><span>🔁 ${p.shares}</span><span>❤️ ${p.likes}</span></div>
+          <div class="w-11 h-11 flex-shrink-0 rounded-full ${p.official ? 'accent-soft' : 'bg-slate-700'} flex items-center justify-center text-xl">${p.avatar}</div>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm flex flex-wrap items-center gap-1.5"><b>${Utils.escape(p.handle)}</b>${p.official ? UI.chip('✔ OFICJALNY', 'accent') : ''}<span class="text-slate-500 text-xs">· Tydzień ${p.week}</span></div>
+            <p class="text-sm text-slate-200 mt-1 break-words leading-relaxed">${Utils.escape(p.text)}</p>
+            <div class="text-xs text-slate-500 mt-2 flex gap-5"><span>💬 ${p.replies}</span><span>🔁 ${p.shares}</span><span>❤️ ${p.likes}</span></div>
           </div>
         </div>
       </article>`).join('');
 
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">📱 Wirtualny X</h2>
-    <p class="text-paper-400 text-sm mb-5">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>
-    <div class="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
-      <div class="grid gap-6 content-start">
+    ${UI.pageTitle('📱', 'Wirtualny X', 'Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.')}
+    <div class="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)] items-start">
+      <div class="grid gap-5">
         ${UI.card('✍️', 'Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
-          ${posted ? '<p class="text-sm font-bold text-stamp mb-3">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-sm mb-3">Wybierz ton oficjalnego komunikatu:</p>'}
+          ${posted ? '<p class="text-sm font-semibold text-amber-300 mb-3">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-sm text-slate-300 mb-3">Wybierz ton oficjalnego komunikatu:</p>'}
           <div class="grid gap-2">${tones}</div>
-          ${x.hype ? '<p class="text-xs font-bold text-stamp mt-3">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}
+          ${x.hype ? '<p class="text-xs font-semibold text-amber-300 mt-3">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}
         `)}
         ${UI.card('🧬', 'DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
-          <div class="flex justify-between text-sm"><span><b>„${Utils.escape(Selectors.dnaLabel())}”</b></span><span>${dna > 0 ? '+' : ''}${dna}</span></div>
-          ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-grass' : dna > -25 ? 'bg-amber-glow' : 'bg-stamp')}
-          <p class="text-xs text-ink-700 mt-2">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>
+          <div class="flex justify-between items-baseline"><span class="font-semibold">„${Utils.escape(Selectors.dnaLabel())}”</span><span class="font-display text-xl font-extrabold">${dna > 0 ? '+' : ''}${dna}</span></div>
+          ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-emerald-500' : dna > -25 ? 'bg-amber-400' : 'bg-red-500')}
+          <p class="text-xs text-slate-400 mt-3">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>
         `)}
       </div>
       <section>
-        <h3 class="font-type text-xl text-amber-glow crt mb-3">Feed</h3>
-        <div class="grid gap-3">${feed || '<div class="paper text-ink-900 p-4 text-sm">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>'}</div>
+        <h3 class="font-display text-xl font-extrabold mb-3">Feed</h3>
+        <div class="grid gap-3">${feed || `<div class="${UI.CARD} p-4 text-sm text-slate-400">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>`}</div>
       </section>
     </div>`;
   },
 
-  /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
+  /* ---------- FINANSE I STADION ---------- */
   financeTab() {
     return `
-    <h2 class="font-type text-3xl text-amber-glow crt mb-1">💰 Finanse i Stadion</h2>
-    <p class="text-paper-400 text-sm mb-5">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    ${UI.pageTitle('💰', 'Finanse i Stadion', 'Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-slate-200">' + Utils.formatMoney(Selectors.weeklyPayroll()) + '/tydz.</b>')}
+    <div class="grid gap-5 xl:grid-cols-2 items-start">
       ${UI.reportCard()}
       ${UI.ticketsCard()}
       ${UI.merchCard()}
@@ -3534,12 +3703,12 @@ const UI = {
   reportCard() {
     const rep = gameState.lastReport;
     const body = !rep
-      ? '<p class="text-sm">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
+      ? '<p class="text-sm text-slate-400">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
       : `<table class="w-full text-sm">
-          ${rep.lines.map((l) => `<tr class="border-b border-dashed border-paper-400"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
-          <tr><td class="pt-2 font-type text-lg">RAZEM</td><td class="pt-2 text-right font-type text-lg ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
+          ${rep.lines.map((l) => `<tr class="border-b border-slate-700/60"><td class="py-1.5 pr-2 text-slate-300">${Utils.escape(l.label)}</td><td class="py-1.5 text-right font-semibold ${l.amount < 0 ? 'text-red-400' : 'text-emerald-400'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
+          <tr><td class="pt-3 font-display text-lg font-extrabold">RAZEM</td><td class="pt-3 text-right font-display text-xl font-extrabold ${rep.total < 0 ? 'text-red-400' : 'text-emerald-400'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
-    return UI.card('§', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body);
+    return UI.card('Σ', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body);
   },
 
   ticketsCard() {
@@ -3547,27 +3716,23 @@ const UI = {
     const ticketBtns = Object.entries(DATA.tickets).map(([id, t]) => UI.choice('set-ticket', id, md.ticket === id, t.label, t.desc)).join('');
     const sausageBtns = Object.entries(DATA.sausages).map(([id, s]) =>
       UI.choice('set-sausage', id, md.sausage === id, s.label + ' – ' + s.price + ' zł', s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')).join('');
-
     const next = Selectors.nextHomeFixture();
     const st = gameState.seasonTickets;
     let preview = '<p class="text-sm">W tym sezonie u siebie już nie gramy.</p>';
     if (next) {
       const est = Engine.estimateAttendance(next.fixture);
       const holders = st.roundsLeft > 0 ? Math.min(st.holders, est) : 0;
-      preview = `<p class="text-sm">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' <span class="text-stamp font-bold">🔥 KOSA – podwójne zainteresowanie!</span>' : ''}.<br>
-        Szacowana frekwencja przy obecnej pogodzie: <b>~${est}</b> widzów${holders ? `, w tym ${holders} karnetowiczów (nie płacą na bramce)` : ''}.</p>`;
+      preview = `<p class="text-sm">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' ' + UI.chip('🔥 KOSA – podwójne zainteresowanie!', 'red') : ''}<br>
+        Szacowana frekwencja przy obecnej pogodzie: <b class="font-display text-lg">~${est}</b> widzów${holders ? `, w tym ${holders} karnetowiczów (nie płacą na bramce)` : ''}.</p>`;
     }
-    const ticketsInfo = st.roundsLeft > 0
-      ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.`
-      : 'Karnety: brak aktywnych.';
-
-    return UI.card('A', 'Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
-      <div class="bg-paper-200 border border-paper-400 p-3 mb-4">${preview}<p class="text-xs text-ink-700 mt-1">${ticketsInfo}</p></div>
-      <h4 class="font-type mb-2">Cena biletu</h4>
+    const ticketsInfo = st.roundsLeft > 0 ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.` : 'Karnety: brak aktywnych.';
+    return UI.card('🎟️', 'Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
+      <div class="rounded-xl accent-soft p-4 mb-4">${preview}<p class="text-xs text-slate-300 mt-1">${ticketsInfo}</p></div>
+      <h4 class="font-display font-bold mb-2">Cena biletu</h4>
       <div class="grid gap-2 mb-5">${ticketBtns}</div>
-      <h4 class="font-type mb-2">Menu w budce Pana Zenka</h4>
+      <h4 class="font-display font-bold mb-2">Menu w budce Pana Zenka</h4>
       <div class="grid gap-2">${sausageBtns}</div>
-      <p class="text-xs text-ink-700 mt-3">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
+      <p class="text-xs text-slate-400 mt-3">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
     `);
   },
 
@@ -3577,21 +3742,18 @@ const UI = {
     const rows = Object.entries(DATA.merch).map(([id, item]) => {
       const cost = item.batch * item.unitCost;
       return `
-      <tr class="border-b border-dashed border-paper-400">
-        <td class="py-2 pr-2"><b>${item.label}</b><br><span class="text-xs text-ink-700">hurt ${item.unitCost} zł · sprzedaż ${Engine.merchPrice(id)} zł</span></td>
-        <td class="py-2 px-2 text-center font-type text-lg">${m.stock[id]}</td>
-        <td class="py-2 text-right">${UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' szt. (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost)}</td>
-      </tr>`;
+      <div class="flex items-center gap-3 py-3 border-b border-slate-700/60">
+        <div class="min-w-0 flex-1"><div class="font-semibold">${item.label}</div><div class="text-xs text-slate-400">hurt ${item.unitCost} zł · sprzedaż ${Engine.merchPrice(id)} zł</div></div>
+        <div class="text-center"><div class="font-display text-xl font-extrabold">${m.stock[id]}</div><div class="text-[10px] text-slate-500 uppercase">magazyn</div></div>
+        ${UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost)}
+      </div>`;
     }).join('');
     const frozen = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id] * DATA.merch[id].unitCost, 0);
     const markupBtns = Object.entries(DATA.merchMarkups).map(([id, mk]) => UI.choice('set-markup', id, m.markup === id, mk.label, '')).join('');
-    return UI.card('B', 'Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
-      <table class="w-full text-sm mb-3">
-        <tr class="text-xs uppercase text-ink-700"><th class="text-left">Towar</th><th>Magazyn</th><th></th></tr>
-        ${rows}
-      </table>
-      <p class="text-xs text-ink-700 mb-4">Zamrożony kapitał w kartonach: <b>${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
-      <h4 class="font-type mb-2">Narzut</h4>
+    return UI.card('🧣', 'Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
+      ${rows}
+      <p class="text-xs text-slate-400 my-4">Zamrożony kapitał w kartonach: <b class="text-slate-200">${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
+      <h4 class="font-display font-bold mb-2">Narzut</h4>
       <div class="grid gap-2">${markupBtns}</div>
     `);
   },
@@ -3599,99 +3761,139 @@ const UI = {
   sponsorCard() {
     const s = gameState.sponsor;
     const active = Selectors.sponsor();
-    let body = '';
-    if (active) {
-      body = `
-        <div class="bg-paper-200 border-2 border-grass p-3 mb-4">
-          <div class="text-xs uppercase tracking-widest text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
-          <div class="font-type text-xl">${Utils.escape(active.name)}</div>
-          <p class="text-sm">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
-          <p class="text-xs text-stamp mt-1">⚠️ ${Utils.escape(active.requirement)}</p>
-          <div class="mt-3">${UI.smallBtn('end-sponsor', '', 'Wypowiedz umowę', false, 'stamp')}</div>
-        </div>`;
-    }
+    const body = active ? `
+      <div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 mb-4">
+        <div class="text-[11px] uppercase tracking-wider text-emerald-300 font-semibold">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
+        <div class="font-display text-xl font-bold">${Utils.escape(active.name)}</div>
+        <p class="text-sm text-slate-300">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
+        <p class="text-xs text-amber-300 mt-1">⚠️ ${Utils.escape(active.requirement)}</p>
+        <div class="mt-3">${UI.smallBtn('end-sponsor', '', 'Wypowiedz umowę', false, 'stamp')}</div>
+      </div>` : '';
     const offers = Object.entries(DATA.sponsors).filter(([id]) => id !== s.active).map(([id, sp]) => {
       const burned = s.burned.includes(id);
       return `
-      <div class="border-b border-dashed border-paper-400 py-3 ${burned ? 'opacity-50' : ''}">
+      <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-4 mb-3 ${burned ? 'opacity-50' : ''}">
         <div class="flex justify-between gap-3 items-start">
-          <div>
-            <div class="font-type text-lg">${Utils.escape(sp.name)}</div>
-            <div class="text-sm"><b>${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</b> · ${sp.clubPrefix ? 'Dopisek do nazwy: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName)}${Engine.describeEffects(sp.signEffects)}</div>
-            <div class="text-xs text-ink-700">${Utils.escape(sp.pitch)}</div>
-            <div class="text-xs text-stamp">${Utils.escape(sp.requirement)}</div>
+          <div class="min-w-0">
+            <div class="font-display font-bold text-lg leading-tight">${Utils.escape(sp.name)}</div>
+            <div class="flex flex-wrap gap-1 mt-1">${UI.chip(Utils.formatMoney(Selectors.sponsorWeekly(sp)) + '/tydz.', 'green')}${UI.chip(sp.clubPrefix ? 'Dopisek: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName))}${Engine.describeEffects(sp.signEffects) ? UI.chip(Engine.describeEffects(sp.signEffects).trim(), 'amber') : ''}</div>
           </div>
-          <div class="flex-shrink-0">${burned ? '<span class="stamp inline-block px-2 text-xs font-type">SPALONY</span>' : UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', !!s.active)}</div>
+          ${burned ? UI.chip('SPALONY', 'red') : UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', !!s.active, 'accent')}
         </div>
+        <p class="text-xs text-slate-400 mt-2">${Utils.escape(sp.pitch)}</p>
+        <p class="text-xs text-red-300 mt-1">${Utils.escape(sp.requirement)}</p>
       </div>`;
     }).join('');
-    return UI.card('C', 'Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.', `
-      ${body}
-      ${offers}
-      <p class="text-xs text-ink-700 mt-3">Skandale w kartotece klubu: <b>${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca.</p>
+    return UI.card('🤝', 'Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.', `
+      ${body}${offers}
+      <p class="text-xs text-slate-400 mt-1">Skandale w kartotece klubu: <b class="text-slate-200">${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca.</p>
     `);
   },
 
   loansCard() {
     const L = gameState.loans;
+    const row = (title, desc, status, btn) => `
+      <div class="flex justify-between gap-3 items-center py-3 border-b border-slate-700/60">
+        <div class="min-w-0"><div class="font-semibold">${title}</div><div class="text-xs text-slate-400">${desc}</div>${status}</div>
+        <div class="flex-shrink-0">${btn}</div>
+      </div>`;
     const takenRows = Object.entries(DATA.lenders).map(([id, l]) => {
       const active = L.taken.find((x) => x.id === id);
-      return `
-      <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${Utils.escape(l.name)}</div>
-          <div class="text-xs text-ink-700">${Utils.formatMoney(l.amount)} → ${l.installments} rat × ${Utils.formatMoney(l.rate)} (oddajesz ${Utils.formatMoney(l.installments * l.rate)}). ${Utils.escape(l.note)}</div>
-          ${active ? `<div class="text-xs text-stamp font-bold">Spłacasz: zostało ${active.remaining} rat (${Utils.formatMoney(active.remaining * active.rate)})</div>` : ''}
-        </div>
-        <div class="flex-shrink-0">${UI.smallBtn('take-loan', `data-id="${id}"`, 'Pożycz', !!active)}</div>
-      </div>`;
+      return row(Utils.escape(l.name),
+        Utils.formatMoney(l.amount) + ' → ' + l.installments + ' rat × ' + Utils.formatMoney(l.rate) + ' (oddajesz ' + Utils.formatMoney(l.installments * l.rate) + '). ' + Utils.escape(l.note),
+        active ? `<div class="mt-1">${UI.chip('Spłacasz: zostało ' + active.remaining + ' rat (' + Utils.formatMoney(active.remaining * active.rate) + ')', 'red')}</div>` : '',
+        UI.smallBtn('take-loan', `data-id="${id}"`, 'Pożycz', !!active));
     }).join('');
     const givenRows = Object.entries(DATA.borrowers).map(([id, b]) => {
       const active = L.given.find((x) => x.id === id);
-      return `
-      <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${Utils.escape(b.name)}</div>
-          <div class="text-xs text-ink-700">Chce ${Utils.formatMoney(b.amount)}, odda ${Utils.formatMoney(b.returns)} za ${b.weeks} tyg. ${Utils.escape(b.plea)}</div>
-          ${active ? `<div class="text-xs text-grass font-bold">Pożyczone! Termin zwrotu: Tydzień ${active.dueWeek}${active.delays ? ' (przesunięty ' + active.delays + '×)' : ''}</div>` : ''}
-        </div>
-        <div class="flex-shrink-0">${UI.smallBtn('lend-money', `data-id="${id}"`, 'Daj', !!active || gameState.finance.budget < b.amount)}</div>
-      </div>`;
+      return row(Utils.escape(b.name),
+        'Chce ' + Utils.formatMoney(b.amount) + ', odda ' + Utils.formatMoney(b.returns) + ' za ' + b.weeks + ' tyg. ' + Utils.escape(b.plea),
+        active ? `<div class="mt-1">${UI.chip('Pożyczone! Zwrot: Tydzień ' + active.dueWeek + (active.delays ? ' (przesunięty ' + active.delays + '×)' : ''), 'green')}</div>` : '',
+        UI.smallBtn('lend-money', `data-id="${id}"`, 'Daj', !!active || gameState.finance.budget < b.amount));
     }).join('');
-    return UI.card('D', 'Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.', `
-      <h4 class="font-type mb-1">Pożycz od innego prezesa</h4>
+    return UI.card('💸', 'Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.', `
+      <h4 class="font-display font-bold">Pożycz od innego prezesa</h4>
       ${takenRows}
-      <h4 class="font-type mt-4 mb-1">Pożycz komuś nasze nadwyżki</h4>
+      <h4 class="font-display font-bold mt-5">Pożycz komuś nasze nadwyżki</h4>
       ${givenRows}
-      <p class="text-xs text-ink-700 mt-3">Raty schodzą automatycznie co tydzień. Dłużnicy czasem „zapominają”…</p>
+      <p class="text-xs text-slate-400 mt-3">Raty schodzą automatycznie co tydzień. Dłużnicy czasem „zapominają”…</p>
     `);
   },
 
   stadiumCard() {
     const st = gameState.stadium;
-    const pitchColor = st.pitch >= 60 ? 'bg-grass' : st.pitch >= 30 ? 'bg-amber-glow' : 'bg-stamp';
     const upgrades = Object.entries(DATA.upgrades).map(([id, u]) => {
       const owned = st.upgrades[id];
       return `
-      <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : ''}</span></div>
-          <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
-          <div class="text-xs text-ink-700 italic">📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</div>
+      <div class="rounded-xl bg-slate-900/50 border ${owned ? 'border-emerald-500/40' : 'border-slate-700'} p-4 flex flex-col">
+        <div class="flex justify-between gap-2 items-start">
+          <div class="font-semibold leading-tight">${owned ? '✅ ' : ''}${Utils.escape(u.label)}</div>
+          ${owned ? UI.chip('ZROBIONE', 'green') : ''}
         </div>
-        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))}</div>
+        <div class="font-display font-bold mt-1">${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' <span class="text-xs font-sans text-emerald-300">(rabat Kółka Rolniczego)</span>' : ''}</div>
+        <div class="text-xs text-slate-400 mt-1">${Utils.escape(u.desc)}</div>
+        <div class="text-xs text-slate-500 mt-1">📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</div>
+        ${owned ? '' : `<div class="mt-auto pt-3">${UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id), 'accent')}</div>`}
       </div>`;
     }).join('');
-    return UI.card('E', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
-      <div class="mb-3">
-        <div class="flex justify-between text-sm"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
-        ${UI.bar(st.pitch, pitchColor)}
-        <p class="text-xs text-ink-700 mt-1">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
+    return UI.card('🏟️', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
+      <div class="grid gap-4 md:grid-cols-2 mb-4">
+        <div>
+          <div class="flex justify-between text-sm"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span class="font-display font-bold">${st.pitch}%</span></div>
+          ${UI.bar(st.pitch, UI.levelColor(st.pitch, 60, 30))}
+          <p class="text-xs text-slate-400 mt-2">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
+        </div>
+        <ul class="text-sm text-slate-300 space-y-1">${Selectors.facilityLabels().map((f) => `<li class="flex gap-2"><span class="accent-text">›</span>${Utils.escape(f)}</li>`).join('')}</ul>
       </div>
-      <ul class="text-sm list-disc pl-5 mb-4">${Selectors.facilityLabels().map((f) => `<li>${Utils.escape(f)}</li>`).join('')}</ul>
-      <h4 class="font-type mb-1">Inwestycje</h4>
-      ${upgrades}
+      <h4 class="font-display font-bold mb-2">Inwestycje</h4>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">${upgrades}</div>
     `, 'xl:col-span-2');
+  },
+
+  /* ---------- PODSUMOWANIE KARIERY (koniec gry) ---------- */
+  gameOverScreen() {
+    const g = gameState.gameOver || {};
+    const st = gameState.stats;
+    const kpi = (icon, label, value, tone = '') => `
+      <div class="${UI.CARD} p-4">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">${icon} ${label}</div>
+        <div class="font-display text-2xl font-extrabold mt-1 ${tone}">${value}</div>
+      </div>`;
+    return `
+    <main class="min-h-screen px-4 py-10">
+      <div class="w-full max-w-5xl mx-auto">
+        <header class="text-center mb-8">
+          <div class="inline-flex mb-4">${UI.crest(gameState.club.colors, gameState.club.name, 72)}</div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400 font-semibold">Koniec kariery · Walne Zgromadzenie · Sezon ${g.season}, Tydzień ${g.week}</p>
+          <h1 class="font-display text-4xl sm:text-6xl font-black tracking-tight mt-3 bg-gradient-to-r from-red-400 via-orange-300 to-red-500 bg-clip-text text-transparent leading-tight">WYWIEZIONY NA TACZCE SPOD BLASZAKA</h1>
+          <p class="mt-3 text-slate-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>
+        </header>
+        <section class="${UI.CARD} p-6 mb-6 border-red-500/40">
+          <div class="flex flex-wrap items-center gap-2 mb-2">${UI.chip('ODWOŁANY', 'red')}<span class="text-sm text-slate-300"><b>${Utils.escape(Selectors.presName())}</b> · ${Utils.escape(gameState.club.name)} (${Utils.escape(gameState.club.town)})</span></div>
+          <h2 class="font-display text-xl font-bold">Powód upadku</h2>
+          <p class="text-slate-300 mt-1 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
+        </section>
+        <h2 class="font-display text-xl font-extrabold mb-3">Bilans prezesury</h2>
+        <div class="grid gap-3 grid-cols-2 md:grid-cols-4 mb-8">
+          ${kpi('📅', 'Pełne sezony', st.seasons)}
+          ${kpi('⚽', 'Mecze', st.matches)}
+          ${kpi('📈', 'W-R-P', st.wins + '-' + st.draws + '-' + st.losses)}
+          ${kpi('🥅', 'Bramki', st.goalsFor + ':' + st.goalsAgainst)}
+          ${kpi('🏔️', 'Najwyższa liga', DATA.leagueLevels[st.topLevel].name, 'accent-text')}
+          ${kpi('📍', 'Liga przy odwołaniu', Utils.escape(g.league || ''))}
+          ${kpi('↕️', 'Awanse / spadki', st.promotions + ' / ' + st.relegations)}
+          ${kpi('🏆', 'Tytuły Mistrza Polski', st.titles)}
+          ${kpi('🌭', 'Zjedzone kiełbaski', st.sausages)}
+          ${kpi('💰', 'Stan konta', Utils.formatMoney(g.budget || 0), (g.budget || 0) < 0 ? 'text-red-400' : 'text-emerald-400')}
+          ${kpi('🧬', 'DNA klubu', '„' + Utils.escape(g.dna || '') + '”')}
+          ${kpi('📰', 'Skandale', gameState.club.scandals)}
+        </div>
+        <div class="max-w-md mx-auto text-center">
+          <button data-action="restart" class="btn-press btn-accent w-full py-4 rounded-xl font-display text-xl font-extrabold shadow-lg">SPRÓBUJ JESZCZE RAZ</button>
+          <p class="text-xs text-slate-500 mt-3">Zapis gry został spalony w beczce za blaszakiem.</p>
+        </div>
+      </div>
+    </main>`;
   },
 };
 
@@ -3769,6 +3971,8 @@ const Actions = {
 
   'switch-tab'(el) {
     gameState.activeTab = el.dataset.tab;
+    if (el.dataset.tab === 'virtualx') gameState.ui.seenFeedId = gameState.x.lastPostId;
+    if (el.dataset.tab === 'scouting') gameState.ui.seenScoutKey = gameState.scouting.candidates.map((p) => p.id).join(',');
     App.commit();
   },
 
