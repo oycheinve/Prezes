@@ -993,6 +993,61 @@ const DATA = {
       options: [],              // uzupełniane z DATA.mediaStrategies (niżej, po definicji DATA)
     },
 
+    derbySecurity: {
+      id: 'derbySecurity',
+      from: 'Dzielnicowy st. sierż. Wiesław Bęben',
+      title: () => 'KOSA! Na derby przyjeżdża ' + Selectors.currentFixture().rival,
+      body: () =>
+        'Panie Prezesie, kibice gości (' + Selectors.currentFixture().rival + ') zapowiadają przyjazd „w sile bojowej” (dwa busy i ciągnik z przyczepą). ' +
+        'Związek przypomina: za zadymę na obiekcie kara jak się patrzy. Ja mam w ten weekend wesele chrześniaka, więc na mnie proszę nie liczyć.',
+      options: [
+        {
+          label: 'Wynajmuję ochronę „Byczki z Siłowni Herkules”',
+          hint: '-250 zł, spokój na trybunach',
+          effects: { budget: -250 },
+          log: 'Wynajęto ochronę z Siłowni Herkules. Czterech chłopa w dresach i jeden owczarek.',
+          onChoose: () => { gameState.matchday.security = 'hired'; },
+        },
+        {
+          label: 'Sami się upilnujemy (wujek Staszek z latarką)',
+          hint: 'Za darmo… o ile nie będzie zadymy',
+          effects: {},
+          log: 'Ochrona: wujek Staszek z latarką i gwizdkiem. Co może pójść nie tak?',
+          onChoose: () => { gameState.matchday.security = 'none'; },
+        },
+      ],
+    },
+
+    veteranStaff: {
+      id: 'veteranStaff',
+      cutscene: { icon: '🎖️', place: 'Koniec sezonu · pusta szatnia', scripted: true },
+      from: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ', ' + r.age + ' l.' : 'Szatnia'; },
+      title: () => { const r = Selectors.currentRetiree(); return r ? (r.legend ? 'Legenda' : 'Ulubieniec Trybun') + ' kończy karierę' : 'Koniec kariery'; },
+      body: () => {
+        const r = Selectors.currentRetiree();
+        if (!r) return '';
+        return '„Prezesie, kolana już nie te. ' + r.apps + ' meczów, ' + r.goals + ' goli dla tego klubu… Ale pomogę w sztabie za symboliczną dychę. ' +
+          'Mogę nosić siatkę z piłkami, rozgrzewać chłopaków, krzyczeć z ławki. Byle przy drużynie.” ' +
+          (Selectors.freeStaffSlot() ? '' : '(Wszystkie miejsca w sztabie zajęte – zastąpi osobę z najmniejszym wpływem na drużynę.)');
+      },
+      options: [
+        {
+          label: 'Bierzemy do sztabu za dychę!',
+          hint: () => '10 zł/tydz., szatnia +' + DATA.veteranStaff.lockerBase + ' do bazowego nastroju, kibice +3%',
+          effects: { fans: +3, lockerRoom: +5 },
+          log: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ' dołącza do sztabu! Szatnia wiwatuje, kibice skandują jego ksywę.' : ''; },
+          onChoose: () => Engine.hireVeteranStaff(),
+        },
+        {
+          label: 'Pożegnanie z kwiatami i tortem',
+          hint: '-60 zł, kibice +2%',
+          effects: { budget: -60, fans: +2 },
+          log: () => { const r = Selectors.currentRetiree(); return r ? 'Pożegnanie ' + Selectors.playerName(r) + ': tort od Grażynki, kwiaty z cmentarnej kwiaciarni i łzy w budce Zenka.' : ''; },
+          onChoose: () => { gameState.retirees.shift(); Engine.queueRetirementDecision(); },
+        },
+      ],
+    },
+
     wageDemand: {
       id: 'wageDemand',
       player: () => Selectors.callPlayer(),
@@ -1574,6 +1629,7 @@ function createInitialState() {
     },
     lastMatch: null,            // dane ostatniego meczu dla ekranu meczowego
     seasonSummary: null,        // podsumowanie roczne: wynik, emerytury, nowi zawodnicy
+    transfer: { open: false, season: 0, market: [], bought: 0, sold: 0 },   // okno transferowe po sezonie (do 1. kolejki)
     cutscenes: { lastWeek: 0, recent: [], targetId: null },
     merch: {
       stock: { mug: 0, scarf: 0, shirt: 0 },
@@ -1612,6 +1668,7 @@ function createInitialState() {
       folds: {},                // zapamiętane rozwinięcia wierszy (Kadra)
       sub: {},                  // wybrany podwidok zakładki (np. finance: 'tickets')
       overlay: null,            // ekran na cały ekran: { type: 'match' } | { type: 'outcome', ... }
+      transferView: 'buy',      // okno transferowe: buy | sell
     },
   };
 }
@@ -1908,6 +1965,7 @@ const Engine = {
   },
 
   playMatchday() {
+    Engine.closeTransferWindow();   // pierwszy gwizdek sezonu zamyka okno transferowe
     const fixture = Selectors.currentFixture();
     const rival = Selectors.rival(fixture.rival);
     const weather = gameState.weather;
@@ -2245,6 +2303,7 @@ const Engine = {
     // Starzenie, staż, legendy, emerytury
     const retiring = [];
     gameState.squad.forEach((p) => {
+      p.prevSeason = { apps: p.seasonApps, goals: p.seasonGoals, avg: Selectors.avgRating(p) };   // do okna transferowego
       p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0; p.seasonRatingSum = 0; p.seasonRatingCount = 0;
       if (p.age <= 24 && Math.random() < (p.talent ? 0.85 : 0.5)) p.skill = Math.min(CONFIG.maxSkill, p.skill + 1);   // młodzi się rozwijają (Perełki szybciej)
       if (p.age >= 33 && Math.random() < 0.4) p.skill = Math.max(1, p.skill - 1);   // starzy słabną
@@ -2281,6 +2340,7 @@ const Engine = {
       Engine.buildLeague(newLevel);
     }
     Engine.newSeason();
+    Engine.openTransferWindow();
     summary.outcome = outcome;
     summary.newLeague = DATA.leagueLevels[newLevel].name;
     gameState.seasonSummary = summary;
@@ -2415,6 +2475,53 @@ const Engine = {
     const p = Engine.makePlayer(opts);
     gameState.squad.push(p);
     return p;
+  },
+
+  /* ----- Okno transferowe: tylko po sezonie, do pierwszego meczu nowych rozgrywek ----- */
+  openTransferWindow() {
+    const bonus = Selectors.levelSkillBonus();
+    const e = Selectors.econ();
+    const market = ['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD'].map((pos) => {
+      const p = Engine.makePlayer({ ageMin: 18, ageMax: 33, skillMin: 3 + bonus, skillMax: 8 + bonus, pos });
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      p.fee = Math.max(30, Math.round((50 + p.skill * 28 + Utils.randInt(-25, 25)) * e / 10) * 10);
+      if (p.age <= 20 && Math.random() < 0.25) p.talent = true;
+      return p;
+    });
+    gameState.transfer = { open: true, season: gameState.calendar.season, market, bought: 0, sold: 0 };   // sezon już przestawiony na nowy
+  },
+
+  closeTransferWindow() {
+    const t = gameState.transfer;
+    if (!t.open) return;
+    t.open = false;
+    t.market = [];
+    Engine.addLog('🔒 Okno transferowe zamknięte. Przyszło: ' + t.bought + ', odeszło: ' + t.sold + '.', 'system');
+  },
+
+  buyTransfer(id) {
+    const t = gameState.transfer;
+    const p = t.open && t.market.find((x) => x.id === id);
+    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    Engine.money('Transfer: ' + Selectors.playerName(p), -p.fee);
+    t.market = t.market.filter((x) => x.id !== id);
+    delete p.fee;
+    gameState.squad.push(p);
+    t.bought++;
+    Engine.addLog('✍️ Transfer: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + ', ' + p.wage + ' zł/tydz.) dołącza do klubu.', 'decision');
+  },
+
+  sellTransfer(id) {
+    const t = gameState.transfer;
+    const p = gameState.squad.find((x) => x.id === id);
+    if (!t.open || !p || gameState.squad.length <= CONFIG.minSquad) return;
+    const price = Selectors.sellPrice(p);
+    gameState.squad = gameState.squad.filter((x) => x.id !== id);
+    Engine.money('Sprzedaż: ' + Selectors.playerName(p), price);
+    const effects = p.legend ? { fans: -10, lockerRoom: -6 } : p.favorite ? { fans: -6 } : {};
+    Engine.applyEffects(effects);
+    t.sold++;
+    Engine.addLog('💸 Sprzedany: ' + Selectors.playerName(p) + ' za ' + Utils.formatMoney(price) + '.' + Engine.describeEffects(effects), 'decision');
   },
 
   coachBringsPlayer() {
@@ -3145,6 +3252,7 @@ const Selectors = {
   youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
   youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
+  sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * Selectors.econ() / 10) * 10),
   cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
   cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
   freeStaffSlot: () => Object.keys(DATA.staffSlots).find((k) => !gameState.staff[k]) || null,
@@ -3515,6 +3623,7 @@ const UI = {
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
     if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
+    if (o && o.type === 'transfer' && gameState.transfer.open) return UI.transferOverlay();
     // Cut-scenka czeka na decyzję – zawsze na pierwszym planie
     const cut = gameState.pendingDecisions.map((id) => DATA.decisions[id]).find((d) => d && d.cutscene);
     if (cut) return UI.cutsceneOverlay(cut);
@@ -3682,6 +3791,49 @@ const UI = {
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
         <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">KONTYNUUJ</button>
+      </div>`, 'bg-desk-900');
+  },
+
+  // Okno transferowe na cały ekran: kupno z giełdy i sprzedaż z kadry
+  transferOverlay() {
+    const t = gameState.transfer;
+    const view = gameState.ui.transferView || 'buy';
+    const budget = gameState.finance.budget;
+    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const coach = Selectors.coach();
+    const seg = (v, label) => `<button data-action="transfer-view" data-value="${v}" class="btn-press flex-1 h-9 rounded-md text-[13px] ${view === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`;
+    const btn = (action, id, label, disabled, tone) => `<button data-action="${action}" data-id="${id}" ${disabled ? 'disabled' : ''}
+      class="btn-press h-9 px-3 rounded-lg text-[12.5px] font-bold whitespace-nowrap ${disabled ? 'bg-desk-700 text-paper-400 opacity-60' : tone}">${label}</button>`;
+    const head = (p, extra) => `
+      <div class="min-w-0 flex-1">
+        <div class="text-[13.5px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
+        <div class="text-[11px] text-paper-400 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)} · ${UI.profileBadge(p.profile)}</div>
+        <div class="text-[11px] text-paper-300 truncate">${extra}</div>
+      </div>`;
+    const fit = (p) => { const f = Engine.profileFit(p, coach.style); return f >= 1 ? '<span class="text-grass">✓ styl trenera</span>' : f >= 0.5 ? '~ styl trenera' : '<span class="text-stamp">✗ styl trenera</span>'; };
+    const rows = view === 'buy'
+      ? t.market.map((p) => `<div class="flex items-center gap-2 py-2 border-b border-desk-700 last:border-0">${head(p, p.wage + ' zł/tydz. · ' + fit(p))}${btn('buy-transfer', p.id, 'Kup ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900')}</div>`).join('')
+        || '<p class="text-[12.5px] text-paper-400 py-2">Giełda pusta – wszyscy już kupieni.</p>'
+      : gameState.squad.slice().sort((a, b) => DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill).map((p) => {
+        const ps = p.prevSeason;
+        const stats = ps ? 'Sezon: ' + ps.apps + ' m · ' + ps.goals + ' g · nota ' + Selectors.ratingText(ps.avg) : 'W klubie: ' + p.apps + ' m · ' + p.goals + ' g';
+        return `<div class="flex items-center gap-2 py-2 border-b border-desk-700 last:border-0">${head(p, stats + ' · ' + p.wage + ' zł/tydz.')}${btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(Selectors.sellPrice(p)), gameState.squad.length <= CONFIG.minSquad, 'bg-stamp text-white')}</div>`;
+      }).join('');
+    return UI.overlayFrame(`
+      <div class="flex-shrink-0 px-4 pt-5 text-paper-100">
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Okno transferowe · przed sezonem ${t.season}</div>
+        <h2 class="text-center text-[22px] font-extrabold tracking-tight mt-1">🔁 Giełda zawodników</h2>
+        <p class="text-center text-[11px] text-paper-400">Otwarte tylko do pierwszego gwizdka nowego sezonu.</p>
+        <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kasa</div><b class="text-[14px] ${budget < 0 ? 'text-stamp' : ''}">${Utils.formatMoney(budget)}</b></div>
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px]">${gameState.squad.length}/${CONFIG.maxSquad}</b></div>
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Przyszło / odeszło</div><b class="text-[14px]">${t.bought} / ${t.sold}</b></div>
+        </div>
+        <div class="flex gap-1 p-0.5 mt-3 rounded-lg bg-desk-800">${seg('buy', '🛒 Kupuj (' + t.market.length + ')')}${seg('sell', '💸 Sprzedaj (' + gameState.squad.length + ')')}</div>
+      </div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 mt-1 text-paper-100">${rows}</div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[16px] font-extrabold tracking-wider">ZAMKNIJ GIEŁDĘ</button>
       </div>`, 'bg-desk-900');
   },
 
@@ -4200,6 +4352,7 @@ const UI = {
       UI.tile('Koszt', Utils.formatMoney(Selectors.squadWages()), 'na tydzień'),
       UI.tile('Baza szatni', Selectors.lockerBaseline() + '%', 'legendy, sztab, bojler'),
     ], 4)
+    + (gameState.transfer.open ? `<button data-action="open-transfer" class="btn-press w-full h-9 mb-2 rounded-lg bg-amber-glow text-ink-900 text-[13px] font-bold">🔁 Okno transferowe otwarte do 1. kolejki – wejdź</button>` : '')
     + UI.segs('squad-sort', sort, [['pos', 'Pozycja'], ['goals', 'Wg goli'], ['rating', 'Wg noty']])
     + `<section class="paper overflow-hidden mb-1.5">
         <div class="${cols} h-6 px-1.5 border-l-[3px] border-l-transparent text-[9.5px] uppercase font-semibold text-ink-700 bg-paper-200">
@@ -4661,9 +4814,26 @@ const Actions = {
   'overlay-close'() {
     const o = gameState.ui.overlay;
     if (o && o.type === 'season' && gameState.seasonSummary) gameState.seasonSummary.seen = true;
-    // Po ostatnim meczu sezonu od razu podsumowanie roczne
-    gameState.ui.overlay = o && o.type === 'match' && gameState.seasonSummary && !gameState.seasonSummary.seen ? { type: 'season' } : null;
+    // Po ostatnim meczu sezonu: podsumowanie roczne, potem okno transferowe
+    if (o && o.type === 'match' && gameState.seasonSummary && !gameState.seasonSummary.seen) gameState.ui.overlay = { type: 'season' };
+    else if (o && o.type === 'season' && gameState.transfer.open) gameState.ui.overlay = { type: 'transfer' };
+    else gameState.ui.overlay = null;
     App.commit();
+  },
+  'open-transfer'() {
+    if (gameState.transfer.open) gameState.ui.overlay = { type: 'transfer' };
+    App.commit();
+  },
+  'transfer-view'(el) {
+    if (['buy', 'sell'].includes(el.dataset.value)) gameState.ui.transferView = el.dataset.value;
+    App.commit();
+  },
+  'buy-transfer'(el) { Engine.buyTransfer(el.dataset.id); App.commit(); },
+  'sell-transfer'(el) {
+    const p = gameState.squad.find((x) => x.id === el.dataset.id);
+    if (!p) return;
+    const warn = p.legend ? ' To LEGENDA KLUBU – kibice i szatnia tego nie wybaczą!' : p.favorite ? ' To Ulubieniec Trybun – kibice się wściekną!' : '';
+    if (confirm('Sprzedać ' + Selectors.playerName(p) + ' za ' + Utils.formatMoney(Selectors.sellPrice(p)) + '?' + warn)) { Engine.sellTransfer(p.id); App.commit(); }
   },
 
   'next-week'() {
