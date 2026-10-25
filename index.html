@@ -504,33 +504,11 @@ const DATA = {
     seasonPass: {
       id: 'seasonPass',
       from: 'Kierownik drużyny – pan Rysiek',
-      title: 'Karnety na cały sezon',
+      title: () => 'Karnety na sezon ' + gameState.calendar.season + ' – polityka cenowa',
       body: () =>
-        'Prezesie, przed startem ligi Mariolka z punktu ksero drukuje karnety na CAŁY sezon (18 kolejek, ok. 9 meczów u siebie). ' +
-        'Gotówka wpada od razu – na start jak znalazł. Tylko że karnetowicz przez cały sezon na bramce ani złotówki już nie da. Drukujemy?',
-      options: [
-        {
-          label: 'Karnet sezonowy „Swój Chłop” po 45 zł',
-          hint: () => 'ok. ' + Engine.seasonTicketDemand('basic') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('basic') * 45) + ' teraz',
-          effects: () => ({ budget: Engine.seasonTicketDemand('basic') * 45 }),
-          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('basic') + ' karnetów sezonowych „Swój Chłop”. Mariolka laminowała je do północy.',
-          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('basic'), gameState.season.rounds.length),
-        },
-        {
-          label: 'Karnet sezonowy „VIP” (z kawą z termosu) po 70 zł',
-          hint: () => 'ok. ' + Engine.seasonTicketDemand('vip') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('vip') * 70) + ' teraz',
-          effects: () => ({ budget: Engine.seasonTicketDemand('vip') * 70 }),
-          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('vip') + ' karnetów sezonowych VIP. Kawa z termosu wliczona na cały sezon, cukier nadal nie.',
-          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('vip'), gameState.season.rounds.length),
-        },
-        {
-          label: 'Bez karnetów – każdy płaci na bramce',
-          hint: 'Pełne wpływy z biletów w każdym meczu (w przerwie zimowej można jeszcze sprzedać karnety na wiosnę)',
-          effects: {},
-          log: 'Karnetów nie będzie. „Kto chce oglądać, niech płaci” – zarządził Prezes.',
-          onChoose: () => Engine.setSeasonTickets(0),
-        },
-      ],
+        'Prezesie, przed startem ligi Mariolka z punktu ksero drukuje karnety na CAŁY sezon (' + gameState.season.rounds.length + ' kolejek, ok. 9 meczów u siebie). ' +
+        'Gotówka wpada od razu, ale cena ustawi nam trybuny na cały sezon: tanio – ludzie walą drzwiami i wybaczają wpadki; drogo – kasa jest, tylko trybuny patrzą na ręce. Jaką cenę drukujemy?',
+      options: [],              // uzupełniane z DATA.ticketPolicies (po definicji DATA)
     },
 
     /* ----- Cut-scenki: filmowe sceny z trudną decyzją (pokazywane na cały ekran) ----- */
@@ -1543,6 +1521,22 @@ const DATA = {
     },
   },
 
+  // Polityka cenowa karnetów: wybierana przed startem sezonu, działa do ostatniej kolejki
+  ticketPolicies: {
+    cheap: {
+      icon: '🤝', label: 'Promocja dla ludzi', price: 30, demand: 1.4, fans: +6, attendance: 1.1, pressure: 1,
+      effects: ['kibice +6% od razu', 'frekwencja +10% przez sezon', 'po porażce trybuny wybaczają (kibice +1%)'],
+    },
+    standard: {
+      icon: '🎟️', label: 'Standardowe ceny', price: 45, demand: 1, fans: 0, attendance: 1, pressure: 2,
+      effects: ['bez wpływu na nastroje', 'frekwencja bez zmian'],
+    },
+    pricey: {
+      icon: '💰', label: 'Skok na kasę', price: 90, demand: 0.65, fans: -6, attendance: 0.9, pressure: 3,
+      effects: ['kibice -6% od razu', 'frekwencja -10% przez sezon', 'po porażce gwizdy (kibice -2%, szatnia -2%)'],
+    },
+  },
+
   // Strategia medialna: wybierana raz na sezon, działa pasywnie przez całe rozgrywki
   mediaStrategies: {
     neutral: {
@@ -1688,6 +1682,8 @@ function createInitialState() {
       holders: 0,
       roundsLeft: 0,
       lastOfferKey: '',
+      policy: null,             // polityka cenowa karnetów (DATA.ticketPolicies) na sezon policySeason
+      policySeason: 0,
     },
     merch: {
       stock: { mug: 0, scarf: 0, shirt: 0 },
@@ -1729,6 +1725,14 @@ function createInitialState() {
     },
   };
 }
+
+DATA.decisions.seasonPass.options = Object.entries(DATA.ticketPolicies).map(([id, tp]) => ({
+  label: tp.icon + ' ' + tp.label + ' – karnet po ' + tp.price + ' zł',
+  hint: () => 'ok. ' + Engine.passHolders(id) + ' chętnych → +' + Utils.formatMoney(Engine.passHolders(id) * tp.price) + ' teraz · ' + tp.effects.join(' · ') + ' · presja trybun ' + ['', 'niska', 'średnia', 'wysoka'][tp.pressure],
+  effects: () => ({ budget: Engine.passHolders(id) * tp.price, fans: tp.fans }),
+  log: () => 'Polityka karnetów „' + tp.label + '”: sprzedano ' + Engine.passHolders(id) + ' karnetów po ' + tp.price + ' zł. Mariolka laminowała je do północy.',
+  onChoose: () => Engine.setTicketPolicy(id),
+}));
 
 DATA.decisions.mediaStrategy.options = Object.entries(DATA.mediaStrategies).map(([id, st]) => ({
   label: st.icon + ' ' + st.label + ' – ' + st.sub,
@@ -1918,6 +1922,18 @@ const Engine = {
     gameState.seasonTickets.roundsLeft = holders > 0 ? rounds : 0;
   },
 
+  // Karnety sezonowe według polityki cenowej
+  passHolders(policyId) {
+    const tp = DATA.ticketPolicies[policyId];
+    return tp ? Math.round(Engine.seasonTicketDemand('basic') * tp.demand) : 0;
+  },
+  setTicketPolicy(policyId) {
+    const holders = Engine.passHolders(policyId);
+    Engine.setSeasonTickets(holders, gameState.season.rounds.length);
+    gameState.seasonTickets.policy = policyId;
+    gameState.seasonTickets.policySeason = gameState.calendar.season;
+  },
+
   // Przed startem ligi: karnety na cały sezon. W przerwie zimowej – na rundę wiosenną, jeśli nikt nie ma karnetu.
   offerSeasonTickets() {
     const key = 's' + gameState.calendar.season + 'r' + gameState.calendar.round;
@@ -2006,6 +2022,7 @@ const Engine = {
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
     if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
     if (Selectors.mediaStrategy() === 'populist') base *= 1.1;   // strategia populistyczna: „wszyscy na stadion”
+    if (Selectors.ticketPolicy()) base *= DATA.ticketPolicies[Selectors.ticketPolicy()].attendance;   // polityka cenowa karnetów
     // Letnicy z miasta nie liczą każdej złotówki na bilecie
     base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
     if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
@@ -2148,7 +2165,10 @@ const Engine = {
     // Strategia medialna sezonu
     if (Selectors.mediaStrategy() === 'populist') fans += result === 'W' ? 2 : result === 'L' ? -3 : 0;
     if (Selectors.mediaStrategy() === 'spicy') fans += 1;
-    const locker = { W: 5, D: 1, L: -4 }[result];
+    let locker = { W: 5, D: 1, L: -4 }[result];
+    // Presja z trybun zależna od polityki cenowej karnetów
+    if (result === 'L' && Selectors.ticketPolicy() === 'cheap') fans += 1;
+    if (result === 'L' && Selectors.ticketPolicy() === 'pricey') { fans -= 2; locker -= 2; }
     Engine.applyEffects({ fans, lockerRoom: locker });
 
     // Ulubieniec Trybun na ławce = kibice niezadowoleni
@@ -3170,6 +3190,7 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => Math.round(sp.weekly * Selectors.econ() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1)),
   mediaStrategy: () => gameState.x.strategy || 'neutral',
+  ticketPolicy: () => (gameState.seasonTickets.policySeason === gameState.calendar.season ? gameState.seasonTickets.policy : null),
   strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
   coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)),
@@ -4523,8 +4544,17 @@ const UI = {
     const ticketsInfo = st.roundsLeft > 0
       ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.`
       : 'Karnety: brak aktywnych.';
+    const tp = DATA.ticketPolicies[Selectors.ticketPolicy()];
+    const policy = tp
+      ? `<div class="flex items-center gap-2 rounded-md border border-paper-300 bg-white px-2 py-1.5 mb-1">
+          <span class="text-[18px]">${tp.icon}</span>
+          <div class="min-w-0 flex-1"><div class="text-[12px] font-bold">Karnety: ${tp.label} (${tp.price} zł)</div><div class="text-[10.5px] text-ink-700 leading-snug">${tp.effects.join(' · ')}</div></div>
+          <span class="text-[10px] text-ink-700 whitespace-nowrap">presja ${'●'.repeat(tp.pressure)}${'○'.repeat(3 - tp.pressure)}</span>
+        </div>`
+      : '';
 
     return UI.panel('Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
+      ${policy}
       <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}<p class="text-[11px] text-ink-700">${ticketsInfo}</p></div>
       ${UI.h4('Cena biletu')}
       <div class="grid grid-cols-3 gap-1.5">
