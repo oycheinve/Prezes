@@ -374,9 +374,9 @@ const DATA = {
   ],
 
   tickets: {
-    colaska:    { label: '5 zł – „Co łaska”',  price: 5,  attendance: 1.25, fans: +1, desc: 'Ludzie walą drzwiami i oknami. Pan Heniek na bramce i tak wpuszcza szwagrów za darmo.' },
-    standard:   { label: '10 zł – „Standard”', price: 10, attendance: 1.0,  fans: 0,  desc: 'Cena uczciwa, jak u konkurencji z Kamionki. Nikt nie płacze, nikt się nie cieszy.' },
-    zdzierstwo: { label: '20 zł – „Zdzierstwo”', price: 20, attendance: 0.6, fans: -3, desc: '„Za te pieniądze to ja mam Ligę Mistrzów w telewizji!” – frekwencja leci, kibice się burzą.' },
+    colaska:    { icon: '🤝', policy: 'Tanie bilety / Pełne trybuny', label: '5 zł – „Co łaska”',  price: 5,  attendance: 1.6, fans: +2, desc: 'Ludzie walą drzwiami i oknami. Pan Heniek na bramce i tak wpuszcza szwagrów za darmo.' },
+    standard:   { icon: '🎟️', policy: 'Standard', label: '10 zł – „Standard”', price: 10, attendance: 1.0,  fans: 0,  desc: 'Cena uczciwa, jak u konkurencji z Kamionki. Nikt nie płacze, nikt się nie cieszy.' },
+    zdzierstwo: { icon: '💰', policy: 'Drogie bilety / Skok na kasę', label: '20 zł – „Zdzierstwo”', price: 20, attendance: 0.65, fans: -3, desc: '„Za te pieniądze to ja mam Ligę Mistrzów w telewizji!” – frekwencja leci, kibice się burzą.' },
   },
 
   sausages: {
@@ -501,14 +501,12 @@ const DATA = {
       ],
     },
 
-    seasonPass: {
-      id: 'seasonPass',
-      from: 'Kierownik drużyny – pan Rysiek',
-      title: () => 'Karnety na sezon ' + gameState.calendar.season + ' – polityka cenowa',
-      body: () =>
-        'Prezesie, przed startem ligi Mariolka z punktu ksero drukuje karnety na CAŁY sezon (' + gameState.season.rounds.length + ' kolejek, ok. 9 meczów u siebie). ' +
-        'Gotówka wpada od razu, ale cena ustawi nam trybuny na cały sezon: tanio – ludzie walą drzwiami i wybaczają wpadki; drogo – kasa jest, tylko trybuny patrzą na ręce. Jaką cenę drukujemy?',
-      options: [],              // uzupełniane z DATA.ticketPolicies (po definicji DATA)
+    ticketPolicy: {
+      id: 'ticketPolicy',
+      from: 'Pani Mariolka z kasy biletowej',
+      title: () => 'Cennik biletów na sezon ' + gameState.calendar.season,
+      body: 'Prezesie, karnetów nie drukujemy – ludzie kupują bilet na bramce przed każdym meczem u siebie. Niech Pan ustali cennik na sezon, ja wypiszę kredą na tablicy. Tanio – trybuny pełne, drogo – kasa pełna, tylko trybuny puste i kibice źli.',
+      options: [],              // uzupełniane z DATA.tickets (po definicji DATA)
     },
 
     /* ----- Cut-scenki: filmowe sceny z trudną decyzją (pokazywane na cały ekran) ----- */
@@ -994,94 +992,6 @@ const DATA = {
       options: [],              // uzupełniane z DATA.mediaStrategies (niżej, po definicji DATA)
     },
 
-    seasonTickets: {
-      id: 'seasonTickets',
-      from: 'Kierownik drużyny – pan Rysiek',
-      title: () => 'Karnety na rundę ' + Selectors.upcomingRundaName(),
-      body: () =>
-        'Prezesie, Mariolka z punktu ksero zrobi karnety na rundę ' + Selectors.upcomingRundaName() + ' (9 kolejek, 4–5 meczów u siebie). ' +
-        'Kasa wpada od razu, tylko że karnetowicz potem na bramce już ani złotówki nie da. ' +
-        'Drukujemy, czy każdy płaci za siebie jak Pan Bóg przykazał?',
-      options: [
-        {
-          label: 'Karnet „Swój Chłop” po 25 zł',
-          hint: () => 'ok. ' + Engine.seasonTicketDemand('basic') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('basic') * 25) + ' teraz',
-          effects: () => ({ budget: Engine.seasonTicketDemand('basic') * 25 }),
-          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('basic') + ' karnetów „Swój Chłop”. Mariolka wydrukowała je na papierze z kratką.',
-          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('basic')),
-        },
-        {
-          label: 'Karnet „VIP” (z kawą z termosu) po 40 zł',
-          hint: () => 'ok. ' + Engine.seasonTicketDemand('vip') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('vip') * 40) + ' teraz',
-          effects: () => ({ budget: Engine.seasonTicketDemand('vip') * 40 }),
-          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('vip') + ' karnetów VIP. Kawa z termosu wliczona, cukier nie.',
-          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('vip')),
-        },
-        {
-          label: 'Bez karnetów – każdy płaci na bramce',
-          hint: 'Pełne wpływy z biletów w każdym meczu',
-          effects: {},
-          log: 'Karnetów nie będzie. „Kto chce oglądać, niech płaci” – zarządził Prezes.',
-          onChoose: () => Engine.setSeasonTickets(0),
-        },
-      ],
-    },
-
-    derbySecurity: {
-      id: 'derbySecurity',
-      from: 'Dzielnicowy st. sierż. Wiesław Bęben',
-      title: () => 'KOSA! Na derby przyjeżdża ' + Selectors.currentFixture().rival,
-      body: () =>
-        'Panie Prezesie, kibice gości (' + Selectors.currentFixture().rival + ') zapowiadają przyjazd „w sile bojowej” (dwa busy i ciągnik z przyczepą). ' +
-        'Związek przypomina: za zadymę na obiekcie kara jak się patrzy. Ja mam w ten weekend wesele chrześniaka, więc na mnie proszę nie liczyć.',
-      options: [
-        {
-          label: 'Wynajmuję ochronę „Byczki z Siłowni Herkules”',
-          hint: '-250 zł, spokój na trybunach',
-          effects: { budget: -250 },
-          log: 'Wynajęto ochronę z Siłowni Herkules. Czterech chłopa w dresach i jeden owczarek.',
-          onChoose: () => { gameState.matchday.security = 'hired'; },
-        },
-        {
-          label: 'Sami się upilnujemy (wujek Staszek z latarką)',
-          hint: 'Za darmo… o ile nie będzie zadymy',
-          effects: {},
-          log: 'Ochrona: wujek Staszek z latarką i gwizdkiem. Co może pójść nie tak?',
-          onChoose: () => { gameState.matchday.security = 'none'; },
-        },
-      ],
-    },
-
-    veteranStaff: {
-      id: 'veteranStaff',
-      cutscene: { icon: '🎖️', place: 'Koniec sezonu · pusta szatnia', scripted: true },
-      from: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ', ' + r.age + ' l.' : 'Szatnia'; },
-      title: () => { const r = Selectors.currentRetiree(); return r ? (r.legend ? 'Legenda' : 'Ulubieniec Trybun') + ' kończy karierę' : 'Koniec kariery'; },
-      body: () => {
-        const r = Selectors.currentRetiree();
-        if (!r) return '';
-        return '„Prezesie, kolana już nie te. ' + r.apps + ' meczów, ' + r.goals + ' goli dla tego klubu… Ale pomogę w sztabie za symboliczną dychę. ' +
-          'Mogę nosić siatkę z piłkami, rozgrzewać chłopaków, krzyczeć z ławki. Byle przy drużynie.” ' +
-          (Selectors.freeStaffSlot() ? '' : '(Wszystkie miejsca w sztabie zajęte – zastąpi osobę z najmniejszym wpływem na drużynę.)');
-      },
-      options: [
-        {
-          label: 'Bierzemy do sztabu za dychę!',
-          hint: () => '10 zł/tydz., szatnia +' + DATA.veteranStaff.lockerBase + ' do bazowego nastroju, kibice +3%',
-          effects: { fans: +3, lockerRoom: +5 },
-          log: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ' dołącza do sztabu! Szatnia wiwatuje, kibice skandują jego ksywę.' : ''; },
-          onChoose: () => Engine.hireVeteranStaff(),
-        },
-        {
-          label: 'Pożegnanie z kwiatami i tortem',
-          hint: '-60 zł, kibice +2%',
-          effects: { budget: -60, fans: +2 },
-          log: () => { const r = Selectors.currentRetiree(); return r ? 'Pożegnanie ' + Selectors.playerName(r) + ': tort od Grażynki, kwiaty z cmentarnej kwiaciarni i łzy w budce Zenka.' : ''; },
-          onChoose: () => { gameState.retirees.shift(); Engine.queueRetirementDecision(); },
-        },
-      ],
-    },
-
     wageDemand: {
       id: 'wageDemand',
       from: () => {
@@ -1206,10 +1116,10 @@ const DATA = {
       options: [
         {
           label: 'Huczna feta w remizie: disco-polo i pieczony dzik',
-          hint: () => Utils.signedMoney(-Selectors.fetaCost(900)) + ', kibice +15%, szatnia +15%, +10% chętnych na karnety',
+          hint: () => Utils.signedMoney(-Selectors.fetaCost(900)) + ', kibice +15%, szatnia +15%, +10% widzów na 3 meczach u siebie',
           effects: () => ({ budget: -Selectors.fetaCost(900), fans: +15, lockerRoom: +15 }),
           log: 'FETA STULECIA! Dzik na rożnie, disco-polo do 4 rano, kapitan zasnął w bębnie od perkusji. O fecie mówi cały powiat.',
-          onChoose: () => { gameState.bonuses.seasonTicketBoost = 1.1; Engine.xPost('ultras', 'Najlepsza feta w historii gminy!!! Dzik, disco-polo i puchar z Biedronki 🏆🐗🎶'); },
+          onChoose: () => { gameState.bonuses.fetaMatches = 3; Engine.xPost('ultras', 'Najlepsza feta w historii gminy!!! Dzik, disco-polo i puchar z Biedronki 🏆🐗🎶'); },
         },
         {
           label: 'Skromny grill za blaszakiem i po dwa piwa',
@@ -1521,22 +1431,6 @@ const DATA = {
     },
   },
 
-  // Polityka cenowa karnetów: wybierana przed startem sezonu, działa do ostatniej kolejki
-  ticketPolicies: {
-    cheap: {
-      icon: '🤝', label: 'Promocja dla ludzi', price: 30, demand: 1.4, fans: +6, attendance: 1.1, pressure: 1,
-      effects: ['kibice +6% od razu', 'frekwencja +10% przez sezon', 'po porażce trybuny wybaczają (kibice +1%)'],
-    },
-    standard: {
-      icon: '🎟️', label: 'Standardowe ceny', price: 45, demand: 1, fans: 0, attendance: 1, pressure: 2,
-      effects: ['bez wpływu na nastroje', 'frekwencja bez zmian'],
-    },
-    pricey: {
-      icon: '💰', label: 'Skok na kasę', price: 90, demand: 0.65, fans: -6, attendance: 0.9, pressure: 3,
-      effects: ['kibice -6% od razu', 'frekwencja -10% przez sezon', 'po porażce gwizdy (kibice -2%, szatnia -2%)'],
-    },
-  },
-
   // Strategia medialna: wybierana raz na sezon, działa pasywnie przez całe rozgrywki
   mediaStrategies: {
     neutral: {
@@ -1648,7 +1542,7 @@ function createInitialState() {
       rivals: DATA.rivals.map((r) => ({ ...r })),   // rywale na obecnym poziomie
     },
     lastSeason: { pos: 0, outcome: '', league: '' },
-    bonuses: { seasonTicketBoost: 1 },
+    bonuses: { fetaMatches: 0 },   // feta: +10% widzów na kilku meczach u siebie
     debt: { strike: false, deepWeeks: 0 },
     dda: { lastLifeline: -99, lastBrake: -99, youthPromise: 0 },
     stats: {
@@ -1674,17 +1568,11 @@ function createInitialState() {
       sausage: 'zapiekanka',
       security: null,           // null | 'hired' | 'none' – tylko na derby u siebie
       ticketFixKey: '',         // runda, w której wykorzystano korektę ceny biletu
+      policySeason: 0,          // sezon, w którym zapytano już o cennik biletów
     },
     lastMatch: null,            // dane ostatniego meczu dla ekranu meczowego
     seasonSummary: null,        // podsumowanie roczne: wynik, emerytury, nowi zawodnicy
     cutscenes: { lastWeek: 0, recent: [], targetId: null },
-    seasonTickets: {
-      holders: 0,
-      roundsLeft: 0,
-      lastOfferKey: '',
-      policy: null,             // polityka cenowa karnetów (DATA.ticketPolicies) na sezon policySeason
-      policySeason: 0,
-    },
     merch: {
       stock: { mug: 0, scarf: 0, shirt: 0 },
       markup: 'medium',
@@ -1726,12 +1614,12 @@ function createInitialState() {
   };
 }
 
-DATA.decisions.seasonPass.options = Object.entries(DATA.ticketPolicies).map(([id, tp]) => ({
-  label: tp.icon + ' ' + tp.label + ' – karnet po ' + tp.price + ' zł',
-  hint: () => 'ok. ' + Engine.passHolders(id) + ' chętnych → +' + Utils.formatMoney(Engine.passHolders(id) * tp.price) + ' teraz · ' + tp.effects.join(' · ') + ' · presja trybun ' + ['', 'niska', 'średnia', 'wysoka'][tp.pressure],
-  effects: () => ({ budget: Engine.passHolders(id) * tp.price, fans: tp.fans }),
-  log: () => 'Polityka karnetów „' + tp.label + '”: sprzedano ' + Engine.passHolders(id) + ' karnetów po ' + tp.price + ' zł. Mariolka laminowała je do północy.',
-  onChoose: () => Engine.setTicketPolicy(id),
+DATA.decisions.ticketPolicy.options = Object.entries(DATA.tickets).map(([id, t]) => ({
+  label: t.icon + ' ' + t.policy + ' – bilet ' + t.price + ' zł',
+  hint: () => { const f = Engine.ticketForecast(id); return (f ? 'ok. ' + f.att + ' widzów → ~' + Utils.formatMoney(f.gate) + ' z biletów na mecz u siebie · ' : '') + (t.fans > 0 ? 'kibice +' + t.fans + '% po meczu u siebie' : t.fans < 0 ? 'kibice ' + t.fans + '% po meczu u siebie' : 'kibice bez zmian'); },
+  effects: {},
+  log: 'Cennik na sezon: ' + t.policy + ' (' + t.price + ' zł). Pani Mariolka wypisała go kredą na tablicy przy bramie.',
+  onChoose: () => { gameState.matchday.ticket = id; gameState.matchday.ticketFixKey = ''; },
 }));
 
 DATA.decisions.mediaStrategy.options = Object.entries(DATA.mediaStrategies).map(([id, st]) => ({
@@ -1789,7 +1677,7 @@ const Engine = {
     Engine.addLog('Poprzedni prezes zostawił na biurku klucze (nie wiadomo do czego) i niedopitą kawę z 2019. Drużynę tymczasowo prowadzi Pan Mirek, konserwator.', 'flavor');
     Engine.addLog('Liga (10 drużyn, 18 kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
     Engine.pushDecision('welcomeWojt');
-    Engine.offerSeasonTickets();
+    Engine.offerTicketPolicy();
   },
 
   addLog(text, type = 'flavor') {
@@ -1909,38 +1797,23 @@ const Engine = {
     return results;
   },
 
-  /* ----- Karnety ----- */
-  seasonTicketDemand(kind) {
-    const fans = gameState.morale.fans;
-    const mult = Selectors.econ() * gameState.bonuses.seasonTicketBoost;   // wyższa liga = więcej chętnych; feta = +10%
-    return kind === 'vip' ? Math.round((4 + fans * 0.15) * mult) : Math.round((8 + fans * 0.3) * mult);
+  /* ----- Bilety: kupowane na bramce przed każdym meczem u siebie ----- */
+  // Cennik na sezon: pytanie raz na sezon (przy starcie gry albo przed 1. kolejką)
+  offerTicketPolicy() {
+    if (gameState.matchday.policySeason === gameState.calendar.season) return;
+    gameState.matchday.policySeason = gameState.calendar.season;
+    Engine.pushDecision('ticketPolicy');
   },
 
-  setSeasonTickets(holders, rounds = CONFIG.roundsPerRunda) {
-    gameState.bonuses.seasonTicketBoost = 1;
-    gameState.seasonTickets.holders = holders;
-    gameState.seasonTickets.roundsLeft = holders > 0 ? rounds : 0;
-  },
-
-  // Karnety sezonowe według polityki cenowej
-  passHolders(policyId) {
-    const tp = DATA.ticketPolicies[policyId];
-    return tp ? Math.round(Engine.seasonTicketDemand('basic') * tp.demand) : 0;
-  },
-  setTicketPolicy(policyId) {
-    const holders = Engine.passHolders(policyId);
-    Engine.setSeasonTickets(holders, gameState.season.rounds.length);
-    gameState.seasonTickets.policy = policyId;
-    gameState.seasonTickets.policySeason = gameState.calendar.season;
-  },
-
-  // Przed startem ligi: karnety na cały sezon. W przerwie zimowej – na rundę wiosenną, jeśli nikt nie ma karnetu.
-  offerSeasonTickets() {
-    const key = 's' + gameState.calendar.season + 'r' + gameState.calendar.round;
-    if (gameState.seasonTickets.lastOfferKey === key) return;
-    gameState.seasonTickets.lastOfferKey = key;
-    if (gameState.calendar.round === 0) Engine.pushDecision('seasonPass');
-    else if (gameState.seasonTickets.roundsLeft <= 0) Engine.pushDecision('seasonTickets');
+  // Prognoza na najbliższy mecz u siebie dla danego cennika (bez losowości)
+  ticketForecast(id) {
+    const next = Selectors.nextHomeFixture();
+    if (!next || !DATA.tickets[id]) return null;
+    const prev = gameState.matchday.ticket;
+    gameState.matchday.ticket = id;
+    const att = Engine.estimateAttendance(next.fixture);
+    gameState.matchday.ticket = prev;
+    return { att, gate: att * DATA.tickets[id].price };
   },
 
   // Cennik biletów: ustalany przed rundą; w trakcie rundy jedna delikatna korekta (o jeden próg)
@@ -2022,7 +1895,7 @@ const Engine = {
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
     if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
     if (Selectors.mediaStrategy() === 'populist') base *= 1.1;   // strategia populistyczna: „wszyscy na stadion”
-    if (Selectors.ticketPolicy()) base *= DATA.ticketPolicies[Selectors.ticketPolicy()].attendance;   // polityka cenowa karnetów
+    if (gameState.bonuses.fetaMatches > 0) base *= 1.1;   // po fecie ludzie jeszcze przychodzą
     // Letnicy z miasta nie liczą każdej złotówki na bilecie
     base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
     if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
@@ -2124,7 +1997,7 @@ const Engine = {
     goals.sort((a, b) => a.min - b.min);
     gameState.lastMatch = {
       week: gameState.calendar.week, kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
-      weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null, holders: 0,
+      weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra,
     };
 
@@ -2165,10 +2038,7 @@ const Engine = {
     // Strategia medialna sezonu
     if (Selectors.mediaStrategy() === 'populist') fans += result === 'W' ? 2 : result === 'L' ? -3 : 0;
     if (Selectors.mediaStrategy() === 'spicy') fans += 1;
-    let locker = { W: 5, D: 1, L: -4 }[result];
-    // Presja z trybun zależna od polityki cenowej karnetów
-    if (result === 'L' && Selectors.ticketPolicy() === 'cheap') fans += 1;
-    if (result === 'L' && Selectors.ticketPolicy() === 'pricey') { fans -= 2; locker -= 2; }
+    const locker = { W: 5, D: 1, L: -4 }[result];
     Engine.applyEffects({ fans, lockerRoom: locker });
 
     // Ulubieniec Trybun na ławce = kibice niezadowoleni
@@ -2201,11 +2071,7 @@ const Engine = {
       if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
     }
 
-    // --- Karnety i kalendarz ligi ---
-    if (gameState.seasonTickets.roundsLeft > 0) {
-      gameState.seasonTickets.roundsLeft--;
-      if (gameState.seasonTickets.roundsLeft === 0) gameState.seasonTickets.holders = 0;
-    }
+    // --- Kalendarz ligi ---
     Engine.resolveDarkDeal();
     gameState.matchday.security = null;
     gameState.calendar.round++;
@@ -2218,8 +2084,8 @@ const Engine = {
     const sausage = DATA.sausages[md.sausage];
 
     const att = Math.round(Engine.estimateAttendance(fixture, weather) * Utils.randRange(0.85, 1.15));
-    const holdersIn = Math.min(gameState.seasonTickets.roundsLeft > 0 ? gameState.seasonTickets.holders : 0, att);
-    const paying = att - holdersIn;
+    const paying = att;
+    if (gameState.bonuses.fetaMatches > 0) gameState.bonuses.fetaMatches--;
     const gate = paying * ticket.price;
     Engine.money('Bilety (' + paying + ' × ' + ticket.price + ' zł)', gate);
 
@@ -2228,11 +2094,11 @@ const Engine = {
     gameState.stats.sausages += sold;
     Engine.money('Budka u Pana Zenka (' + sold + ' szt.)', grillProfit);
     if (gameState.lastMatch) {
-      Object.assign(gameState.lastMatch, { attendance: att, holders: holdersIn });
+      gameState.lastMatch.attendance = att;
       gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + ticket.price + ' zł)', amount: gate }, { label: 'Gastro: ' + sold + ' szt. „' + sausage.label + '”', amount: grillProfit });
     }
 
-    Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' + (holdersIn ? ' (w tym ' + holdersIn + ' karnetowiczów)' : '') +
+    Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' +
       '. Bilety: ' + Utils.formatMoney(gate) + '. Budka Zenka: ' + sold + ' szt. „' + sausage.label + '” → ' + Utils.formatMoney(grillProfit) + ' zysku.', 'finance');
 
     const ticketFans = gameState.club.character === 'suburban' && ticket.fans < 0 ? Math.round(ticket.fans / 3) : ticket.fans;
@@ -3162,7 +3028,7 @@ const Engine = {
     },
     function scheduleDecisions() {
       if (!Selectors.isMatchWeek()) return;
-      if (gameState.calendar.round % CONFIG.roundsPerRunda === 0) Engine.offerSeasonTickets();
+      if (gameState.calendar.round === 0) Engine.offerTicketPolicy();   // cennik biletów na sezon
       if (gameState.calendar.round === 0 && !Selectors.strategyLocked()) Engine.pushDecision('mediaStrategy');
       const fx = Selectors.currentFixture();
       if (fx.home && Selectors.rival(fx.rival).derby && !gameState.stadium.upgrades.monitoring) Engine.pushDecision('derbySecurity');
@@ -3190,7 +3056,6 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => Math.round(sp.weekly * Selectors.econ() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1)),
   mediaStrategy: () => gameState.x.strategy || 'neutral',
-  ticketPolicy: () => (gameState.seasonTickets.policySeason === gameState.calendar.season ? gameState.seasonTickets.policy : null),
   strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
   coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)),
@@ -3387,6 +3252,8 @@ const Storage = {
     state.version = CONFIG.saveVersion;
     state.ui.startError = '';
     if (!state.weather) state.weather = DATA.weather[1];
+    state.pendingDecisions = (state.pendingDecisions || []).filter((id) => DATA.decisions[id]);
+    delete state.seasonTickets;
     if (!state.club.town) {
       const words = String(state.club.name || '').trim().split(/\s+/);
       state.club.town = words.length > 1 ? words.slice(1).join(' ') : (words[0] || 'Gmina');
@@ -3701,7 +3568,7 @@ const UI = {
           <div class="text-center text-[22px] font-extrabold tracking-wide ${tone}">${label}${m.sensation ? ' · SENSACJA!' : ''}</div>
           ${m.best ? `<div class="text-center text-[12.5px] text-paper-300">⭐ Gracz meczu: <b class="text-paper-100">${Utils.escape(m.best.name)}</b> (${m.best.r.toFixed(1)})</div>` : ''}
           <div class="rounded-xl bg-desk-800 px-3 py-2.5 space-y-1">
-            ${m.attendance != null ? `<div class="flex justify-between text-[12.5px]"><span class="text-paper-300">🏟️ Frekwencja</span><b>${m.attendance} widzów${m.holders ? ' <span class="font-normal text-paper-400">(' + m.holders + ' z karnetem)</span>' : ''}</b></div>` : ''}
+            ${m.attendance != null ? `<div class="flex justify-between text-[12.5px]"><span class="text-paper-300">🏟️ Frekwencja</span><b>${m.attendance} widzów</b></div>` : ''}
             ${money}
             <div class="flex justify-between pt-1.5 mt-1 border-t border-desk-600 text-[14px]"><span class="font-semibold">Wynik finansowy meczu</span><b class="${total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(total)}</b></div>
           </div>
@@ -4533,37 +4400,28 @@ const UI = {
   ticketsCard() {
     const md = gameState.matchday;
     const next = Selectors.nextHomeFixture();
-    const st = gameState.seasonTickets;
-    let preview = '<p class="text-[12px]">W tym sezonie u siebie już nie gramy.</p>';
-    if (next) {
-      const est = Engine.estimateAttendance(next.fixture);
-      const holders = st.roundsLeft > 0 ? Math.min(st.holders, est) : 0;
-      preview = `<p class="text-[12px] leading-snug">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' <span class="text-stamp font-bold">🔥 KOSA – podwójne zainteresowanie!</span>' : ''}.
-        Szacowana frekwencja przy obecnej pogodzie: <b>~${est}</b> widzów${holders ? `, w tym ${holders} karnetowiczów (nie płacą na bramce)` : ''}.</p>`;
-    }
-    const ticketsInfo = st.roundsLeft > 0
-      ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.`
-      : 'Karnety: brak aktywnych.';
-    const tp = DATA.ticketPolicies[Selectors.ticketPolicy()];
-    const policy = tp
-      ? `<div class="flex items-center gap-2 rounded-md border border-paper-300 bg-white px-2 py-1.5 mb-1">
-          <span class="text-[18px]">${tp.icon}</span>
-          <div class="min-w-0 flex-1"><div class="text-[12px] font-bold">Karnety: ${tp.label} (${tp.price} zł)</div><div class="text-[10.5px] text-ink-700 leading-snug">${tp.effects.join(' · ')}</div></div>
-          <span class="text-[10px] text-ink-700 whitespace-nowrap">presja ${'●'.repeat(tp.pressure)}${'○'.repeat(3 - tp.pressure)}</span>
-        </div>`
-      : '';
+    const preview = next
+      ? `<p class="text-[12px] leading-snug">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' <span class="text-stamp font-bold">🔥 KOSA – podwójne zainteresowanie!</span>' : ''}. Bilety kupowane na bramce w dniu meczu.</p>`
+      : '<p class="text-[12px]">W tym sezonie u siebie już nie gramy.</p>';
+    const policies = Object.entries(DATA.tickets).map(([id, t]) => {
+      const ok = Engine.canSetTicket(id);
+      const active = md.ticket === id;
+      const f = Engine.ticketForecast(id);
+      return `
+        <button data-action="set-ticket" data-value="${id}" ${ok ? '' : 'disabled'}
+          class="btn-press w-full text-left px-2 py-1.5 border rounded-lg flex items-center gap-2 ${active ? 'border-amber-glow bg-amber-glow/15' : ok ? 'border-paper-300 bg-white' : 'border-paper-300 bg-paper-200 opacity-60 cursor-not-allowed'}">
+          <span class="text-[18px] w-6 text-center">${ok || active ? t.icon : '🔒'}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-[12.5px] ${active ? 'font-bold' : 'font-semibold'} leading-tight">${t.policy} · ${t.price} zł</span>
+            <span class="block text-[10.5px] text-ink-700 leading-snug">${f ? '~' + f.att + ' widzów · ~' + Utils.formatMoney(f.gate) + ' z biletów na mecz' : 'brak meczów u siebie'}${t.fans ? ' · kibice ' + (t.fans > 0 ? '+' : '') + t.fans + '%/mecz' : ''}</span>
+          </span>
+        </button>`;
+    }).join('');
 
     return UI.panel('Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
-      ${policy}
-      <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}<p class="text-[11px] text-ink-700">${ticketsInfo}</p></div>
-      ${UI.h4('Cena biletu')}
-      <div class="grid grid-cols-3 gap-1.5">
-        ${Object.entries(DATA.tickets).map(([id, t]) => {
-          const ok = Engine.canSetTicket(id);
-          return `<button data-action="set-ticket" data-value="${id}" ${ok ? '' : 'disabled'}
-            class="btn-press w-full min-w-0 text-left px-2 py-1.5 border rounded-lg text-[12px] leading-tight ${md.ticket === id ? 'border-amber-glow bg-amber-glow/15 font-bold' : ok ? 'border-paper-300 bg-white font-semibold' : 'border-paper-300 bg-paper-200 text-paper-400 font-semibold cursor-not-allowed'}">${md.ticket === id ? '' : ok ? '' : '🔒 '}${t.label}</button>`;
-        }).join('')}
-      </div>
+      <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}</div>
+      ${UI.h4('Polityka cenowa biletów')}
+      <div class="grid gap-1.5">${policies}</div>
       <p class="text-[11px] text-ink-700 leading-snug mt-1">${DATA.tickets[md.ticket].desc}</p>
       <p class="text-[11px] font-semibold mt-0.5 ${Engine.ticketWindowOpen() ? 'text-grass' : 'text-ink-700'}">${Engine.ticketWindowOpen()
         ? '🔓 Okno cenowe otwarte: cennik ustalasz teraz na całą rundę.'
