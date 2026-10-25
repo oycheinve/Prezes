@@ -687,6 +687,327 @@ const DATA = {
       ],
     },
 
+    cutUncle: {
+      id: 'cutUncle',
+      cutscene: { icon: '🧔', place: 'Furtka przed domem · niedziela po sumie' },
+      from: 'Wujek Tadek (rodzina, niestety)',
+      title: 'Zadłużony wujek',
+      body: () => 'Wujek Tadek łapie Prezesa za rękaw: „Słuchaj, ja tylko na tydzień. ' + Utils.formatMoney(Math.round(400 * Selectors.econ())) + '. Ten od tirów z Helu mnie szuka, a ty masz klucz do kasetki klubowej. Rodzina to rodzina.”',
+      options: [
+        {
+          label: 'Pożyczyć z kasy klubu',
+          hint: () => Utils.signedMoney(-Math.round(400 * Selectors.econ())) + ', ok. 40% szans, że odda z nawiązką',
+          effects: () => ({ budget: -Math.round(400 * Selectors.econ()) }),
+          log: 'Koperta z kasetki klubowej powędrowała do wujka. Pani Halinka zapisała w zeszycie: „sprawy rodzinne”.',
+          onChoose: () => {
+            if (Math.random() < 0.4) { Engine.applyEffects({ budget: Math.round(550 * Selectors.econ()) }, 'Wujek Tadek oddał'); Engine.addLog('🧔 Cud! Wujek oddał z nawiązką: ' + Utils.formatMoney(Math.round(550 * Selectors.econ())) + '. Tiry jednak się sprzedały.', 'event'); }
+            else { Engine.shiftDNA(-2); Engine.addLog('🧔 Wujek zniknął. Ciotka mówi, że „pojechał do Niemiec na szparagi”.', 'event'); }
+          },
+        },
+        {
+          label: 'Zatrudnić go jako stróża za dług',
+          hint: () => Utils.signedMoney(-Math.round(150 * Selectors.econ())) + ', murawa +8 (pilnuje kretów)',
+          effects: () => ({ budget: -Math.round(150 * Selectors.econ()) }),
+          log: 'Wujek Tadek nocuje w blaszaku z latarką i psem. Krety zaczęły się bać.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 8, 0, 100); },
+        },
+        {
+          label: 'Odmówić – klub to nie bank rodzinny',
+          hint: 'Kibice -3% (rodzina obgaduje we wsi), DNA w stronę profesjonalizmu',
+          effects: { fans: -3 },
+          log: 'Wujek obraził się na pół gminy. Na weselu kuzynki Prezes siedzi przy stoliku z dziećmi.',
+          onChoose: () => Engine.shiftDNA(+2),
+        },
+      ],
+    },
+    cutTax: {
+      id: 'cutTax',
+      cutscene: { icon: '🧾', place: 'Blaszak · poniedziałek, 9:00' },
+      from: 'Urząd Skarbowy (pani w garsonce)',
+      title: 'Kontrola z Urzędu Skarbowego',
+      body: 'Do blaszaka wchodzi pani w garsonce z teczką. „Kontrola. Proszę o księgi rachunkowe za ostatnie trzy lata.” Pani Halinka blednie i chowa za plecami zeszyt w kratkę z naklejką „KASA”.',
+      options: [
+        {
+          label: 'Pokazać zeszyt pani Halinki',
+          hint: 'Za darmo. Ok. 50% szans na karę i skandal',
+          effects: {},
+          log: 'Kontrolerka przegląda zeszyt w kratkę. Długo. Bardzo długo.',
+          onChoose: () => {
+            if (Math.random() < 0.5) { Engine.applyEffects({ budget: -Math.round(800 * Selectors.econ()) }, 'Kara z Urzędu Skarbowego'); Engine.addScandal('kontrola skarbowa: „księgowość” w zeszycie'); Engine.addLog('🧾 Kara: ' + Utils.formatMoney(Math.round(800 * Selectors.econ())) + '. „Koperty u pana Ryśka” nie są formą księgowania.', 'event'); }
+            else Engine.addLog('🧾 Kontrolerka zamknęła zeszyt: „Bałagan, ale uczciwy”. Uff.', 'event');
+          },
+        },
+        {
+          label: 'Wynająć księgową z miasta na cito',
+          hint: () => Utils.signedMoney(-Math.round(350 * Selectors.econ())) + ', DNA w stronę profesjonalizmu',
+          effects: () => ({ budget: -Math.round(350 * Selectors.econ()) }),
+          log: 'Księgowa z miasta przepisała zeszyt do Excela w jedną noc. Kontrola bez uwag.',
+          onChoose: () => Engine.shiftDNA(+3),
+        },
+        {
+          label: 'Ugościć kontrolerkę kiełbasą i nalewką',
+          hint: 'DNA w dół, ok. 35% szans na wysoką karę i skandal',
+          effects: {},
+          log: 'Pan Zenek wyciągnął z budki najlepszą gięta, a pan Rysiek wiśniówkę.',
+          onChoose: () => {
+            Engine.shiftDNA(-4);
+            if (Math.random() < 0.35) { Engine.applyEffects({ budget: -Math.round(1200 * Selectors.econ()) }, 'Kara z Urzędu Skarbowego'); Engine.addScandal('próba „ugoszczenia” kontrolera'); Engine.addLog('🧾 Kontrolerka była abstynentką i wegetarianką. Kara: ' + Utils.formatMoney(Math.round(1200 * Selectors.econ())) + '.', 'event'); }
+            else Engine.addLog('🧾 Po trzeciej nalewce kontrolerka śpiewała „Szła dzieweczka”. Protokół: bez uwag.', 'event');
+          },
+        },
+      ],
+    },
+    cutFire: {
+      id: 'cutFire',
+      cutscene: { icon: '🔥', place: 'Budka z kiełbaskami · sobota, 16:20' },
+      from: 'Pan Zenek (osmalony)',
+      title: 'Pożar w budce z kiełbaskami',
+      body: 'Słup dymu nad boiskiem. Butla w budce pana Zenka nie wytrzymała, grill stoi w płomieniach, a kiełbaski strzelają jak petardy. Kibice stoją z kubkami i patrzą, jakby to był pokaz sztucznych ogni.',
+      options: [
+        {
+          label: 'Odbudować budkę porządnie',
+          hint: () => Utils.signedMoney(-Math.round(500 * Selectors.econ())) + ', kibice +2%',
+          effects: () => ({ budget: -Math.round(500 * Selectors.econ()), fans: +2 }),
+          log: 'Nowa budka z blachy i z gaśnicą. Pan Zenek pierwszy raz w życiu ma atest.',
+        },
+        {
+          label: 'Zbiórka wśród kibiców',
+          hint: () => Utils.signedMoney(-Math.round(150 * Selectors.econ())) + ', kibice +4%, szatnia +2%',
+          effects: () => ({ budget: -Math.round(150 * Selectors.econ()), fans: +4, lockerRoom: +2 }),
+          log: 'Puszka krążyła po trybunach, Koło Gospodyń upiekło ciasto na licytację. Budka stoi w tydzień.',
+        },
+        {
+          label: 'Grill z beczki na razie wystarczy',
+          hint: 'Za darmo. Kibice -4%',
+          effects: { fans: -4 },
+          log: 'Pan Zenek piecze kiełbaski na beczce po smarze. Smak „z charakterem”, kolejki krótsze.',
+        },
+      ],
+    },
+    cutTransfer: {
+      id: 'cutTransfer',
+      cutscene: { icon: '🚐', place: 'Parking pod sklepem · środa wieczorem' },
+      available: () => gameState.squad.length > CONFIG.minSquad,
+      prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; },
+      from: () => 'Działacz klubu z ligi ' + (DATA.leagueLevels[Math.min(gameState.club.leagueLevel + 2, DATA.leagueLevels.length - 1)] || DATA.leagueLevels[1]).name,
+      title: 'Oferta z wyższej ligi',
+      body: () => {
+        const p = Selectors.cutTarget();
+        if (!p) return 'Działacz przyjechał, pokręcił się i odjechał.';
+        return 'Pod sklep podjeżdża czarny bus z herbem klubu z wyższej ligi. Działacz w dresie z lampasami: „Chcemy ' + Selectors.playerName(p) + '. Dajemy ' + Utils.formatMoney(Selectors.cutTransferFee()) + ' gotówką, dziś. Chłopak już się zgodził, tylko Pan musi podpisać.”';
+      },
+      options: [
+        {
+          label: 'Sprzedać – takich pieniędzy się nie odrzuca',
+          hint: () => '+' + Utils.formatMoney(Selectors.cutTransferFee()) + ', szatnia -4%' + (Selectors.cutTarget() && Selectors.cutTarget().favorite ? ', kibice -8% (Ulubieniec!)' : ''),
+          effects: () => ({ budget: Selectors.cutTransferFee(), lockerRoom: -4, fans: Selectors.cutTarget() && Selectors.cutTarget().favorite ? -8 : 0 }),
+          log: () => { const p = Selectors.cutTarget(); return p ? Selectors.playerName(p) + ' wsiada do czarnego busa. Na pożegnanie zostawia korki na haczyku.' : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => { const id = gameState.cutscenes.targetId; gameState.squad = gameState.squad.filter((x) => x.id !== id); gameState.cutscenes.targetId = null; },
+        },
+        {
+          label: 'Podbić cenę dwa razy',
+          hint: 'Ok. 40% szans na podwójną kwotę, inaczej działacz odjeżdża',
+          effects: {},
+          log: 'Prezes kręci głową: „Za tyle to on u nas wodę nosi”.',
+          onChoose: () => {
+            const p = Selectors.cutTarget();
+            if (p && Math.random() < 0.4) {
+              Engine.applyEffects({ budget: Selectors.cutTransferFee() * 2, lockerRoom: -4, fans: p.favorite ? -8 : 0 }, 'Transfer do wyższej ligi');
+              gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+              Engine.addLog('💰 Działacz zaklął i dołożył drugą kopertę. ' + Selectors.playerName(p) + ' odchodzi za ' + Utils.formatMoney(Selectors.cutTransferFee() * 2) + '!', 'event');
+            } else if (p) {
+              Engine.applyEffects({ lockerRoom: -3 });
+              Engine.addLog('🚐 Działacz odjechał bez słowa. ' + Selectors.playerName(p) + ' przez tydzień nie odzywa się na treningu. [szatnia -3%]', 'event');
+            }
+            gameState.cutscenes.targetId = null;
+          },
+        },
+        {
+          label: 'Nie sprzedajemy – on jest stąd',
+          hint: 'Szatnia +4%, kibice +4%',
+          effects: { lockerRoom: +4, fans: +4 },
+          log: () => { const p = Selectors.cutTarget(); return p ? 'Prezes wyprosił działacza. ' + Selectors.playerName(p) + ': „Prezesie, ja i tak chciałem zostać”.' : 'Prezes wyprosił działacza.'; },
+          onChoose: () => { gameState.cutscenes.targetId = null; },
+        },
+      ],
+    },
+    cutMedia: {
+      id: 'cutMedia',
+      cutscene: { icon: '📰', place: 'Portal „Nasza Gmina 24” · wtorek rano' },
+      from: 'Redaktor naczelny (i jedyny)',
+      title: 'Burza w lokalnych mediach',
+      body: () => 'Nagłówek na portalu: „AFERA W ' + Selectors.clubDisplayName().toUpperCase() + '? Prezes jeździ na mecze klubowym busem na zakupy!” Pod artykułem 214 komentarzy, w tym 180 od tej samej osoby.',
+      options: [
+        {
+          label: 'Zwołać konferencję w remizie',
+          hint: () => Utils.signedMoney(-Math.round(60 * Selectors.econ())) + ' (kawa i ciastka), kibice +3%, DNA w górę',
+          effects: () => ({ budget: -Math.round(60 * Selectors.econ()), fans: +3 }),
+          log: 'Konferencja w remizie: Prezes pokazał paragony z Biedronki. Dziennikarz zjadł trzy pączki i przeprosił.',
+          onChoose: () => Engine.shiftDNA(+2),
+        },
+        {
+          label: 'Milczeć i przeczekać',
+          hint: 'Kibice -5%',
+          effects: { fans: -5 },
+          log: 'Prezes milczy. Po tygodniu portal pisze już o dziurze w drodze do Pniewa. Niesmak został.',
+        },
+        {
+          label: 'Odpowiedzieć ostro na Wirtualnym X',
+          hint: 'Kibice +4%, DNA w dół, ok. 30% ryzyko skandalu',
+          effects: { fans: +4 },
+          log: 'Prezes napisał na X: „Pismaki z miasta niech najpierw wiedzą, gdzie jest boisko!” Kibice zachwyceni.',
+          onChoose: () => { Engine.shiftDNA(-4); if (Math.random() < 0.3) Engine.addScandal('wojna prezesa z lokalnym portalem'); },
+        },
+      ],
+    },
+    cutPriest: {
+      id: 'cutPriest',
+      cutscene: { icon: '⛪', place: 'Plebania · czwartek po wieczornej' },
+      from: 'Ksiądz proboszcz',
+      title: 'Proboszcz ma pomysł',
+      body: 'Ksiądz proboszcz nalewa herbatę: „Panie Prezesie, poświęcimy boisko przed meczem. Z orkiestrą dętą. A potem festyn parafialny – na waszym obiekcie, z tacą, rzecz jasna, i loterią fantową”.',
+      options: [
+        {
+          label: 'Poświęcenie i festyn – pół na pół z tacy',
+          hint: () => '+' + Utils.formatMoney(Math.round(300 * Selectors.econ())) + ', kibice +3%, murawa -8',
+          effects: () => ({ budget: Math.round(300 * Selectors.econ()), fans: +3 }),
+          log: 'Orkiestra dęta, święcona woda na bramkach i loteria fantowa. Główna nagroda: prosiak. Murawa ucierpiała.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 8, 0, 100); },
+        },
+        {
+          label: 'Samo poświęcenie, bez festynu',
+          hint: () => Utils.signedMoney(-Math.round(100 * Selectors.econ())) + ' (datek), kibice +2%, szatnia +3%',
+          effects: () => ({ budget: -Math.round(100 * Selectors.econ()), fans: +2, lockerRoom: +3 }),
+          log: 'Proboszcz pokropił bramki i szatnię. Bramkarz twierdzi, że od tego czasu łapie lepiej.',
+        },
+        {
+          label: 'Grzecznie odmówić',
+          hint: 'Kibice -4% (babcie z pierwszego rzędu nie zapomną)',
+          effects: { fans: -4 },
+          log: 'Proboszcz westchnął. W niedzielnym ogłoszeniu parafialnym klub nie został wspomniany.',
+        },
+      ],
+    },
+    cutCows: {
+      id: 'cutCows',
+      cutscene: { icon: '🐄', place: 'Brzeg boiska · świt' },
+      from: 'Rolnik Zdzich',
+      title: 'Krowy na boisku',
+      body: 'O świcie na murawie pasie się osiem krów. Rolnik Zdzich opiera się o bramkę: „Panie Prezesie, u mnie susza, a tu trawa jak w Szwajcarii. Zapłacę, albo… naturalnie nawiozę”.',
+      options: [
+        {
+          label: 'Zgoda za opłatą',
+          hint: () => '+' + Utils.formatMoney(Math.round(150 * Selectors.econ())) + ', murawa -15',
+          effects: () => ({ budget: Math.round(150 * Selectors.econ()) }),
+          log: 'Krowy pana Zdzicha mają teraz karnet na boisko. Pole karne wygląda jak pastwisko, bo nim jest.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 15, 0, 100); },
+        },
+        {
+          label: 'Zgoda za nawóz i pomoc przy koszeniu',
+          hint: 'Murawa +6, kibice +2%, szatnia -3% (zapach)',
+          effects: { fans: +2, lockerRoom: -3 },
+          log: 'Krowy nawożą, pan Zdzich kosi. Trawa rośnie jak szalona, w szatni pachnie wsią.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 6, 0, 100); },
+        },
+        {
+          label: 'Przegonić krowy',
+          hint: 'Kibice -2%',
+          effects: { fans: -2 },
+          log: 'Pan Heniek z grabiami przegonił krowy. Pan Zdzich mówi, że „klub zapomniał, skąd pochodzi”.',
+        },
+      ],
+    },
+    cutWedding: {
+      id: 'cutWedding',
+      cutscene: { icon: '💒', place: 'Biuro klubu · piątek, 19:00' },
+      from: 'Państwo młodzi (i ich matki)',
+      title: 'Wesele w blaszaku',
+      body: 'W drzwiach stoi para młodych i dwie matki. „Remiza zajęta, sala w mieście za droga. Weźmiemy blaszak i boisko na sobotę. Orkiestra, 120 osób, namiot na środku boiska. Zapłacimy gotówką.”',
+      options: [
+        {
+          label: 'Wynająć blaszak i boisko',
+          hint: () => '+' + Utils.formatMoney(Math.round(500 * Selectors.econ())) + ', murawa -12, szatnia -3%',
+          effects: () => ({ budget: Math.round(500 * Selectors.econ()), lockerRoom: -3 }),
+          log: 'Wesele do białego rana. Namiot zostawił na środku boiska idealny prostokąt łysiny.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 12, 0, 100); },
+        },
+        {
+          label: 'Tylko blaszak, boisko nie',
+          hint: () => '+' + Utils.formatMoney(Math.round(250 * Selectors.econ())) + ', szatnia -2%',
+          effects: () => ({ budget: Math.round(250 * Selectors.econ()), lockerRoom: -2 }),
+          log: 'Wesele w blaszaku. Rano w szatni znaleziono dwa buty, welon i wujka śpiącego w wannie.',
+        },
+        {
+          label: 'Odmówić – to obiekt sportowy',
+          hint: 'Kibice -2%, DNA w górę',
+          effects: { fans: -2 },
+          log: 'Para młoda poszła do remizy w sąsiedniej wsi. Matki obgadują Prezesa do dziś.',
+          onChoose: () => Engine.shiftDNA(+1),
+        },
+      ],
+    },
+    cutInfluencer: {
+      id: 'cutInfluencer',
+      cutscene: { icon: '🤳', place: 'Boisko · sobota przed meczem' },
+      from: '@MarcelVlogs (1,2 mln obserwujących)',
+      title: 'Influencer z Warszawy',
+      body: 'Z wypożyczonego Mustanga wysiada chłopak w puchowej kurtce. „Siema! Robię serię «Najgorsze kluby Polski». Chcę wejść na 10 minut w waszym meczu jako napastnik. Będzie viral, mordo!”',
+      options: [
+        {
+          label: 'Zgoda – niech gra 10 minut',
+          hint: 'Kibice +6%, szatnia -4%, DNA w dół',
+          effects: { fans: +6, lockerRoom: -4 },
+          log: 'Marcel wszedł w 80. minucie, upadł bez kontaktu i nagrał to w zwolnionym tempie. 3 mln wyświetleń.',
+          onChoose: () => Engine.shiftDNA(-3),
+        },
+        {
+          label: 'Tylko nagranie zza linii i za opłatą',
+          hint: () => '+' + Utils.formatMoney(Math.round(300 * Selectors.econ())) + ', kibice +2%',
+          effects: () => ({ budget: Math.round(300 * Selectors.econ()), fans: +2 }),
+          log: 'Marcel nagrał relację z budki pana Zenka. Hit filmu: „gięta, która zmieniła moje życie”.',
+        },
+        {
+          label: 'Odesłać go do miasta',
+          hint: 'Szatnia +2%',
+          effects: { lockerRoom: +2 },
+          log: 'Marcel nagrał film „Wyrzucili mnie z najgorszego klubu w Polsce”. Piłkarze dumni, że ich nie nagrał.',
+        },
+      ],
+    },
+    cutMower: {
+      id: 'cutMower',
+      cutscene: { icon: '🚜', place: 'Garaż pana Heńka · poniedziałek' },
+      from: 'Pan Heniek (zrozpaczony)',
+      title: 'Ukradli kosiarkę',
+      body: 'Pan Heniek stoi w pustym garażu z łańcuchem w ręku. „Prezesie, kosiarkę mi wynieśli. Tę od szwagra. Trawa do soboty urośnie do kolan, a sędzia z miasta piłki nie znajdzie.”',
+      options: [
+        {
+          label: 'Kupić nową kosiarkę',
+          hint: () => Utils.signedMoney(-Math.round(350 * Selectors.econ())) + ', murawa +5',
+          effects: () => ({ budget: -Math.round(350 * Selectors.econ()) }),
+          log: 'Nowa kosiarka z marketu, na raty zero procent. Pan Heniek śpi z nią w garażu.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 5, 0, 100); },
+        },
+        {
+          label: 'Pożyczyć kozy od sąsiada',
+          hint: 'Kibice +2%, murawa -5',
+          effects: { fans: +2 },
+          log: 'Trzy kozy skosiły boisko po swojemu. Jedna zjadła siatkę z bramki, ale zdjęcia hitem na X.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 5, 0, 100); },
+        },
+        {
+          label: 'Szukać z dzielnicowym po wsi',
+          hint: 'Ok. 50% szans, że się znajdzie (inaczej murawa -10)',
+          effects: {},
+          log: 'Prezes i dzielnicowy objeżdżają wieś rowerami, zaglądając do stodół.',
+          onChoose: () => {
+            if (Math.random() < 0.5) Engine.addLog('🚜 Kosiarka znalazła się u szwagra. Okazało się, że „tylko pożyczył”.', 'event');
+            else { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 10, 0, 100); Engine.addLog('🚜 Kosiarki nie znaleziono. Trawa po kolana, sędzia gwizdał z kosą w ręku.', 'event'); }
+          },
+        },
+      ],
+    },
+
     seasonTickets: {
       id: 'seasonTickets',
       from: 'Kierownik drużyny – pan Rysiek',
@@ -747,6 +1068,7 @@ const DATA = {
 
     veteranStaff: {
       id: 'veteranStaff',
+      cutscene: { icon: '🎖️', place: 'Koniec sezonu · pusta szatnia', scripted: true },
       from: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ', ' + r.age + ' l.' : 'Szatnia'; },
       title: () => { const r = Selectors.currentRetiree(); return r ? (r.legend ? 'Legenda' : 'Ulubieniec Trybun') + ' kończy karierę' : 'Koniec kariery'; },
       body: () => {
@@ -1336,7 +1658,8 @@ function createInitialState() {
       ticketFixKey: '',         // runda, w której wykorzystano korektę ceny biletu
     },
     lastMatch: null,            // dane ostatniego meczu dla ekranu meczowego
-    cutscenes: { lastWeek: 0, recent: [] },
+    seasonSummary: null,        // podsumowanie roczne: wynik, emerytury, nowi zawodnicy
+    cutscenes: { lastWeek: 0, recent: [], targetId: null },
     seasonTickets: {
       holders: 0,
       roundsLeft: 0,
@@ -1935,6 +2258,13 @@ const Engine = {
     const leagueName = Selectors.leagueName();
     const club = Selectors.clubDisplayName();
     gameState.stats.seasons++;
+    // Podsumowanie roczne (ekran na cały ekran): zbieramy dane, zanim sezon się wyzeruje
+    const topScorer = gameState.squad.slice().sort((a, b) => b.seasonGoals - a.seasonGoals)[0];
+    const summary = {
+      season: gameState.calendar.season, league: leagueName, pos, w: r.wins, d: r.draws, l: r.losses, gf: r.goalsFor, ga: r.goalsAgainst,
+      scorer: topScorer && topScorer.seasonGoals > 0 ? { name: Selectors.playerName(topScorer), goals: topScorer.seasonGoals } : null,
+      retired: [], toStaff: [], newcomers: [], seen: false,
+    };
     Engine.addLog('🏁 KONIEC SEZONU ' + gameState.calendar.season + ' (' + leagueName + ')! Miejsce w tabeli: ' + pos + '/10. Bilans: ' + r.wins + 'W ' + r.draws + 'R ' + r.losses + 'P, bramki ' + r.goalsFor + ':' + r.goalsAgainst + '.', 'system');
 
     // --- Awans, spadek, tytuł ---
@@ -2004,15 +2334,19 @@ const Engine = {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
       if (p.favorite || p.legend) {
         gameState.retirees.push(p);
+        summary.toStaff.push(Selectors.playerName(p) + ' (' + p.age + ' l.)' + (p.legend ? ' 🏆' : ' ⭐'));
       } else {
+        summary.retired.push(Selectors.playerName(p) + ' (' + p.age + ' l.)');
         Engine.addLog('👋 ' + Selectors.playerName(p) + ' (' + p.age + ' l.) kończy karierę. „Kolana mówią dość, żona mówi dość, ja mówię dość.”', 'event');
       }
     });
     Engine.queueRetirementDecision();
 
     // Szkółka: 2 juniorów; Były Ligowiec ściąga kogoś lepszego
+    const idsBefore = gameState.squad.map((p) => p.id);
     for (let i = 0; i < 2; i++) Engine.youthIntake();
     if (Selectors.coach().attracts) Engine.coachBringsPlayer();
+    summary.newcomers = gameState.squad.filter((p) => !idsBefore.includes(p.id)).map((p) => Selectors.playerName(p) + ' (' + p.age + ' l.)' + (p.talent ? ' 💎' : ''));
 
     gameState.calendar.season++;
     gameState.calendar.round = 0;
@@ -2023,6 +2357,9 @@ const Engine = {
       Engine.buildLeague(newLevel);
     }
     Engine.newSeason();
+    summary.outcome = outcome;
+    summary.newLeague = DATA.leagueLevels[newLevel].name;
+    gameState.seasonSummary = summary;
     if (newLevel !== level) Engine.addLog('📠 Nowy terminarz z faksu Związku. Rywale w lidze ' + Selectors.leagueName() + ': ' + gameState.league.rivals.map((x) => x.name).join(', ') + '.', 'system');
   },
 
@@ -2501,25 +2838,30 @@ const Engine = {
   /* ----- Cut-scenki: losowe filmowe sceny z trudną decyzją ----- */
   maybeCutscene() {
     const cs = gameState.cutscenes;
-    if (gameState.calendar.week - cs.lastWeek < 5 || gameState.pendingDecisions.some((id) => DATA.decisions[id].cutscene)) return;
-    if (Math.random() > 0.22) return;
-    const pool = Object.keys(DATA.decisions).filter((id) => DATA.decisions[id].cutscene && !cs.recent.includes(id));
+    if (gameState.calendar.week - cs.lastWeek < 8 || gameState.pendingDecisions.some((id) => DATA.decisions[id].cutscene)) return;
+    if (Math.random() > 0.15) return;
+    const pool = Object.keys(DATA.decisions).filter((id) => {
+      const d = DATA.decisions[id];
+      return d.cutscene && !d.cutscene.scripted && !cs.recent.includes(id) && (!d.available || d.available());
+    });
     if (!pool.length) return;
     const id = Utils.rand(pool);
+    if (DATA.decisions[id].prepare) DATA.decisions[id].prepare();
     cs.lastWeek = gameState.calendar.week;
-    cs.recent = [id].concat(cs.recent).slice(0, 3);
+    cs.recent = [id].concat(cs.recent).slice(0, 8);
     Engine.pushDecision(id);
   },
 
   /* ----- Ciemna strona: „Spółdzielnia” ----- */
   maybePassat() {
     const d = gameState.dark;
-    if (d.fixed || d.offersThisSeason >= 2 || gameState.calendar.week - d.lastOfferWeek < 4) return;
+    // Rzadki smaczek na kryzys: najwyżej raz w sezonie, długa przerwa, tylko gdy coś się pali
+    if (d.fixed || d.offersThisSeason >= 1 || gameState.calendar.week - d.lastOfferWeek < 12) return;
     const kolejka = gameState.calendar.round + 1;
-    const broke = gameState.finance.budget < 0;
-    if (!(kolejka >= 14 || broke) || Math.random() > 0.3) return;
     const t = gameState.season.table[US];
     const contender = t && t.p > 0 && Selectors.ourPosition() <= 3;
+    const crisis = gameState.finance.budget < 0 || (kolejka >= 14 && t && t.p > 0 && (contender || Selectors.ourPosition() >= 9));
+    if (!crisis || Math.random() > 0.15) return;
     d.lastOfferWeek = gameState.calendar.week;
     d.offersThisSeason++;
     Engine.pushDecision(contender && gameState.finance.budget >= Selectors.passatBuyAmount() ? 'passatBuy' : 'passatSell');
@@ -2873,6 +3215,8 @@ const Selectors = {
   youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
   youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
+  cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
+  cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
   freeStaffSlot: () => Object.keys(DATA.staffSlots).find((k) => !gameState.staff[k]) || null,
   currentRetiree: () => gameState.retirees[0] || null,
   projectedLineup: () => Engine.pickLineup([]),
@@ -3238,8 +3582,10 @@ const UI = {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
-    const first = DATA.decisions[gameState.pendingDecisions[0]];
-    if (first && first.cutscene) return UI.cutsceneOverlay(first);
+    if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
+    // Cut-scenka czeka na decyzję – zawsze na pierwszym planie
+    const cut = gameState.pendingDecisions.map((id) => DATA.decisions[id]).find((d) => d && d.cutscene);
+    if (cut) return UI.cutsceneOverlay(cut);
     return '';
   },
 
@@ -3348,6 +3694,40 @@ const UI = {
         <div class="grid gap-2">${opts}</div>
       </div>
       <div class="h-6 bg-black flex-shrink-0"></div>`, 'bg-[#0b0f16]');
+  },
+
+  // Podsumowanie roczne: miejsce, bilans, emerytury i nowi w kadrze – wszystko naraz, po ostatniej kolejce
+  seasonOverlay(sm) {
+    const verdict = {
+      title: ['🏆 MISTRZ POLSKI', 'text-amber-glow'], promo: ['⬆️ AWANS', 'text-grass'], podium: ['🥉 Podium', 'text-grass'], mid: ['Utrzymanie', 'text-paper-200'],
+      releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
+    }[sm.outcome] || ['Koniec sezonu', 'text-paper-200'];
+    const list = (title, items, empty) => `
+      <div class="rounded-xl bg-desk-800 px-3 py-2">
+        <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold mb-1">${title}</div>
+        ${items.length ? `<ul class="space-y-0.5">${items.map((x) => `<li class="text-[12.5px] truncate">${Utils.escape(x)}</li>`).join('')}</ul>` : `<p class="text-[12px] text-paper-400">${empty}</p>`}
+      </div>`;
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-6 pb-3 text-paper-100">
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Podsumowanie sezonu ${sm.season} · ${Utils.escape(sm.league)}</div>
+        <div class="text-center text-[64px] font-extrabold leading-none mt-3">${sm.pos}.</div>
+        <div class="text-center text-[12px] text-paper-400">miejsce w tabeli</div>
+        <div class="text-center text-[20px] font-extrabold mt-2 ${verdict[1]}">${verdict[0]}</div>
+        ${sm.newLeague !== sm.league ? `<div class="text-center text-[12px] text-paper-300 mt-0.5">Nowy sezon: <b>${Utils.escape(sm.newLeague)}</b></div>` : ''}
+        <div class="grid grid-cols-3 gap-1.5 mt-4 text-center">
+          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10px] uppercase text-paper-400">W-R-P</div><b class="text-[15px]">${sm.w}-${sm.d}-${sm.l}</b></div>
+          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10px] uppercase text-paper-400">Bramki</div><b class="text-[15px]">${sm.gf}:${sm.ga}</b></div>
+          <div class="rounded-xl bg-desk-800 py-2 min-w-0 px-1"><div class="text-[10px] uppercase text-paper-400">Król strzelców</div><b class="text-[12px] block truncate">${sm.scorer ? Utils.escape(sm.scorer.name.split(' ').slice(1).join(' ')) + ' · ' + sm.scorer.goals : '–'}</b></div>
+        </div>
+        <div class="space-y-1.5 mt-3">
+          ${list('🎖️ Kończą karierę – chcą zostać w sztabie', sm.toStaff, 'Nikt z Ulubieńców ani Legend nie odchodzi.')}
+          ${list('👋 Kończą karierę', sm.retired, 'Wszyscy grają dalej. Kolana trzymają.')}
+          ${list('🌱 Nowi w kadrze', sm.newcomers, 'Brak nowych – szatnia pełna.')}
+        </div>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">KONTYNUUJ</button>
+      </div>`, 'bg-desk-900');
   },
 
   outcomeOverlay(o) {
@@ -4118,9 +4498,15 @@ const UI = {
         UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' szt. (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost));
     }).join('');
     const frozen = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id] * DATA.merch[id].unitCost, 0);
-    return UI.panel('Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
+    const shopLine = gameState.lastReport && gameState.lastReport.lines.find((l) => l.label === 'Sklepik fanowski');
+    const stock = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id], 0);
+    return UI.tiles([
+      UI.tile('Magazyn', stock + ' szt.', 'zamrożone ' + Utils.formatMoney(frozen)),
+      UI.tile('Ostatni tydz.', shopLine ? Utils.signedMoney(shopLine.amount) : '0 zł', 'wpływ ze sklepu', shopLine ? 'text-grass' : ''),
+      UI.tile('Sprzedano', m.soldTotal + ' szt.', 'od początku'),
+    ]) + UI.panel('Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
       ${rows}
-      <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Zamrożony kapitał w kartonach: <b>${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
+      <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
       ${UI.h4('Narzut')}
       ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
     `);
@@ -4304,7 +4690,10 @@ const Actions = {
     App.commit();
   },
   'overlay-close'() {
-    gameState.ui.overlay = null;
+    const o = gameState.ui.overlay;
+    if (o && o.type === 'season' && gameState.seasonSummary) gameState.seasonSummary.seen = true;
+    // Po ostatnim meczu sezonu od razu podsumowanie roczne
+    gameState.ui.overlay = o && o.type === 'match' && gameState.seasonSummary && !gameState.seasonSummary.seen ? { type: 'season' } : null;
     App.commit();
   },
 
