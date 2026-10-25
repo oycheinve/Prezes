@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
@@ -17,12 +17,12 @@
       theme: {
         extend: {
           fontFamily: {
-            type: ['Outfit', 'Montserrat', 'system-ui', 'sans-serif'],
-            mono: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+            type: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+            mono: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+            sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
           },
           colors: {
-            desk:   { 900: '#111827', 800: '#1a2333', 700: '#243044', 600: '#334155' },
+            desk:   { 900: '#141a24', 800: '#1b2330', 700: '#273142', 600: '#364256' },
             paper:  { 100: '#f8fafc', 200: '#f1f5f9', 300: '#e2e8f0', 400: '#cbd5e1' },
             ink:    { 900: '#0f172a', 700: '#475569' },
             amber:  { glow: 'rgb(var(--glow-rgb) / <alpha-value>)' },
@@ -36,18 +36,13 @@
 
   <style>
     :root { --glow-rgb: 52 211 153; --accent: #10b981; }
-    body {
-      background-color: #111827;
-      background-image: radial-gradient(1000px 480px at 100% -10%, rgb(var(--glow-rgb) / 0.08), transparent 60%);
-      background-attachment: fixed;
-    }
-    /* Jasne, chłodne karty z ciemnym tekstem */
+    /* Clean flat: jednolite tło, płaskie karty bez cieni, subtelne obramowania */
+    body { background-color: #10151e; -webkit-font-smoothing: antialiased; font-feature-settings: 'cv11', 'tnum'; }
     .paper {
-      background-color: #f8fafc;
+      background-color: #f6f8fb;
       color: #0f172a;
-      border: 1px solid #cbd5e1;
-      border-radius: 0.75rem;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
     }
     .accent-line { border-top: 4px solid var(--accent); }
     .btn-press:active:not(:disabled) { transform: translateY(1px); }
@@ -2778,16 +2773,16 @@ const UI = {
     const stored = (gameState.ui.folds || {})[key];
     const open = stored != null ? stored : (UI.isMobile() ? mobileOpen : true);
     return `
-    <details data-fold="${key}" class="paper ${extraClass}" ${open ? 'open' : ''}>
-      <summary class="tap flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 cursor-pointer select-none">
-        <span class="font-type text-2xl font-bold text-ink-700 w-7 text-center flex-shrink-0">${letter}</span>
+    <details data-fold="${key}" class="paper min-w-0 ${extraClass}" ${open ? 'open' : ''}>
+      <summary class="tap flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none">
+        <span class="text-sm font-semibold text-ink-700 w-5 text-center flex-shrink-0">${letter}</span>
         <div class="min-w-0 flex-1">
-          <h3 class="font-type text-lg sm:text-xl font-semibold leading-tight">${title}</h3>
+          <h3 class="text-[15px] sm:text-base font-semibold leading-tight">${title}</h3>
           ${info ? `<p class="text-xs text-ink-700 truncate">${info}</p>` : ''}
         </div>
         <span class="fold-chevron text-ink-700 text-xl flex-shrink-0">⌄</span>
       </summary>
-      <div class="px-4 sm:px-5 pb-5 pt-4 border-t border-paper-300">
+      <div class="px-4 pb-4 pt-3 border-t border-paper-300">
         ${subtitle ? `<p class="text-xs text-ink-700 mb-3">${subtitle}</p>` : ''}
         ${body}
       </div>
@@ -2907,8 +2902,8 @@ const UI = {
       <input data-field="${field}" type="text" maxlength="${max}" autocomplete="off" value="${Utils.escape(value)}" placeholder="${Utils.escape(placeholder)}"
         class="w-full px-3 py-2 bg-paper-100 border border-paper-400 rounded-lg font-type text-lg text-ink-900 placeholder:text-paper-400 focus:outline-none focus:ring-4 focus:ring-amber-glow/50 ${extra}" />`;
     const section = (no, title, body) => `
-      <fieldset class="border-t-2 border-paper-300 pt-4 mt-5">
-        <legend class="font-type text-lg pr-2"><span class="text-ink-700">${no}.</span> ${title}</legend>
+      <fieldset class="border-t border-paper-300 pt-4 mt-5">
+        <legend class="text-base font-semibold pr-2"><span class="text-ink-700">${no}.</span> ${title}</legend>
         ${body}
       </fieldset>`;
 
@@ -2916,7 +2911,7 @@ const UI = {
     const characterCards = Object.entries(DATA.townTypes).map(([id, t]) => `
       <button data-action="form-set" data-field="character" data-value="${id}"
         class="btn-press w-full text-left p-3 border border-paper-400 rounded-lg ${f.character === id ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300'}">
-        <span class="font-type text-lg block">${f.character === id ? '●' : '○'} ${t.icon} ${t.label}</span>
+        <span class="text-base font-semibold block">${f.character === id ? '●' : '○'} ${t.icon} ${t.label}</span>
         <span class="text-xs block ${f.character === id ? 'text-paper-300' : 'text-ink-700'}">${t.sub}</span>
         <ul class="text-xs mt-1 list-disc pl-4 ${f.character === id ? 'text-paper-200' : 'text-ink-700'}">${t.perks.map((x) => `<li>${x}</li>`).join('')}</ul>
       </button>`).join('');
@@ -2927,13 +2922,13 @@ const UI = {
       </button>`).join('');
 
     const saveBox = save && save.club.name ? `
-      <section class="paper p-5 mb-6 border-l-8 border-grass">
-        <div class="text-xs uppercase tracking-widest text-ink-700">W szufladzie leży teczka z zapisem</div>
-        <div class="font-type text-2xl mt-1">${UI.colorsBadge(save.club.colors)} ${Utils.escape(save.club.name)}</div>
+      <section class="paper p-4 mb-6 border-l-4 border-grass">
+        <div class="text-xs uppercase tracking-wider text-ink-700">W szufladzie leży teczka z zapisem</div>
+        <div class="text-xl font-bold mt-1">${UI.colorsBadge(save.club.colors)} ${Utils.escape(save.club.name)}</div>
         <div class="text-sm text-ink-700">${Utils.escape(DATA.leagueLevels[save.club.leagueLevel] ? DATA.leagueLevels[save.club.leagueLevel].name : 'B-klasa')} · Sezon ${save.calendar.season}, Tydzień ${save.calendar.week} · Kasa: ${Utils.formatMoney(save.finance.budget)}</div>
         <div class="grid sm:grid-cols-[2fr_1fr] gap-3 mt-4">
-          <button data-action="load-game" class="btn-press py-3 bg-grass hover:brightness-110 text-paper-100 font-type text-xl border border-paper-400 rounded-lg">📂 WCZYTAJ GRĘ</button>
-          <button data-action="clear-save" class="btn-press py-3 bg-paper-200 hover:bg-paper-300 text-stamp font-type text-sm border border-stamp rounded-lg">🗑️ Resetuj zapis</button>
+          <button data-action="load-game" class="btn-press py-3 bg-grass hover:brightness-110 text-paper-100 font-semibold text-base rounded-lg">📂 WCZYTAJ GRĘ</button>
+          <button data-action="clear-save" class="btn-press py-3 bg-paper-200 hover:bg-paper-300 text-stamp font-semibold text-sm border border-stamp/40 rounded-lg">🗑️ Resetuj zapis</button>
         </div>
       </section>` : '';
 
@@ -2941,22 +2936,22 @@ const UI = {
     <main class="min-h-screen flex items-center justify-center px-4 py-10">
       <div class="w-full max-w-4xl">
         <header class="text-center mb-8">
-          <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Okręgowy Związek Piłki Nożnej · Wydział Gier · Pismo L.dz. 666/B</p>
-          <h1 class="font-type text-4xl sm:text-6xl text-amber-glow leading-tight">B-KLASA:<br>PREZES Z ŁAPANKI</h1>
+          <p class="text-paper-400 text-[11px] font-medium tracking-wider uppercase mb-3">Okręgowy Związek Piłki Nożnej · Wydział Gier · Pismo L.dz. 666/B</p>
+          <h1 class="font-type text-4xl sm:text-6xl font-extrabold tracking-tight text-amber-glow leading-[1.05]">B-KLASA:<br>PREZES Z ŁAPANKI</h1>
           <p class="mt-4 text-paper-300 text-base sm:text-lg">Symulator zarządzania klubem, w którym boisko dzielisz z krowami, a budżet z tajemniczym „funduszem socjalnym” kierownika drużyny.</p>
         </header>
 
         ${saveBox}
 
-        <section class="paper p-6 sm:p-8 relative">
-          <div class="text-xs uppercase tracking-[0.3em] text-ink-700">Druk OZPN nr B-1 · wypełnić drukowanymi literami</div>
-          <h2 class="font-type text-2xl sm:text-3xl mt-1 pr-28">KARTA REJESTRACYJNA KLUBU</h2>
+        <section class="paper p-4 sm:p-8 relative">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-ink-700">Druk OZPN nr B-1 · wypełnić drukowanymi literami</div>
+          <h2 class="font-type text-xl sm:text-2xl font-bold tracking-tight mt-1">KARTA REJESTRACYJNA KLUBU</h2>
           <p class="text-sm text-ink-700 mb-2">Zgłoszenie drużyny seniorów do rozgrywek B-klasy, sezon bieżący. Opłata rejestracyjna: „co łaska”.</p>
-          <blockquote class="font-type text-base border-l-4 border-paper-400 pl-4 my-4">
+          <blockquote class="text-sm italic border-l-2 border-paper-400 pl-3 my-4">
             „${Utils.escape(q.text)}” <span class="font-mono text-xs text-ink-700">— ${Utils.escape(q.author)}</span>
           </blockquote>
 
-          <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
             <div>
               ${section('I', 'Nazwa klubu i miejscowość', `
                 <div class="flex flex-wrap gap-2 mb-3">${prefixChips}</div>
@@ -2964,7 +2959,7 @@ const UI = {
                 ${input('town', f.town, 'Miejscowość / nazwa własna, np. Świbie, Chrząstawa', 30)}
                 <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border border-paper-400 rounded-lg bg-amber-glow hover:brightness-110 text-ink-900 text-sm font-bold">🎲 Wylosuj kultowy klub</button>
               `)}
-              ${section('II', 'Charakter miejscowości', `<div class="grid gap-2">${characterCards}</div>`)}
+              ${section('II', 'Charakter miejscowości', `<div class="grid grid-cols-1 gap-2">${characterCards}</div>`)}
               ${section('III', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
               ${section('IV', 'Obiekt sportowy', `
                 ${input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60)}
@@ -2978,12 +2973,12 @@ const UI = {
 
             <aside class="lg:sticky lg:top-6 self-start">
               <div class="bg-paper-200 border border-paper-400 rounded-lg p-4">
-                <div class="text-xs uppercase tracking-widest text-ink-700 mb-2">Plakietka klubu (podgląd)</div>
+                <div class="text-xs uppercase tracking-wider text-ink-700 mb-2">Plakietka klubu (podgląd)</div>
                 <div id="form-preview">${UI.formPreview()}</div>
               </div>
               <p id="start-error" class="text-stamp font-bold text-sm mt-3 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
               <button data-action="start-game"
-                class="btn-press w-full mt-2 py-5 bg-amber-glow hover:brightness-110 text-ink-900 font-type font-bold text-2xl tracking-wide rounded-xl shadow-lg">
+                class="btn-press w-full mt-2 py-4 bg-amber-glow hover:brightness-110 text-ink-900 font-bold text-lg rounded-lg">
                 ROZPOCZNIJ PREZESURĘ
               </button>
               <p class="text-xs text-ink-700 text-center mt-3">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.${save && save.club.name ? ' <b>Nowa prezesura nadpisze zapis z szuflady.</b>' : ''}</p>
@@ -3002,80 +2997,89 @@ const UI = {
       <div class="hidden lg:block">${UI.statusBar()}</div>
       <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
         ${UI.navigation()}
-        <main class="flex-1 min-w-0 p-3 sm:p-6">${UI.activeTabContent()}</main>
+        <main class="flex-1 min-w-0 px-3 py-4 sm:px-6 sm:py-6">${UI.activeTabContent()}</main>
       </div>
       ${UI.actionBar()}
       ${UI.mobileDock()}
     </div>`;
   },
 
-  // Stały pasek na dole – [NASTĘPNY TYDZIEŃ] dostępny z każdej zakładki.
+  // Komputer: cienki pasek akcji na dole – [NASTĘPNY TYDZIEŃ] dostępny z każdej zakładki.
   actionBar() {
     const canAdvance = Engine.canAdvanceWeek();
     const pending = gameState.pendingDecisions.length;
     const msg = canAdvance
-      ? (Selectors.isMatchWeek() ? '⚽ W ten weekend gramy! Kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
-      : '🔔 Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '! Nikt nie lubi czekać.';
+      ? (Selectors.isMatchWeek() ? 'W ten weekend gramy – kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
+      : 'Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '. Nikt nie lubi czekać.';
     return `
-    <div id="action-bar" class="hidden lg:block fixed bottom-0 left-0 right-0 z-50 bg-desk-800 border-t-4 border-desk-600" style="bottom:0;left:0;right:0;z-index:50;">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-        <p class="flex-1 text-sm text-center sm:text-left ${canAdvance ? 'text-paper-300' : 'text-amber-glow font-bold'}">
+    <div id="action-bar" class="hidden lg:block fixed bottom-0 left-0 right-0 z-50 bg-desk-900 border-t border-desk-700">
+      <div class="max-w-7xl mx-auto px-6 py-2 flex items-center gap-6">
+        <p class="flex-1 text-sm ${canAdvance ? 'text-paper-400' : 'text-amber-glow font-medium'}">
           ${msg}
-          ${!canAdvance && gameState.activeTab !== 'desk' ? '<button data-action="switch-tab" data-tab="desk" class="underline underline-offset-4 ml-2 text-paper-100">Idź na Biurko →</button>' : ''}
+          ${!canAdvance && gameState.activeTab !== 'desk' ? '<button data-action="switch-tab" data-tab="desk" class="underline underline-offset-4 ml-2 text-paper-100">Idź na Biurko</button>' : ''}
         </p>
         <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
-          class="btn-press w-full sm:w-auto px-8 py-3 font-type text-xl sm:text-2xl tracking-wider rounded-xl shadow-lg
-          ${canAdvance
-            ? 'bg-amber-glow text-ink-900 hover:brightness-110'
-            : 'bg-desk-700 text-paper-400 cursor-not-allowed shadow-none'}">
-          NASTĘPNY TYDZIEŃ &gt;&gt;
+          class="btn-press px-6 py-2 rounded-lg text-sm font-semibold tracking-wide
+          ${canAdvance ? 'bg-amber-glow text-ink-900 hover:brightness-110' : 'bg-desk-700 text-paper-400 cursor-not-allowed'}">
+          Następny tydzień →
         </button>
       </div>
     </div>`;
   },
 
-  // Telefon: zwarty nagłówek – herb, nazwa, 3 kafelki i jedna linia meczu
-  mobileHeader() {
+  // Etykieta + wartość: cienka etykieta, duża i gruba liczba
+  stat(label, value, extra = '', valueClass = 'text-paper-100') {
+    return `
+      <div class="min-w-0">
+        <div class="text-[10px] uppercase tracking-wider text-paper-400 font-medium truncate">${label}</div>
+        <div class="text-base lg:text-lg font-bold leading-tight truncate ${valueClass}">${value}</div>
+        ${extra}
+      </div>`;
+  },
+
+  thinBar(v) {
+    return `<div class="h-1 rounded-full bg-desk-700 mt-1 overflow-hidden"><div class="h-full rounded-full ${Selectors.moodColor(v)}" style="width:${v}%"></div></div>`;
+  },
+
+  matchLine() {
     const s = gameState;
     const fx = Selectors.currentFixture();
     const rival = Selectors.rival(fx.rival);
-    const w = s.weather;
-    const played = s.season.table[US] && s.season.table[US].p;
     const inPre = !Selectors.isMatchWeek();
-    const tile = (label, value, extra = '') => `
-      <div class="rounded-lg bg-desk-900 border border-desk-600 px-2 py-1.5 min-w-0">
-        <div class="text-[10px] uppercase tracking-wide text-paper-400 truncate">${label}</div>
-        ${value}${extra}
-      </div>`;
-    const mood = (v) => `<div class="font-type font-bold text-base leading-tight">${v}%</div><div class="h-1.5 rounded-full bg-desk-700 mt-1 overflow-hidden"><div class="h-full ${Selectors.moodColor(v)}" style="width:${v}%"></div></div>`;
-    const form = s.record.form.map((r) => `<span class="w-4 h-4 rounded-sm text-[9px] font-bold flex items-center justify-center ${{ W: 'bg-grass text-white', D: 'bg-amber-400 text-ink-900', L: 'bg-stamp text-white' }[r]}">${{ W: 'W', D: 'R', L: 'P' }[r]}</span>`).join('');
+    const form = s.record.form.map((r) => `<span class="w-1.5 h-1.5 rounded-full ${{ W: 'bg-grass', D: 'bg-amber-400', L: 'bg-stamp' }[r]}" title="${{ W: 'Wygrana', D: 'Remis', L: 'Porażka' }[r]}"></span>`).join('');
     return `
-    <header class="lg:hidden bg-desk-800 border-b border-desk-600">
-      <div class="px-3 pt-3 pb-2 flex items-center gap-2">
-        ${UI.crest(s.club.colors, s.club.name, 30)}
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-lg leading-none flex-shrink-0">${s.weather.icon}</span>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold truncate">${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</div>
+          <div class="text-[11px] text-paper-400 truncate">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</div>
+        </div>
+        ${form ? `<div class="flex gap-1 flex-shrink-0 ml-auto">${form}</div>` : ''}
+      </div>`;
+  },
+
+  // Telefon: cienki nagłówek – nazwa, trzy liczby i jedna linia meczu, bez ramek
+  mobileHeader() {
+    const s = gameState;
+    const played = s.season.table[US] && s.season.table[US].p;
+    return `
+    <header class="lg:hidden bg-desk-900 border-b border-desk-700 px-3 pt-2.5 pb-2 space-y-2">
+      <div class="flex items-center gap-2">
+        ${UI.crest(s.club.colors, s.club.name, 24)}
         <div class="min-w-0 flex-1">
-          <div class="font-type font-bold text-lg leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
-          <div class="text-[11px] text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · Sezon ${s.calendar.season}, tydz. ${s.calendar.week}</div>
+          <div class="text-[15px] font-bold leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
+          <div class="text-[11px] text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · S${s.calendar.season} T${s.calendar.week}</div>
         </div>
-        <button data-action="exit-menu" title="Wyjdź do menu (zapis zostaje)" class="btn-press w-10 h-10 rounded-lg bg-desk-700 text-paper-300 flex-shrink-0">⏏</button>
-        <button data-action="reset-game" title="Rzuć papierami (nowa gra)" class="btn-press w-10 h-10 rounded-lg bg-desk-700 text-paper-300 flex-shrink-0">🗑</button>
+        <button data-action="exit-menu" title="Wyjdź do menu (zapis zostaje)" class="btn-press w-9 h-9 rounded-lg text-paper-400 hover:bg-desk-800 flex-shrink-0">⏏</button>
+        <button data-action="reset-game" title="Rzuć papierami (nowa gra)" class="btn-press w-9 h-9 rounded-lg text-paper-400 hover:bg-desk-800 flex-shrink-0">🗑</button>
       </div>
-      <div class="px-3 pb-2 grid grid-cols-3 gap-2">
-        ${tile('💰 Budżet', `<div class="font-type font-bold text-base leading-tight truncate ${s.finance.budget < 0 ? 'text-stamp' : 'text-amber-glow'}">${Utils.formatMoney(s.finance.budget)}</div>`)}
-        ${tile('🧦 Szatnia', mood(s.morale.lockerRoom))}
-        ${tile('📣 Kibice', mood(s.morale.fans))}
+      <div class="grid grid-cols-3 gap-4">
+        ${UI.stat('Budżet', Utils.formatMoney(s.finance.budget), '', s.finance.budget < 0 ? 'text-stamp' : 'text-paper-100')}
+        ${UI.stat('Szatnia', s.morale.lockerRoom + '%', UI.thinBar(s.morale.lockerRoom))}
+        ${UI.stat('Kibice', s.morale.fans + '%', UI.thinBar(s.morale.fans))}
       </div>
-      <div class="px-3 pb-3">
-        <div class="rounded-lg bg-desk-900 border border-desk-600 px-3 py-2 flex items-center gap-2">
-          <span class="text-2xl flex-shrink-0">${w.icon}</span>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm truncate"><b>${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)}:</b> ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${fx.home ? 'U siebie' : 'Na wyjeździe'}${!inPre && fx.home ? ' · szac. ' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(w.label)}</div>
-          </div>
-          ${form ? `<div class="flex gap-0.5 flex-shrink-0">${form}</div>` : ''}
-        </div>
-        ${UI.threats()}
-      </div>
+      ${UI.matchLine()}
+      ${UI.threats()}
     </header>`;
   },
 
@@ -3093,7 +3097,7 @@ const UI = {
     return 0;
   },
 
-  // Telefon: przypięty dok – duży przycisk tygodnia nad dolną nawigacją
+  // Telefon: cienki dok – przycisk tygodnia nad dolną nawigacją
   mobileDock() {
     const canAdvance = Engine.canAdvanceWeek();
     const pending = gameState.pendingDecisions.length;
@@ -3103,96 +3107,44 @@ const UI = {
       const badge = UI.tabBadge(t.id);
       return `
       <button data-action="switch-tab" data-tab="${t.id}" aria-label="${t.label}"
-        class="tap relative flex flex-col items-center justify-center min-w-0 px-0.5 ${active ? 'text-amber-glow' : 'text-paper-400'}">
-        ${active ? '<span class="absolute top-0 inset-x-2 h-0.5 rounded-full bg-amber-glow"></span>' : ''}
-        <span class="text-lg leading-none">${t.icon}</span>
-        <span class="text-[10px] mt-1 font-semibold truncate max-w-full">${short[t.id] || t.label}</span>
-        ${badge ? `<span class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${t.id === 'finance' ? 'bg-stamp text-white' : 'bg-amber-glow text-ink-900'}">${badge}</span>` : ''}
+        class="relative h-11 flex flex-col items-center justify-center min-w-0 ${active ? 'text-amber-glow' : 'text-paper-400'}">
+        <span class="text-base leading-none ${active ? '' : 'opacity-70'}">${t.icon}</span>
+        <span class="text-[10px] mt-0.5 ${active ? 'font-semibold' : 'font-medium'} truncate max-w-full">${short[t.id] || t.label}</span>
+        ${badge ? `<span class="absolute top-0.5 right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${t.id === 'finance' ? 'bg-stamp text-white' : 'bg-amber-glow text-ink-900'}">${badge}</span>` : ''}
       </button>`;
     }).join('');
     return `
-    <div id="mobile-dock" class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-desk-800/95 backdrop-blur border-t border-desk-600 shadow-2xl" style="padding-bottom: env(safe-area-inset-bottom);">
+    <div id="mobile-dock" class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-desk-900 border-t border-desk-700" style="padding-bottom: env(safe-area-inset-bottom);">
       <div class="px-3 pt-2">
-        ${!canAdvance ? `<button data-action="switch-tab" data-tab="desk" class="w-full text-xs text-amber-glow font-semibold mb-1.5 truncate">🔔 ${pending} ${pending === 1 ? 'sprawa czeka' : 'sprawy czekają'} na Biurku – tydzień ruszy po decyzji</button>` : ''}
-        <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
-          class="btn-press tap w-full rounded-xl font-type font-bold text-lg tracking-wide ${canAdvance ? 'bg-amber-glow text-ink-900 shadow-lg' : 'bg-desk-700 text-paper-400 cursor-not-allowed'}">
-          ${canAdvance ? 'NASTĘPNY TYDZIEŃ »' : '🔒 NASTĘPNY TYDZIEŃ'}
+        <button data-action="${canAdvance ? 'next-week' : 'switch-tab'}" ${canAdvance ? '' : 'data-tab="desk"'}
+          class="btn-press w-full h-11 rounded-lg text-[15px] font-semibold tracking-wide ${canAdvance ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-amber-glow'}">
+          ${canAdvance ? 'Następny tydzień →' : '🔒 Najpierw ' + pending + ' ' + (pending === 1 ? 'sprawa' : 'sprawy') + ' na Biurku'}
         </button>
       </div>
       <nav class="grid grid-cols-7 mt-1">${tabs}</nav>
     </div>`;
   },
 
+  // Komputer: jeden cienki wiersz statusu
   statusBar() {
     const s = gameState;
-    const budgetClass = s.finance.budget < 0 ? 'text-stamp' : 'text-amber-glow';
+    const played = s.season.table[US] && s.season.table[US].p;
     return `
-    <header class="bg-desk-800 border-b-4 border-desk-600 shadow-lg">
-      <div class="max-w-7xl mx-auto px-4 py-4 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1.5fr] items-stretch">
-
-        <div class="flex flex-col justify-center min-w-0">
-          <div class="text-xs text-paper-400 uppercase tracking-widest">Klub</div>
-          <div class="font-type text-2xl text-paper-100 leading-tight break-words">${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(Selectors.clubDisplayName())}</div>
-          <div class="text-sm text-paper-300">Poziom ${s.club.leagueLevel}: <span class="text-amber-glow">${Selectors.leagueName()}</span> · 📊 ${gameState.season.table[US] && gameState.season.table[US].p ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'}</div>
-          <div class="text-sm text-paper-300">🏟️ ${Utils.escape(Selectors.stadiumName())}</div>
-          <div class="text-sm text-paper-300 mt-1">📅 ${Selectors.weekLabel()}</div>
+    <header class="bg-desk-900 border-b border-desk-700">
+      <div class="max-w-7xl mx-auto px-6 py-3 grid grid-cols-[minmax(0,1.4fr)_auto_auto_auto_minmax(0,1.6fr)] items-center gap-8">
+        <div class="flex items-center gap-3 min-w-0">
+          ${UI.crest(s.club.colors, s.club.name, 34)}
+          <div class="min-w-0">
+            <div class="text-lg font-bold leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
+            <div class="text-xs text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · ${Selectors.weekLabel()}</div>
+          </div>
         </div>
-
-        <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
-          <div class="text-xs text-paper-400 uppercase tracking-widest">Budżet klubu</div>
-          <div class="font-type text-3xl ${budgetClass}">${Utils.formatMoney(s.finance.budget)}</div>
-          <div class="text-xs text-paper-400 mt-1">Wypłaty: <span class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</span></div>
-          ${UI.threats()}
-          <div class="text-xs text-paper-400">DNA: <span class="text-paper-200 italic">„${Utils.escape(Selectors.dnaLabel())}”</span></div>
-        </div>
-
-        ${UI.meter('Szatnia', '🧦', s.morale.lockerRoom)}
-        ${UI.meter('Kibice', '📣', s.morale.fans)}
-
-        ${UI.matchBox()}
+        <div class="w-32">${UI.stat('Budżet', Utils.formatMoney(s.finance.budget), `<div class="text-[11px] text-paper-400 truncate">wypłaty ${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</div>`, s.finance.budget < 0 ? 'text-stamp' : 'text-paper-100')}</div>
+        <div class="w-28">${UI.stat('Szatnia', s.morale.lockerRoom + '%', UI.thinBar(s.morale.lockerRoom))}</div>
+        <div class="w-28">${UI.stat('Kibice', s.morale.fans + '%', UI.thinBar(s.morale.fans))}</div>
+        <div class="min-w-0">${UI.matchLine()}${UI.threats()}</div>
       </div>
     </header>`;
-  },
-
-  matchBox() {
-    const fx = Selectors.currentFixture();
-    const w = gameState.weather;
-    const rival = Selectors.rival(fx.rival);
-    const inPreseason = !Selectors.isMatchWeek();
-    const kolejka = gameState.calendar.round + 1;
-    const form = gameState.record.form.map((r) => {
-      const c = { W: 'bg-grass', D: 'bg-amber-glow text-ink-900', L: 'bg-stamp' }[r];
-      return `<span class="inline-block w-5 text-center text-[10px] font-bold ${c}">${{ W: 'W', D: 'R', L: 'P' }[r]}</span>`;
-    }).join(' ');
-    const head = inPreseason
-      ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - gameState.calendar.week) + ' tyg.'
-      : 'Kolejka ' + kolejka + ' – w tym tygodniu';
-    const extra = !inPreseason && fx.home
-      ? ' · szac. ' + Engine.estimateAttendance(fx) + ' widzów'
-      : '';
-    return `
-    <div class="bg-desk-900 border border-desk-600 p-3 flex items-center gap-3 md:col-span-2 xl:col-span-1 min-w-0">
-      <div class="text-4xl" title="${Utils.escape(w.label)}">${w.icon}</div>
-      <div class="min-w-0">
-        <div class="text-xs text-paper-400 uppercase tracking-widest">${head}</div>
-        <div class="text-paper-100 font-bold">${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)} ${rival.derby ? '<span class="text-stamp whitespace-nowrap">🔥 KOSA</span>' : ''}</div>
-        <div class="text-xs text-paper-300">${fx.home ? 'U siebie' : 'Na wyjeździe'}${extra} · ${inPreseason ? 'za oknem: ' : ''}${Utils.escape(w.label)}</div>
-        ${form ? `<div class="mt-1 text-paper-100">${form}</div>` : ''}
-      </div>
-    </div>`;
-  },
-
-  meter(label, icon, value) {
-    return `
-    <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
-      <div class="flex justify-between text-xs uppercase tracking-widest text-paper-400">
-        <span>${icon} ${label}</span><span class="text-paper-200">${value}%</span>
-      </div>
-      <div class="mt-2 h-4 bg-desk-700 border border-desk-600">
-        <div class="h-full ${Selectors.moodColor(value)} transition-all duration-500" style="width:${value}%"></div>
-      </div>
-      <div class="text-xs text-paper-300 mt-1">${Selectors.moodLabel(value)}</div>
-    </div>`;
   },
 
   navigation() {
@@ -3201,15 +3153,15 @@ const UI = {
       const locked = !UI.tabRenderers[t.id];
       return `
       <button data-action="switch-tab" data-tab="${t.id}"
-        class="flex-shrink-0 lg:w-full text-left px-4 py-3 border-l-4 font-mono text-sm transition-colors
-        ${active ? 'border-amber-glow bg-desk-700 text-amber-glow' : 'border-transparent text-paper-300 hover:bg-desk-800 hover:text-paper-100'}">
+        class="flex-shrink-0 lg:w-full text-left px-4 py-2.5 border-l-2 text-sm transition-colors
+        ${active ? 'border-amber-glow bg-desk-800 text-paper-100 font-semibold' : 'border-transparent text-paper-400 hover:bg-desk-800 hover:text-paper-100'}">
         <span class="mr-2">${t.icon}</span>${t.label}${locked ? ' <span class="text-paper-400">🔒</span>' : ''}
       </button>`;
     }).join('');
 
     return `
-    <nav class="hidden lg:block lg:w-60 bg-desk-900 lg:border-r border-desk-600 lg:py-4">
-      <div class="hidden lg:block px-4 pb-3 text-xs text-paper-400 uppercase tracking-[0.3em]">Pokoje klubowe</div>
+    <nav class="hidden lg:block lg:w-56 lg:border-r border-desk-700 lg:py-5">
+      <div class="hidden lg:block px-4 pb-2 text-[10px] text-paper-400 uppercase tracking-wider font-medium">Pokoje klubowe</div>
       <div class="flex lg:flex-col overflow-x-auto">${items}</div>
       <div class="flex lg:flex-col gap-3 px-4 py-3 lg:pt-6 text-xs">
         <span class="text-grass">💾 Autozapis: Tydzień ${gameState.calendar.week}</span>
@@ -3249,10 +3201,10 @@ const UI = {
   /* ---------- Wspólne klocki UI ---------- */
   card(letter, title, subtitle, body, extraClass = '') {
     return `
-    <section class="paper p-5 ${extraClass}">
-      <div class="flex items-baseline gap-3 border-b border-paper-300 pb-2 mb-4">
-        <span class="font-type text-3xl font-bold text-ink-700">${letter}</span>
-        <div><h3 class="font-type text-xl leading-tight">${title}</h3><p class="text-xs text-ink-700">${subtitle}</p></div>
+    <section class="paper p-4 ${extraClass}">
+      <div class="flex items-baseline gap-2.5 mb-3">
+        <span class="text-sm font-semibold text-ink-700 w-5 text-center">${letter}</span>
+        <div class="min-w-0"><h3 class="text-base font-semibold leading-tight">${title}</h3><p class="text-xs text-ink-700 font-light">${subtitle}</p></div>
       </div>
       ${body}
     </section>`;
@@ -3261,9 +3213,9 @@ const UI = {
   choice(action, value, active, title, desc) {
     return `
     <button data-action="${action}" data-value="${value}"
-      class="btn-press w-full text-left px-3 py-2 border border-paper-400 rounded-lg ${active ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300'}">
-      <span class="font-type block">${active ? '●' : '○'} ${title}</span>
-      ${desc ? `<span class="text-xs ${active ? 'text-paper-300' : 'text-ink-700'}">${desc}</span>` : ''}
+      class="btn-press w-full text-left px-3 py-2 border rounded-lg ${active ? 'border-amber-glow bg-amber-glow/15' : 'border-paper-300 bg-white hover:bg-paper-200'}">
+      <span class="block text-sm ${active ? 'font-semibold' : 'font-medium'}">${active ? '●' : '○'} ${title}</span>
+      ${desc ? `<span class="text-xs text-ink-700 font-light">${desc}</span>` : ''}
     </button>`;
   },
 
@@ -3272,11 +3224,11 @@ const UI = {
       ? 'bg-stamp text-paper-100 hover:bg-red-700'
       : 'bg-ink-900 text-paper-100 hover:bg-ink-700';
     return `<button data-action="${action}" ${attrs} ${disabled ? 'disabled' : ''}
-      class="btn-press px-3 py-1.5 text-sm font-bold border border-paper-400 rounded-lg ${disabled ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : colors + ''}">${label}</button>`;
+      class="btn-press px-3 py-1.5 text-sm font-semibold rounded-lg ${disabled ? 'bg-paper-200 text-paper-400 cursor-not-allowed' : colors}">${label}</button>`;
   },
 
   bar(value, colorClass) {
-    return `<div class="h-4 bg-paper-300 border border-ink-900 mt-1"><div class="h-full ${colorClass}" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
+    return `<div class="h-1.5 rounded-full bg-paper-300 mt-1.5 overflow-hidden"><div class="h-full rounded-full ${colorClass}" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
   },
 
   profileBadge(profile) {
@@ -3291,19 +3243,19 @@ const UI = {
     // Na telefonie jedna sekcja naraz: sprawy, gdy coś czeka, inaczej dziennik (chyba że gracz wybrał sam).
     const view = gameState.ui.deskView || (pending ? 'decisions' : 'log');
     const seg = (v, label) => `<button data-action="desk-view" data-value="${v}"
-      class="btn-press tap flex-1 rounded-lg text-sm font-semibold ${view === v ? 'bg-amber-glow text-ink-900' : 'text-paper-300'}">${label}</button>`;
+      class="btn-press flex-1 h-9 rounded-md text-sm ${view === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`;
     return `
-    <div class="lg:hidden flex gap-1 p-1 mb-3 rounded-xl bg-desk-800 border border-desk-600">
+    <div class="lg:hidden flex gap-1 p-0.5 mb-3 rounded-lg bg-desk-800">
       ${seg('decisions', '❗ Pilne sprawy' + (pending ? ' (' + pending + ')' : ''))}${seg('log', '📖 Dziennik')}
     </div>
-    <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
       <section class="${view === 'log' ? 'hidden lg:block' : ''}">
-        <h2 class="hidden lg:block font-type text-2xl font-bold text-amber-glow mb-3">Pilne Sprawy / Decyzje</h2>
+        <h2 class="hidden lg:block font-type text-base font-semibold text-paper-300 mb-2">Pilne Sprawy / Decyzje</h2>
         ${UI.decisions()}
       </section>
 
       <section class="${view === 'decisions' ? 'hidden lg:block' : ''}">
-        <h2 class="hidden lg:block font-type text-2xl font-bold text-amber-glow mb-3">📒 Dziennik Zdarzeń</h2>
+        <h2 class="hidden lg:block font-type text-base font-semibold text-paper-300 mb-2">📒 Dziennik Zdarzeń</h2>
         ${UI.logPanel()}
       </section>
     </div>`;
@@ -3312,7 +3264,7 @@ const UI = {
   decisions() {
     if (gameState.pendingDecisions.length === 0) {
       return `
-      <div class="paper p-6 text-center">
+      <div class="paper p-4 text-center">
         <p class="font-type text-xl">Biurko puste.</p>
         <p class="text-sm text-ink-700 mt-1">Tylko kubek z napisem „Najlepszy Dziadek” i pieczątka klubowa bez tuszu.</p>
         <button data-action="desk-view" data-value="log" class="lg:hidden btn-press tap mt-4 w-full rounded-lg bg-ink-900 text-paper-100 font-semibold">📖 Otwórz Dziennik Zdarzeń</button>
@@ -3323,16 +3275,16 @@ const UI = {
       const cols = d.options.length >= 3 ? 'grid-cols-1' : 'sm:grid-cols-2';   // 3 opcje: pełna szerokość, żeby długie słowa się mieściły
       const opts = d.options.map((o, i) => `
         <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
-          class="btn-press tap w-full min-w-0 text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 active:bg-paper-300 border border-paper-400 rounded-xl [overflow-wrap:anywhere]">
-          <span class="font-type text-base sm:text-lg font-semibold block leading-snug">▸ ${Utils.escape(Utils.val(o.label))}</span>
+          class="btn-press tap w-full min-w-0 text-left px-3.5 py-2.5 bg-white hover:bg-paper-200 active:bg-paper-300 border border-paper-300 rounded-lg [overflow-wrap:anywhere]">
+          <span class="text-[15px] font-semibold block leading-snug">${Utils.escape(Utils.val(o.label))}</span>
           <span class="text-xs text-ink-700">${Utils.escape(Utils.val(o.hint))}</span>
         </button>`).join('');
       return `
-      <article class="paper p-4 sm:p-6 relative mb-4">
-        <div class="text-[11px] sm:text-xs uppercase tracking-wider text-ink-700">Od: ${Utils.escape(Utils.val(d.from))}</div>
-        <div class="text-[11px] sm:text-xs uppercase tracking-wider text-ink-700">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
-        <h3 class="font-type text-xl sm:text-2xl font-bold mt-1 mb-2 sm:mb-3">${Utils.escape(Utils.val(d.title))}</h3>
-        <p class="text-sm sm:text-base leading-relaxed mb-4 sm:mb-5">${Utils.escape(Utils.val(d.body))}</p>
+      <article class="paper p-4 sm:p-5 mb-3">
+        <div class="text-[11px] text-ink-700 font-light">Od: ${Utils.escape(Utils.val(d.from))}</div>
+        <div class="text-[11px] text-ink-700 font-light">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
+        <h3 class="text-lg sm:text-xl font-bold mt-1 mb-1.5">${Utils.escape(Utils.val(d.title))}</h3>
+        <p class="text-sm sm:text-[15px] leading-relaxed text-ink-700 mb-3">${Utils.escape(Utils.val(d.body))}</p>
         <div class="grid gap-2 sm:gap-3 ${cols}">${opts}</div>
       </article>`;
     }).join('');
@@ -3348,25 +3300,25 @@ const UI = {
     });
 
     const typeStyle = {
-      system:   'border-ink-900',
-      decision: 'border-stamp',
-      event:    'border-amber-glow',
-      match:    'border-grass font-bold',
-      coach:    'border-grass italic',
-      finance:  'border-ink-700',
-      summary:  'border-ink-900 font-bold bg-paper-200 py-1',
-      flavor:   'border-paper-400',
+      system:   'border-paper-300',
+      decision: 'border-paper-400',
+      event:    'border-paper-300',
+      match:    'border-amber-glow font-semibold',
+      coach:    'border-paper-300 italic text-ink-700',
+      finance:  'border-paper-300 text-ink-700',
+      summary:  'border-paper-400 font-semibold',
+      flavor:   'border-paper-300',
     };
     const seenId = UI.lastSeenLogId;
     UI.lastSeenLogId = gameState.ui.lastLogId;
 
     const shown = groups.slice(0, gameState.ui.logWeeks || 3);
     const html = shown.map((g) => `
-      <div class="mb-4">
-        <div class="font-type text-sm text-ink-900 border-b border-paper-300 mb-2">— Tydzień ${g.week} —</div>
+      <div class="mb-5">
+        <div class="text-[11px] uppercase tracking-wider font-semibold text-ink-700 mb-2">Tydzień ${g.week}</div>
         <ul class="space-y-2">
           ${g.entries.map((e) => `
-            <li class="border-l-4 ${typeStyle[e.type] || typeStyle.flavor} pl-3 text-sm leading-snug text-ink-900 ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
+            <li class="border-l-2 ${typeStyle[e.type] || typeStyle.flavor} pl-3 text-sm leading-snug ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
           `).join('')}
         </ul>
       </div>`).join('');
@@ -3400,9 +3352,9 @@ const UI = {
       upcoming.push(`<li>Kolejka ${i + 1}: ${f.home ? 'u siebie vs' : 'wyjazd do'} <b>${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
     }
     return `
-    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
-    <p class="text-paper-400 text-sm mb-5">Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>
-    <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
+    <p class="text-paper-400 text-sm mb-4">Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
       ${UI.card('§', 'Tabela', 'M – mecze, W – wygrane, R – remisy, P – porażki', `
         <div class="overflow-x-auto"><table class="w-full text-sm">
           <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th class="hidden sm:table-cell">W</th><th class="hidden sm:table-cell">R</th><th class="hidden sm:table-cell">P</th><th>Bramki</th><th>Pkt</th></tr>
@@ -3412,7 +3364,7 @@ const UI = {
           · <span class="inline-block w-3 h-3 bg-stamp align-middle"></span> ${gameState.club.leagueLevel > 1 ? 'Miejsce 10: spadek do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel - 1].name : 'Miejsce 10: wstyd na cały powiat'}
           ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>
         <p class="text-xs text-ink-700 mt-1">Drabina: ${DATA.leagueLevels.slice(1).map((l, i) => i + 1 === gameState.club.leagueLevel ? '<b>' + l.name + '</b>' : l.name).join(' → ')}</p>`)}
-      <div class="grid gap-6 content-start">
+      <div class="grid grid-cols-1 gap-4 content-start">
         ${UI.card('⚽', 'Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-sm space-y-1">${results}</ul>` : '<p class="text-sm">Liga jeszcze nie ruszyła.</p>')}
         ${UI.card('📅', 'Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-sm space-y-1">${upcoming.join('')}</ul>` : '<p class="text-sm">Koniec sezonu.</p>')}
       </div>
@@ -3442,7 +3394,7 @@ const UI = {
         ${rated.map((p, i) => row(i, p, `<td class="py-1.5 text-right text-ink-700">${p.seasonRatingCount}</td><td class="py-1.5 text-right pl-3">${UI.ratingBadge(Selectors.avgRating(p))}</td>`)).join('')}
       </table>` : '<p class="text-sm text-ink-700">Brak not – sezon jeszcze się nie zaczął.</p>';
     return UI.card('★', 'Statystyki Naszej Drużyny', 'Sezon ' + gameState.calendar.season + ' · noty od 1.0 do 10.0 wystawia trener po każdym meczu', `
-      <div class="grid gap-6 md:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div><h4 class="font-type font-bold mb-2">⚽ Najlepsi strzelcy klubu</h4>${scorersHtml}</div>
         <div><h4 class="font-type font-bold mb-2">⭐ Najwyższa średnia ocen w sezonie</h4>${ratedHtml}</div>
       </div>`, 'xl:col-span-2');
@@ -3507,7 +3459,7 @@ const UI = {
       const canHireExt = !m || m.kind === 'volunteer';
       return `
       <div class="border-b border-paper-300 py-3">
-        <div class="text-xs uppercase tracking-widest text-ink-700">${def.icon} ${def.label}</div>
+        <div class="text-xs uppercase tracking-wider text-ink-700">${def.icon} ${def.label}</div>
         ${m ? `
           <div class="flex justify-between gap-3 items-start mt-1">
             <div>
@@ -3529,9 +3481,9 @@ const UI = {
     }).join('');
 
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">📋 Sztab i Trener</h2>
-    <p class="text-paper-400 text-sm mb-5">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📋 Sztab i Trener</h2>
+    <p class="text-paper-400 text-sm mb-4">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       ${coachCard}
       ${UI.card('B', 'Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market)}
       ${UI.card('C', 'Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', staffRows + `
@@ -3553,7 +3505,7 @@ const UI = {
     const count = (pr) => gameState.squad.filter((p) => p.profile === pr).length;
     const canRelease = gameState.squad.length > CONFIG.minSquad;
     const sortBtn = (value, label) => `<button data-action="squad-sort" data-value="${value}"
-      class="btn-press tap sm:min-h-0 px-3 py-1.5 rounded-lg text-sm font-semibold border ${sort === value ? 'bg-amber-glow text-ink-900 border-transparent' : 'border-desk-600 text-paper-300 hover:bg-desk-800'}">${label}</button>`;
+      class="btn-press h-9 px-3 rounded-md text-sm ${sort === value ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium hover:bg-desk-800'}">${label}</button>`;
 
     const cards = squad.map((p) => {
       const inXI = lineup.includes(p);
@@ -3567,11 +3519,11 @@ const UI = {
       const stored = (gameState.ui.folds || {})[key];
       const open = stored != null ? stored : !UI.isMobile();
       return `
-      <details data-fold="${key}" class="paper ${inXI ? 'border-l-8 border-l-grass' : 'border-l-8 border-l-paper-400'}" ${open ? 'open' : ''}>
-        <summary class="tap flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 cursor-pointer select-none">
+      <details data-fold="${key}" class="paper ${inXI ? 'border-l-4 border-l-grass' : 'border-l-4 border-l-paper-400'}" ${open ? 'open' : ''}>
+        <summary class="tap flex items-center gap-3 px-3 py-2 sm:px-4 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[11px] uppercase tracking-wider text-ink-700 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · sezon: ${p.seasonApps} m / ${p.seasonGoals} g</div>
-            <div class="font-type text-base sm:text-lg font-bold leading-tight truncate">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
+            <div class="text-[15px] sm:text-base font-semibold leading-tight truncate">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
             <div class="flex flex-wrap gap-1 mt-1">${chips}</div>
           </div>
           <div class="flex flex-col items-end gap-1 flex-shrink-0">${UI.ratingBadge(Selectors.avgRating(p), 'Śr. ')}${UI.profileBadge(p.profile)}</div>
@@ -3594,8 +3546,8 @@ const UI = {
     }).join('');
 
     return `
-    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">👟 Kadra i Szatnia</h2>
-    <p class="text-paper-400 text-sm mb-4 sm:mb-5">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">👟 Kadra i Szatnia</h2>
+    <p class="text-paper-400 text-sm mb-4">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
     <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-5">
       <div class="paper p-2.5 sm:p-4 min-w-0">
         <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Chemia<span class="hidden sm:inline"> z trenerem (${DATA.styles[coach.style].label.toLowerCase()})</span></div>
@@ -3613,12 +3565,12 @@ const UI = {
         <div class="text-[11px] sm:text-xs text-ink-700">Baza szatni: <b>${Selectors.lockerBaseline()}%</b><span class="hidden sm:inline"> (Legendy, liderzy, sztab i bojler ją podnoszą)</span></div>
       </div>
     </div>
-    <div class="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 mb-3 sm:mb-4">
-      <span class="hidden sm:inline text-sm text-paper-400 mr-1">Sortuj:</span>
+    <div class="grid grid-cols-3 sm:inline-flex items-center gap-0.5 p-0.5 mb-3 rounded-lg bg-desk-800">
+      <span class="hidden sm:inline text-xs text-paper-400 px-2">Sortuj</span>
       ${sortBtn('pos', '<span class="sm:hidden">Pozycja</span><span class="hidden sm:inline">Domyślnie / Pozycja</span>')}${sortBtn('goals', 'Wg goli')}${sortBtn('rating', 'Wg noty')}
     </div>
     <p class="lg:hidden text-xs text-paper-400 mb-2">Stuknij zawodnika, żeby zobaczyć szczegóły.</p>
-    <div class="grid gap-2 sm:gap-4 md:grid-cols-2 2xl:grid-cols-3 items-start">${cards}</div>`;
+    <div class="grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 2xl:grid-cols-3 items-start">${cards}</div>`;
   },
 
   // Ostrzeżenia w pasku: długi, komornik, walne zebranie, prokuratura
@@ -3643,16 +3595,16 @@ const UI = {
     <main class="min-h-screen flex items-center justify-center px-4 py-10">
       <div class="w-full max-w-2xl">
         <header class="text-center mb-6">
-          <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Protokół z Walnego Zgromadzenia · Remiza OSP · Sezon ${g.season}, Tydzień ${g.week}</p>
-          <h1 class="font-type text-4xl sm:text-5xl text-stamp leading-tight">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
+          <p class="text-paper-400 text-[11px] font-medium tracking-wider uppercase mb-3">Protokół z Walnego Zgromadzenia · Remiza OSP · Sezon ${g.season}, Tydzień ${g.week}</p>
+          <h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
           <p class="mt-4 text-paper-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>
         </header>
-        <section class="paper p-6 sm:p-8 relative">
+        <section class="paper p-4 sm:p-8 relative">
           <span class="inline-block px-2 py-0.5 rounded-md bg-stamp text-white text-xs font-bold mb-2">ODWOŁANY</span>
-          <h2 class="font-type text-xl mb-2">Powód upadku</h2>
+          <h2 class="text-base font-bold mb-2">Powód upadku</h2>
           <p class="mb-5 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
           <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
-          <h2 class="font-type text-xl mb-2">Bilans prezesury</h2>
+          <h2 class="text-base font-bold mb-2">Bilans prezesury</h2>
           <table class="w-full text-sm mb-6">
             ${row('Rozegrane sezony (pełne)', st.seasons)}
             ${row('Mecze (W-R-P)', st.matches + ' (' + st.wins + '-' + st.draws + '-' + st.losses + ')')}
@@ -3666,7 +3618,7 @@ const UI = {
             ${row('DNA klubu', '„' + Utils.escape(g.dna || '') + '”')}
             ${row('Skandale w kartotece', gameState.club.scandals)}
           </table>
-          <button data-action="restart" class="btn-press w-full py-4 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl tracking-wider rounded-xl shadow-lg">SPRÓBUJ JESZCZE RAZ</button>
+          <button data-action="restart" class="btn-press w-full py-4 bg-stamp hover:bg-red-700 text-paper-100 font-bold text-lg rounded-lg">SPRÓBUJ JESZCZE RAZ</button>
           <p class="text-xs text-ink-700 text-center mt-3">Zapis gry został spalony w beczce za blaszakiem.</p>
         </section>
       </div>
@@ -3691,7 +3643,7 @@ const UI = {
       <article class="bg-paper-200 border border-paper-400 rounded-lg p-3">
         <div class="flex justify-between items-start gap-2">
           <div>
-            <div class="text-xs uppercase tracking-widest text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
+            <div class="text-xs uppercase tracking-wider text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
             <div class="font-type text-lg leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
           </div>
           ${UI.profileBadge(p.profile)}
@@ -3715,7 +3667,7 @@ const UI = {
         ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm">🚗 ${Utils.escape(tier.who)} jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
         : `<div class="mb-3">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(Selectors.scoutTier().cost) + ')', budget < Selectors.scoutTier().cost)}</div>`}
       <div class="text-xs text-ink-700 mb-2">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
-      ${cands ? `<div class="grid gap-3 md:grid-cols-2">${cands}</div>` : '<p class="text-sm italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
+      ${cands ? `<div class="grid grid-cols-1 gap-3 md:grid-cols-2">${cands}</div>` : '<p class="text-sm italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
     `, 'xl:col-span-2');
 
     const lvl = DATA.youthLevels[Selectors.youthLevel()];
@@ -3736,7 +3688,7 @@ const UI = {
 
     const youthCard = UI.card('B', 'Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
       <div class="bg-paper-200 border border-paper-400 p-3 mb-3">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Poziom szkółki</div>
+        <div class="text-xs uppercase tracking-wider text-ink-700">Poziom szkółki</div>
         <div class="font-type text-lg">${Utils.escape(lvl.label)}</div>
         <div class="text-xs text-ink-700">${Utils.escape(lvl.desc)}</div>
       </div>
@@ -3751,9 +3703,9 @@ const UI = {
     `);
 
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">🔭 Skauting i Młodzież</h2>
-    <p class="text-paper-400 text-sm mb-5">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">🔭 Skauting i Młodzież</h2>
+    <p class="text-paper-400 text-sm mb-4">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       ${scoutCard}
       ${youthCard}
       ${UI.card('C', 'Notatki Szwagra', 'Złote myśli z objazdów', `
@@ -3778,7 +3730,7 @@ const UI = {
         <span class="text-xs ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
       </button>`).join('');
     const feed = gameState.feed.slice(0, 40).map((p) => `
-      <article class="paper p-4 ${p.official ? 'border-l-8 border-amber-glow' : ''}">
+      <article class="paper p-4 ${p.official ? 'border-l-4 border-amber-glow' : ''}">
         <div class="flex gap-3">
           <div class="w-10 h-10 flex-shrink-0 rounded-full bg-ink-900 flex items-center justify-center text-xl">${p.avatar}</div>
           <div class="min-w-0">
@@ -3790,13 +3742,13 @@ const UI = {
       </article>`).join('');
 
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">📱 Wirtualny X</h2>
-    <p class="text-paper-400 text-sm mb-5">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>
-    <div class="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
-      <div class="grid gap-6 content-start">
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📱 Wirtualny X</h2>
+    <p class="text-paper-400 text-sm mb-4">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.4fr]">
+      <div class="grid grid-cols-1 gap-4 content-start">
         ${UI.card('✍️', 'Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
           ${posted ? '<p class="text-sm font-bold text-stamp mb-3">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-sm mb-3">Wybierz ton oficjalnego komunikatu:</p>'}
-          <div class="grid gap-2">${tones}</div>
+          <div class="grid grid-cols-1 gap-2">${tones}</div>
           ${x.hype ? '<p class="text-xs font-bold text-stamp mt-3">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}
         `)}
         ${UI.card('🧬', 'DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
@@ -3807,7 +3759,7 @@ const UI = {
       </div>
       <section>
         <h3 class="font-type text-xl text-amber-glow mb-3">Feed</h3>
-        <div class="grid gap-3">${feed || '<div class="paper p-4 text-sm">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>'}</div>
+        <div class="grid grid-cols-1 gap-3">${feed || '<div class="paper p-4 text-sm">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>'}</div>
       </section>
     </div>`;
   },
@@ -3815,9 +3767,9 @@ const UI = {
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
   financeTab() {
     return `
-    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">💰 Finanse i Stadion</h2>
-    <p class="text-paper-400 text-sm mb-4 sm:mb-5">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
-    <div class="grid gap-3 sm:gap-6 xl:grid-cols-2 items-start">
+    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">💰 Finanse i Stadion</h2>
+    <p class="text-paper-400 text-sm mb-4">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
+    <div class="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2 items-start">
       ${UI.reportCard()}
       ${UI.ticketsCard()}
       ${UI.merchCard()}
@@ -3833,7 +3785,7 @@ const UI = {
       ? '<p class="text-sm">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
       : `<table class="w-full text-sm">
           ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
-          <tr><td class="pt-2 font-type text-lg">RAZEM</td><td class="pt-2 text-right font-type text-lg whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
+          <tr><td class="pt-2 text-sm font-semibold">Razem</td><td class="pt-2 text-right font-type text-lg whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
     return UI.fold('fin-report', '§', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.',
       rep ? 'Razem: ' + Utils.signedMoney(rep.total) + ' · stan konta ' + Utils.formatMoney(gameState.finance.budget) : 'Jeszcze nic nie rozliczono', body, '', true);
@@ -3862,9 +3814,9 @@ const UI = {
       'Bilet ' + DATA.tickets[md.ticket].price + ' zł · ' + DATA.sausages[md.sausage].label, `
       <div class="bg-paper-200 border border-paper-400 p-3 mb-4">${preview}<p class="text-xs text-ink-700 mt-1">${ticketsInfo}</p></div>
       <h4 class="font-type mb-2">Cena biletu</h4>
-      <div class="grid gap-2 mb-5">${ticketBtns}</div>
+      <div class="grid grid-cols-1 gap-2 mb-5">${ticketBtns}</div>
       <h4 class="font-type mb-2">Menu w budce Pana Zenka</h4>
-      <div class="grid gap-2">${sausageBtns}</div>
+      <div class="grid grid-cols-1 gap-2">${sausageBtns}</div>
       <p class="text-xs text-ink-700 mt-3">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
     `);
   },
@@ -3891,7 +3843,7 @@ const UI = {
       </table>
       <p class="text-xs text-ink-700 mb-4">Zamrożony kapitał w kartonach: <b>${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
       <h4 class="font-type mb-2">Narzut</h4>
-      <div class="grid gap-2">${markupBtns}</div>
+      <div class="grid grid-cols-1 gap-2">${markupBtns}</div>
     `);
   },
 
@@ -3902,7 +3854,7 @@ const UI = {
     if (active) {
       body = `
         <div class="bg-paper-200 border border-grass p-3 mb-4">
-          <div class="text-xs uppercase tracking-widest text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
+          <div class="text-xs uppercase tracking-wider text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
           <div class="font-type text-xl">${Utils.escape(active.name)}</div>
           <p class="text-sm">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
           <p class="text-xs text-stamp mt-1">⚠️ ${Utils.escape(active.requirement)}</p>
