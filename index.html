@@ -91,7 +91,7 @@
    1. DANE STAŁE
    --------------------------------------------------------------------- */
 const CONFIG = {
-  saveVersion: 5,
+  saveVersion: 6,
   startBudget: 2500,
   startLockerRoom: 50,
   startFans: 50,
@@ -118,14 +118,47 @@ const CONFIG = {
 const US = 'US';            // identyfikator naszego klubu w terminarzu i tabeli
 
 const DATA = {
-  presetClubs: [
-    'LZS Chrząstawa',
-    'Coco Jambo Warszawa',
-    'LKS Naprzód Świbie',
-    'Sokół Pniewo Dolne',
-    'Błękitni Kozia Wólka',
-    'GKS Zryw Psary',
+  /* ----- Karta Rejestracyjna Klubu (ekran startowy) ----- */
+  clubPrefixes: ['LZS', 'LKS', 'KS', 'GKS', 'Orzeł', 'Huragan', 'Iskra', 'Pogoń', 'Victoria', 'Zjednoczeni'],
+
+  // „🎲 Wylosuj kultowy klub” – prefix spoza listy trafia do pola „własny”
+  cultClubs: [
+    { prefix: 'LZS',        town: 'Chrząstawa',   character: 'rural',      colors: 'gy' },
+    { prefix: 'Coco Jambo', town: 'Warszawa',     character: 'suburban',   colors: 'yb' },
+    { prefix: 'LKS Naprzód', town: 'Świbie',      character: 'rural',      colors: 'wg' },
+    { prefix: 'Sokół',      town: 'Pniewo Dolne', character: 'rural',      colors: 'wr' },
+    { prefix: 'Błękitni',   town: 'Kozia Wólka',  character: 'suburban',   colors: 'wb' },
+    { prefix: 'GKS Zryw',   town: 'Psary',        character: 'industrial', colors: 'rb' },
+    { prefix: 'Orzeł',      town: 'Ćmielów',      character: 'industrial', colors: 'wr' },
+    { prefix: 'Zjednoczeni', town: 'Cegielnia',   character: 'industrial', colors: 'rb' },
   ],
+
+  presidentNames: ['Prezes Janusz', 'Prezes Mirek', 'Prezes Zdzichu', 'Prezes Bogdan', 'Pan Prezes', 'Prezes Krzysiu', 'Prezes'],
+
+  // Charakter miejscowości – lekki wpływ na rozgrywkę
+  townTypes: {
+    rural: {
+      icon: '🚜', label: 'Wieś Rolnicza', sub: 'Traktory i Kółko Rolnicze',
+      perks: ['-20% kosztów utrzymania murawy (wapno)', 'Walec od Kazika 25% taniej (Kółko Rolnicze)', 'Szatnia +5% na start – swojskie chłopaki'],
+    },
+    industrial: {
+      icon: '🏭', label: 'Osada Przemysłowa / Popegeerowska', sub: 'Komin, blok z wielkiej płyty i Żabka',
+      perks: ['+15% bazowej frekwencji', 'Częstsze zadymy na Kosie (60% bez ochrony)', 'Surowsi kibice – porażki bolą bardziej'],
+    },
+    suburban: {
+      icon: '🏡', label: 'Wioska Podmiejska / Letniskowa', sub: 'Domki z kostką bauma i warszawskie rejestracje',
+      perks: ['+500 zł w budżecie na start', 'Kibice mniej wrażliwi na drogie bilety', 'Zawodnicy częściej dzwonią o podwyżki za paliwo'],
+    },
+  },
+
+  clubColors: {
+    gy: { label: 'Zielono-Żółte',     nick: 'Zielono-Żółci',    c1: '#2f7d32', c2: '#f2c811' },
+    wb: { label: 'Biało-Niebieskie',  nick: 'Biało-Niebiescy',  c1: '#f4f4f4', c2: '#1e4fa3' },
+    rb: { label: 'Czerwono-Czarne',   nick: 'Czerwono-Czarni',  c1: '#c62828', c2: '#111111' },
+    yb: { label: 'Żółto-Niebieskie',  nick: 'Żółto-Niebiescy',  c1: '#f2c811', c2: '#1e4fa3' },
+    wg: { label: 'Biało-Zielone',     nick: 'Biało-Zieloni',    c1: '#f4f4f4', c2: '#2f7d32' },
+    wr: { label: 'Biało-Czerwone',    nick: 'Biało-Czerwoni',   c1: '#f4f4f4', c2: '#c62828' },
+  },
 
   /* ----- Drabina ligowa -----
      econ – mnożnik ekonomii (frekwencja, sponsorzy, koszty, pensje nowych ludzi)
@@ -447,12 +480,12 @@ const DATA = {
   decisions: {
     welcomeWojt: {
       id: 'welcomeWojt',
-      from: 'Urząd Gminy – Wójt Zdzisław Kapusta',
+      from: () => 'Urząd Gminy ' + gameState.club.town + ' – Wójt Zdzisław Kapusta',
       title: 'Powitanie nowego prezesa',
-      body:
-        'Panie Prezesie, w imieniu Rady Gminy gratuluję objęcia funkcji (nikt inny się nie zgłosił). ' +
+      body: () =>
+        'Szanowny Panie Prezesie, w imieniu Rady Gminy ' + gameState.club.town + ' gratuluję objęcia funkcji (nikt inny się nie zgłosił). ' +
         'Gmina może dorzucić 500 zł z funduszu sołeckiego. Warunek: zawodnicy grają w koszulkach ' +
-        '„GMINA Z PERSPEKTYWAMI” i cała drużyna pojawi się na dożynkach nieść wieniec. ' +
+        '„' + gameState.club.town.toUpperCase() + ' – GMINA Z PERSPEKTYWAMI” i cała drużyna pojawi się na dożynkach nieść wieniec. ' +
         'Kibice mogą to różnie odebrać. Liczę na zrozumienie. Wybory za półtora roku.',
       options: [
         {
@@ -569,8 +602,8 @@ const DATA = {
         const p = Selectors.callPlayer(), c = gameState.calls;
         if (!p) return 'Rozmówca się rozłączył.';
         return c.caller === 'partner'
-          ? '„Dzień dobry, tu ' + c.callerName.split(',')[0] + '. Mój ' + p.first + ' za darmo nie będzie biegał po tym kartoflisku. Dzieci trzeba wykarmić, a z ' + c.rival + ' dzwonili już dwa razy. Plus ' + Selectors.raiseAmount() + ' złotych na paliwo albo w sobotę go nie puszczę!”'
-          : '„Prezesie, ropa podrożała, a z ' + c.rival + ' dają więcej. Albo plus ' + Selectors.raiseAmount() + ' zł na paliwo, albo zaczynam się rozglądać. Nie chcę, ale muszę. Pan rozumie.”';
+          ? '„Dzień dobry, czy to ' + Selectors.presName() + '? Tu ' + c.callerName.split(',')[0] + '. Mój ' + p.first + ' za darmo nie będzie biegał po tym kartoflisku. Dzieci trzeba wykarmić, a z ' + c.rival + ' dzwonili już dwa razy. Plus ' + Selectors.raiseAmount() + ' złotych na paliwo albo w sobotę go nie puszczę!”'
+          : '„Halo, ' + Selectors.presName() + '? Ropa podrożała, a z ' + c.rival + ' dają więcej. Albo plus ' + Selectors.raiseAmount() + ' zł na paliwo, albo zaczynam się rozglądać. Nie chcę, ale muszę. Pan rozumie.”';
       },
       options: [
         {
@@ -950,7 +983,7 @@ const DATA = {
     ultras:   { avatar: '🔥', handle: () => '@Ultras' + Selectors.clubHandle() },
     soltys:   { avatar: '🧓', handle: () => '@SołtysZdzisław' },
     sukces:   { avatar: '🤡', handle: () => '@KibicSukcesu88' },
-    portal:   { avatar: '📰', handle: () => '@Powiat24_pl' },
+    portal:   { avatar: '📰', handle: () => '@' + Selectors.handleFrom(gameState.club.town || 'Powiat') + '24_pl' },
     grazynka: { avatar: '🛒', handle: () => '@SklepUGrażynki' },
     wyjadacz: { avatar: '🍺', handle: () => '@StaryWyjadacz1979' },
     official: { avatar: '🏟️', handle: () => '@' + Selectors.clubHandle() + '_Oficjalnie' },
@@ -1033,7 +1066,11 @@ function createInitialState() {
       name: '',
       leagueLevel: 1,
       professionalism: 0,       // DNA klubu: -100 patologia … +100 profesjonalizm
-      corruptionCaught: 0,      // wpadki z Passatem w karierze (2. = zakaz awansu/degradacja, 3. = zawieszenie zarządu)
+      corruptionCaught: 0,
+      town: '',                 // miejscowość z Karty Rejestracyjnej
+      character: null,          // rural | industrial | suburban
+      colors: null,             // klucz z DATA.clubColors
+      president: '',            // jak zwracają się do prezesa w gminie      // wpadki z Passatem w karierze (2. = zakaz awansu/degradacja, 3. = zawieszenie zarządu)
       scandals: 0,              // zadymy, zatrucia, długi – patrzą na to sponsorzy
     },
     calendar: {
@@ -1144,6 +1181,8 @@ function createInitialState() {
     ui: {
       startError: '',
       startQuote: null,
+      // Stan formularza rejestracyjnego (ekran startowy)
+      form: { prefix: 'LZS', customPrefix: '', town: '', character: 'rural', colors: 'gy', stadium: '', stadiumEdited: false, president: '' },
       lastLogId: 0,
     },
   };
@@ -1174,15 +1213,25 @@ const Utils = {
 };
 
 const Engine = {
-  startGame(clubName) {
+  // Przyjmuje dane z Karty Rejestracyjnej albo samą nazwę (testy, stare wywołania).
+  startGame(card) {
+    if (typeof card === 'string') {
+      const words = card.trim().split(/\s+/);
+      card = { name: card, town: words.length > 1 ? words.slice(1).join(' ') : card, character: null, colors: null, stadium: '', president: '' };
+    }
     const fresh = createInitialState();
     fresh.screen = 'game';
-    fresh.club.name = clubName;
+    Object.assign(fresh.club, { name: card.name, town: card.town, character: card.character, colors: card.colors, president: (card.president || '').trim() });
+    fresh.stadium.baseName = (card.stadium || '').trim() || Selectors.defaultStadium(card.town);
     gameState = fresh;
+    if (card.character === 'suburban') gameState.finance.budget += 500;
+    if (card.character === 'rural') gameState.morale.lockerRoom += 5;
 
     Engine.newSeason();
     gameState.weather = Utils.rand(DATA.weather);
-    Engine.addLog('Objąłeś funkcję Prezesa klubu ' + clubName + '. W kasie ' + Utils.formatMoney(CONFIG.startBudget) + ' i karton po bananach z dokumentami.', 'system');
+    const t = Selectors.townType();
+    Engine.addLog(Selectors.presName() + ' obejmuje funkcję prezesa klubu ' + card.name + ' (' + card.town + (t ? ', ' + t.label.toLowerCase() : '') + '). W kasie ' + Utils.formatMoney(gameState.finance.budget) + ' i karton po bananach z dokumentami.', 'system');
+    Engine.addLog('Karta rejestracyjna przyjęta przez OZPN. Obiekt: ' + gameState.stadium.baseName + '.' + (Selectors.colorsNick() ? ' Barwy: ' + DATA.clubColors[card.colors].label.toLowerCase() + '.' : ''), 'system');
     Engine.addLog('Poprzedni prezes zostawił na biurku klucze (nie wiadomo do czego) i niedopitą kawę z 2019. Drużynę tymczasowo prowadzi Pan Mirek, konserwator.', 'flavor');
     Engine.addLog('Liga (10 drużyn, 18 kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
     Engine.pushDecision('welcomeWojt');
@@ -1260,7 +1309,10 @@ const Engine = {
       const round = [];
       for (let i = 0; i < n / 2; i++) {
         const a = order[i], b = order[n - 1 - i];
-        round.push((r + i) % 2 === 0 ? { home: a, away: b } : { home: b, away: a });
+        // Tablice Bergera: drużyna stała zmienia gospodarza co kolejkę, reszta wg parzystości pary
+        // (najwyżej 3 mecze z rzędu u siebie / na wyjeździe zamiast całej rundy)
+        const aHome = i === 0 ? r % 2 === 0 : i % 2 === 1;
+        round.push(aHome ? { home: a, away: b } : { home: b, away: a });
       }
       firstHalf.push(round);
       rot = [rot[rot.length - 1]].concat(rot.slice(0, -1));
@@ -1386,7 +1438,9 @@ const Engine = {
     if (Selectors.coach().style === 'off') base *= 1.1;   // na widowisko przychodzi więcej ludzi
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
     if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
-    base *= ticket.attendance;
+    // Letnicy z miasta nie liczą każdej złotówki na bilecie
+    base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
+    if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
     if (gameState.stadium.pitch < 25) base *= 0.85;
     let att = base * weather.attendance;
     if (weather.rain && gameState.stadium.upgrades.roof) att += Math.min(30, base - att);
@@ -1472,7 +1526,7 @@ const Engine = {
     const derbyTag = rival.derby ? ' (🔥 KOSA)' : '';
     let extra = '';
     if (result === 'W' && oppS > ourS && chaos >= 0.5) extra = ' SENSACJA NA BŁOCIE! Faworyt utonął w kałużach.';
-    Engine.addLog('⚽ Kolejka ' + kolejka + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie' : 'wyjazd') + ', ' + weather.icon + ' ' +
+    Engine.addLog('⚽ Kolejka ' + kolejka + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
 
     // --- Statystyki ---
@@ -1497,6 +1551,7 @@ const Engine = {
     // --- Nastroje: kibice kochają gole, nienawidzą muru ---
     const mult = rival.derby ? 2 : 1;
     let fans = { W: 4, D: 0, L: -4 }[result] * mult;
+    if (result === 'L' && gameState.club.character === 'industrial') fans -= 2;   // surowsi kibice z osady
     if (gf + ga >= 5) fans += 2;
     if (gf >= 3) fans += 1;
     if (gf + ga <= 1 && result !== 'W') fans -= coach.style === 'def' ? 4 : 2;
@@ -1564,7 +1619,8 @@ const Engine = {
     Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' + (holdersIn ? ' (w tym ' + holdersIn + ' karnetowiczów)' : '') +
       '. Bilety: ' + Utils.formatMoney(gate) + '. Budka Zenka: ' + sold + ' szt. „' + sausage.label + '” → ' + Utils.formatMoney(grillProfit) + ' zysku.', 'finance');
 
-    Engine.applyEffects({ fans: ticket.fans + sausage.fans });
+    const ticketFans = gameState.club.character === 'suburban' && ticket.fans < 0 ? Math.round(ticket.fans / 3) : ticket.fans;
+    Engine.applyEffects({ fans: ticketFans + sausage.fans });
 
     if (Math.random() < sausage.poisonRisk) {
       Engine.applyEffects({ fans: -5 });
@@ -1577,7 +1633,7 @@ const Engine = {
     if (rival.derby) {
       if (md.security === 'hired' || gameState.stadium.upgrades.monitoring) {
         Engine.addLog('🛡️ Byczki z Herkulesa stali przy bramie. Nikt nie odważył się rzucić nawet łupiną od słonecznika.', 'event');
-      } else if (Math.random() < 0.45) {
+      } else if (Math.random() < (gameState.club.character === 'industrial' ? 0.6 : 0.45)) {
         Engine.money('Kara Związku za zadymę', -Math.round(600 * Selectors.econ()));
         Engine.applyEffects({ fans: +2 });
         Engine.addLog('💥 ZADYMA! Przyjezdni kibice (' + rival.name + ') wtargnęli na murawę, wujek Staszek zgubił latarkę. Związek nalicza karę 600 zł. Miejscowi zachwyceni widowiskiem.', 'event');
@@ -1642,7 +1698,7 @@ const Engine = {
       if (level > 1) {
         newLevel = level - 1; outcome = 'releg';
         Engine.addLog('📉 SPADEK. ' + club + ' wraca do ligi: ' + DATA.leagueLevels[newLevel].name + '. Na trybunach cisza, tylko pies szczeka.', 'system');
-        Engine.xPost('sukces', 'SPADEK. Wiedziałem od początku. Prezes do dymisji (piszę to od 3 sezonów). 📉🤡');
+        Engine.xPost('sukces', 'SPADEK. Wiedziałem od początku. ' + Selectors.presName() + ' do dymisji (piszę to od 3 sezonów). 📉🤡');
       } else {
         outcome = 'shame';
         Engine.applyEffects({ fans: -10 });
@@ -2064,16 +2120,16 @@ const Engine = {
         'WYGRANA ' + score + ' z ' + c.rival + '! Cała wieś na rynku, ktoś przyniósł akordeon 🪗🔥',
         score + '!!! Tak się gra w tej gminie! Dziś pijemy zdrowie trenera 🍻',
         'Trzy punkty zostają u nas! ' + score + '. Kto nie skacze, ten z ' + Selectors.handleFrom(c.rival) + '! 🔥',
-      ]));
+      ].concat(Selectors.colorsNick() ? ['Nasi ' + Selectors.colorsNick() + '! ' + score + ' z ' + c.rival + '! Cała ' + gameState.club.town + ' w barwach! 🎉'] : [])));
       if (Math.random() < 0.5) extra.push(['sukces', 'Zawsze w was wierzyłem!!! (pierwszy raz na meczu od 2015) 💪']);
     } else if (c.result === 'D') {
       Engine.xPost('ultras', Utils.rand([
         'Remis ' + score + '. Ani radość, ani smutek. Jak obiad u teściowej. 😐',
         score + ' z ' + c.rival + '. Punkt to punkt, ale serce chciało więcej.',
-      ]));
+      ].concat(Selectors.colorsNick() ? ['Remis. ' + Selectors.colorsNick() + ' walczyli, ale w ' + gameState.club.town + ' oczekujemy więcej.'] : [])));
     } else {
       Engine.xPost('sukces', Utils.rand([
-        score + '. Sprzedawczyki. Prezes do dymisji, trener do dymisji, ja też wychodzę. #KoniecZTymKlubem',
+        score + '. Sprzedawczyki. ' + Selectors.presName() + ' do dymisji, trener do dymisji, ja też wychodzę. #KoniecZTymKlubem',
         score + ' z ' + c.rival + '?! Mój pies by lepiej zagrał. A pies ma trzy nogi.',
         'Przestaję kibicować. Od jutra. Albo od soboty, jak znowu przegramy. 😤',
       ]));
@@ -2151,7 +2207,8 @@ const Engine = {
   /* ----- Telefony z szatni ----- */
   maybeLockerCall() {
     const c = gameState.calls;
-    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < 4 || Math.random() > 0.3) return;
+    const suburban = gameState.club.character === 'suburban';   // letnicy płacą więcej, to i chłopaki wołają częściej
+    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < (suburban ? 3 : 4) || Math.random() > (suburban ? 0.45 : 0.3)) return;
     const lineup = Engine.pickLineup([]);
     const pool = gameState.squad.filter((p) => p.favorite || (lineup.includes(p) && p.skill >= 5));
     if (!pool.length) return;
@@ -2268,12 +2325,13 @@ const Engine = {
   /* ----- Infrastruktura ----- */
   buyUpgrade(id) {
     const u = DATA.upgrades[id];
-    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < u.cost) return;
-    Engine.money('Inwestycja: ' + u.label, -u.cost);
+    const cost = Selectors.upgradeCost(id);
+    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost) return;
+    Engine.money('Inwestycja: ' + u.label, -cost);
     gameState.stadium.upgrades[id] = true;
     if (id === 'roller') gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 30, 0, 100);
     if (id === 'boiler') Engine.applyEffects({ lockerRoom: +8 });
-    Engine.addLog('🔧 Inwestycja: ' + u.label + ' (' + Utils.formatMoney(u.cost) + '). Pan Heniek mówi, że „takiego luksusu tu nie było od Gierka”.', 'finance');
+    Engine.addLog('🔧 Inwestycja: ' + u.label + ' (' + Utils.formatMoney(cost) + '). Pan Heniek mówi, że „takiego luksusu tu nie było od Gierka”.', 'finance');
   },
 
   // Hooki wykonywane po kliknięciu [NASTĘPNY TYDZIEŃ], po kolei.
@@ -2373,7 +2431,7 @@ const Engine = {
     },
     function fixedCosts() {
       const e = Selectors.econ();
-      const lime = Math.round(Utils.randInt(15, 25) * e), power = Math.round(Utils.randInt(20, 35) * e), laundry = Math.round(Utils.randInt(25, 40) * e);
+      const lime = Math.round(Utils.randInt(15, 25) * e * (gameState.club.character === 'rural' ? 0.8 : 1)), power = Math.round(Utils.randInt(20, 35) * e), laundry = Math.round(Utils.randInt(25, 40) * e);
       Engine.money('Koszty stałe (wapno, prąd, pranie)', -(lime + power + laundry));
       Engine.addLog('🧾 Koszty stałe: wapno do linii ' + lime + ' zł, prąd w blaszaku ' + power + ' zł, pranie strojów u pani Krysi ' + laundry + ' zł.', 'finance');
     },
@@ -2511,7 +2569,15 @@ const Selectors = {
     const words = String(name).trim().split(/\s+/);
     return (words[words.length - 1] || 'Klub').replace(/[^\p{L}\p{N}]/gu, '') || 'Klub';
   },
-  clubHandle: () => Selectors.handleFrom(gameState.club.name),
+  clubHandle: () => Selectors.handleFrom(gameState.club.town || gameState.club.name),
+  presName: () => gameState.club.president || 'Prezes',
+  townType: () => DATA.townTypes[gameState.club.character] || null,
+  colors: () => DATA.clubColors[gameState.club.colors] || null,
+  colorsNick: () => (Selectors.colors() ? Selectors.colors().nick : ''),
+  defaultStadium: (town) => 'Boisko Gminne przy Remizie' + (town ? ' w ' + town : ''),
+  upgradeCost: (id) => Math.round(DATA.upgrades[id].cost * (id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),
+  // Nazwa klubu z formularza: przedrostek (z listy albo własny) + miejscowość
+  formClubName: (f) => [(f.prefix === 'custom' ? f.customPrefix : f.prefix).trim(), f.town.trim()].filter(Boolean).join(' '),
   youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
   youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
@@ -2619,6 +2685,10 @@ const Storage = {
     state.version = CONFIG.saveVersion;
     state.ui.startError = '';
     if (!state.weather) state.weather = DATA.weather[1];
+    if (!state.club.town) {
+      const words = String(state.club.name || '').trim().split(/\s+/);
+      state.club.town = words.length > 1 ? words.slice(1).join(' ') : (words[0] || 'Gmina');
+    }
     if (oldVersion < 3 || !state.season.rounds || !state.season.rounds.length) {
       // Reforma ligi (10 drużyn): nowy terminarz od 1. kolejki.
       delete state.season.schedule;
@@ -2656,21 +2726,71 @@ const UI = {
   },
 
   /* ---------- EKRAN STARTOWY ---------- */
+  colorsBadge(colorsId, size = 'w-5 h-5') {
+    const c = DATA.clubColors[colorsId];
+    if (!c) return '';
+    return `<span class="inline-block ${size} align-middle border-2 border-ink-900 flex-shrink-0" title="Barwy: ${c.label}" style="background:linear-gradient(135deg, ${c.c1} 50%, ${c.c2} 50%)"></span>`;
+  },
+
+  // Podgląd „plakietki” klubu – odświeżany na żywo podczas pisania
+  formPreview() {
+    const f = gameState.ui.form;
+    const name = Selectors.formClubName(f) || '— nazwa klubu —';
+    const t = DATA.townTypes[f.character];
+    const c = DATA.clubColors[f.colors];
+    return `
+      <div class="flex items-center gap-3">
+        ${UI.colorsBadge(f.colors, 'w-12 h-12')}
+        <div class="min-w-0">
+          <div class="font-type text-2xl leading-tight break-words">${Utils.escape(name)}</div>
+          <div class="text-xs text-ink-700">${c ? 'Nasi ' + c.nick : ''}${f.town.trim() ? ' · ' + Utils.escape(f.town.trim()) : ''}</div>
+        </div>
+      </div>
+      <div class="text-sm mt-3 space-y-1">
+        <div>🏟️ ${Utils.escape(f.stadium.trim() || Selectors.defaultStadium(f.town.trim()))}</div>
+        <div>${t.icon} ${t.label}</div>
+        <div>🧑‍💼 ${Utils.escape(f.president.trim() || 'Prezes')}</div>
+      </div>`;
+  },
+
+  /* ---------- EKRAN STARTOWY: KARTA REJESTRACYJNA KLUBU ---------- */
   startScreen() {
     if (!gameState.ui.startQuote) gameState.ui.startQuote = Utils.rand(DATA.quotes);
     const q = gameState.ui.startQuote;
+    const f = gameState.ui.form;
     const save = Storage.load();
-    const chips = DATA.presetClubs.map((name) => `
-      <button data-action="pick-club" data-name="${Utils.escape(name)}"
-        class="btn-press px-3 py-1.5 border border-ink-700 bg-paper-200 hover:bg-paper-300 text-ink-900 text-sm font-mono shadow-[0_2px_0_#3d362c]">
-        ${Utils.escape(name)}
+
+    const chip = (field, value, active, label) => `
+      <button data-action="form-set" data-field="${field}" data-value="${Utils.escape(value)}"
+        class="btn-press px-3 py-1.5 border-2 border-ink-900 text-sm font-mono ${active ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 text-ink-900 shadow-[0_2px_0_#3d362c]'}">${label}</button>`;
+    const input = (field, value, placeholder, max, extra = '') => `
+      <input data-field="${field}" type="text" maxlength="${max}" autocomplete="off" value="${Utils.escape(value)}" placeholder="${Utils.escape(placeholder)}"
+        class="w-full px-3 py-2 bg-paper-100 border-2 border-ink-900 font-type text-lg text-ink-900 placeholder:text-paper-400 focus:outline-none focus:ring-4 focus:ring-amber-glow/50 ${extra}" />`;
+    const section = (no, title, body) => `
+      <fieldset class="border-t-2 border-dashed border-ink-700 pt-4 mt-5">
+        <legend class="font-type text-lg pr-2"><span class="text-stamp">${no}.</span> ${title}</legend>
+        ${body}
+      </fieldset>`;
+
+    const prefixChips = DATA.clubPrefixes.map((x) => chip('prefix', x, f.prefix === x, Utils.escape(x))).join('') + chip('prefix', 'custom', f.prefix === 'custom', '✏️ Własny');
+    const characterCards = Object.entries(DATA.townTypes).map(([id, t]) => `
+      <button data-action="form-set" data-field="character" data-value="${id}"
+        class="btn-press w-full text-left p-3 border-2 border-ink-900 ${f.character === id ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 shadow-[0_3px_0_#211d18]'}">
+        <span class="font-type text-lg block">${f.character === id ? '☒' : '☐'} ${t.icon} ${t.label}</span>
+        <span class="text-xs block ${f.character === id ? 'text-paper-300' : 'text-ink-700'}">${t.sub}</span>
+        <ul class="text-xs mt-1 list-disc pl-4 ${f.character === id ? 'text-paper-200' : 'text-ink-700'}">${t.perks.map((x) => `<li>${x}</li>`).join('')}</ul>
+      </button>`).join('');
+    const colorSwatches = Object.entries(DATA.clubColors).map(([id, c]) => `
+      <button data-action="form-set" data-field="colors" data-value="${id}"
+        class="btn-press flex items-center gap-2 px-2 py-1.5 border-2 ${f.colors === id ? 'border-stamp bg-paper-300' : 'border-ink-900 bg-paper-200 hover:bg-paper-300'}">
+        ${UI.colorsBadge(id, 'w-7 h-7')}<span class="text-sm">${c.label}</span>
       </button>`).join('');
 
     const saveBox = save && save.club.name ? `
       <section class="paper text-ink-900 p-5 mb-6 border-l-8 border-grass">
         <div class="text-xs uppercase tracking-widest text-ink-700">W szufladzie leży teczka z zapisem</div>
-        <div class="font-type text-2xl mt-1">${Utils.escape(save.club.name)}</div>
-        <div class="text-sm text-ink-700">Sezon ${save.calendar.season}, Tydzień ${save.calendar.week} · Kasa: ${Utils.formatMoney(save.finance.budget)}</div>
+        <div class="font-type text-2xl mt-1">${UI.colorsBadge(save.club.colors)} ${Utils.escape(save.club.name)}</div>
+        <div class="text-sm text-ink-700">${Utils.escape(DATA.leagueLevels[save.club.leagueLevel] ? DATA.leagueLevels[save.club.leagueLevel].name : 'B-klasa')} · Sezon ${save.calendar.season}, Tydzień ${save.calendar.week} · Kasa: ${Utils.formatMoney(save.finance.budget)}</div>
         <div class="grid sm:grid-cols-[2fr_1fr] gap-3 mt-4">
           <button data-action="load-game" class="btn-press py-3 bg-grass hover:brightness-110 text-paper-100 font-type text-xl border-2 border-ink-900 shadow-[0_4px_0_#211d18]">📂 WCZYTAJ GRĘ</button>
           <button data-action="clear-save" class="btn-press py-3 bg-paper-200 hover:bg-paper-300 text-stamp font-type text-sm border-2 border-stamp">🗑️ Resetuj zapis</button>
@@ -2679,7 +2799,7 @@ const UI = {
 
     return `
     <main class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-2xl">
+      <div class="w-full max-w-4xl">
         <header class="text-center mb-8">
           <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Okręgowy Związek Piłki Nożnej · Wydział Gier · Pismo L.dz. 666/B</p>
           <h1 class="font-type text-4xl sm:text-6xl text-amber-glow crt leading-tight">B-KLASA:<br>PREZES Z ŁAPANKI</h1>
@@ -2689,27 +2809,48 @@ const UI = {
         ${saveBox}
 
         <section class="paper paper-rough text-ink-900 p-6 sm:p-8 relative">
-          <div class="stamp absolute -top-3 right-4 sm:right-8 px-3 py-1 font-type text-sm bg-paper-100">PILNE</div>
-
-          <blockquote class="font-type text-lg sm:text-xl border-l-4 border-stamp pl-4 mb-6">
-            „${Utils.escape(q.text)}”
-            <footer class="font-mono text-sm text-ink-700 mt-1">— ${Utils.escape(q.author)}</footer>
+          <div class="stamp absolute top-4 right-4 sm:right-8 px-3 py-1 font-type text-sm bg-paper-100">WPŁYNĘŁO</div>
+          <div class="text-xs uppercase tracking-[0.3em] text-ink-700">Druk OZPN nr B-1 · wypełnić drukowanymi literami</div>
+          <h2 class="font-type text-2xl sm:text-3xl mt-1 pr-28">KARTA REJESTRACYJNA KLUBU</h2>
+          <p class="text-sm text-ink-700 mb-2">Zgłoszenie drużyny seniorów do rozgrywek B-klasy, sezon bieżący. Opłata rejestracyjna: „co łaska”.</p>
+          <blockquote class="font-type text-base border-l-4 border-stamp pl-4 my-4">
+            „${Utils.escape(q.text)}” <span class="font-mono text-xs text-ink-700">— ${Utils.escape(q.author)}</span>
           </blockquote>
 
-          <label for="club-name" class="block font-type text-lg mb-2">Nazwa klubu, który bierzesz na klatę:</label>
-          <input id="club-name" type="text" maxlength="40" autocomplete="off"
-            placeholder="np. LZS Chrząstawa"
-            class="w-full px-4 py-3 bg-paper-100 border-2 border-ink-900 font-type text-xl text-ink-900 placeholder:text-paper-400 focus:outline-none focus:ring-4 focus:ring-amber-glow/50" />
-          <p id="start-error" class="text-stamp font-bold text-sm mt-2 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
+          <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <div>
+              ${section('I', 'Nazwa klubu i miejscowość', `
+                <div class="flex flex-wrap gap-2 mb-3">${prefixChips}</div>
+                ${f.prefix === 'custom' ? `<div class="mb-3">${input('customPrefix', f.customPrefix, 'własny przedrostek, np. Coco Jambo, Sokół, Tęcza', 25)}</div>` : ''}
+                ${input('town', f.town, 'Miejscowość / nazwa własna, np. Świbie, Chrząstawa', 30)}
+                <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border-2 border-ink-900 bg-amber-glow hover:bg-yellow-400 text-ink-900 text-sm font-bold shadow-[0_3px_0_#211d18]">🎲 Wylosuj kultowy klub</button>
+              `)}
+              ${section('II', 'Charakter miejscowości', `<div class="grid gap-2">${characterCards}</div>`)}
+              ${section('III', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
+              ${section('IV', 'Obiekt sportowy', `
+                ${input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60)}
+                <p class="text-xs text-ink-700 mt-1">Nazwę może później zmienić Sponsor Tytularny. Puste pole = nazwa domyślna.</p>
+              `)}
+              ${section('V', 'Imię / ksywa Prezesa', `
+                ${input('president', f.president, 'Prezes', 30)}
+                <p class="text-xs text-ink-700 mt-1">Jak mówią na Ciebie w gminie: „Prezes Janusz”, „Prezes Mirek”… Pojawi się w pismach, telefonach i w protokole.</p>
+              `)}
+            </div>
 
-          <p class="text-sm text-ink-700 mt-2 mb-2">…albo przejmij jeden z legendarnych klubów:</p>
-          <div class="flex flex-wrap gap-2 mb-8">${chips}</div>
-
-          <button data-action="start-game"
-            class="btn-press w-full py-5 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl sm:text-3xl tracking-wider border-4 border-ink-900 shadow-[0_6px_0_#211d18]">
-            [ ROZPOCZNIJ PREZESURĘ ]
-          </button>
-          <p class="text-xs text-ink-700 text-center mt-4">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.${save && save.club.name ? ' <b>Nowa prezesura nadpisze zapis z szuflady.</b>' : ''}</p>
+            <aside class="lg:sticky lg:top-6 self-start">
+              <div class="bg-paper-200 border-2 border-ink-900 p-4 shadow-[0_4px_0_#211d18]">
+                <div class="text-xs uppercase tracking-widest text-ink-700 mb-2">Plakietka klubu (podgląd)</div>
+                <div id="form-preview">${UI.formPreview()}</div>
+              </div>
+              <p id="start-error" class="text-stamp font-bold text-sm mt-3 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
+              <button data-action="start-game"
+                class="btn-press w-full mt-2 py-5 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl tracking-wider border-4 border-ink-900 shadow-[0_6px_0_#211d18]">
+                [ ROZPOCZNIJ PREZESURĘ ]
+              </button>
+              <p class="text-xs text-ink-700 text-center mt-3">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.${save && save.club.name ? ' <b>Nowa prezesura nadpisze zapis z szuflady.</b>' : ''}</p>
+              <div class="mt-4 text-right font-type text-sm text-ink-700">Podpis zgłaszającego: <span class="inline-block w-32 border-b border-ink-700"></span></div>
+            </aside>
+          </div>
         </section>
       </div>
     </main>`;
@@ -2762,7 +2903,7 @@ const UI = {
 
         <div class="flex flex-col justify-center min-w-0">
           <div class="text-xs text-paper-400 uppercase tracking-widest">Klub</div>
-          <div class="font-type text-2xl text-paper-100 leading-tight break-words">${Utils.escape(Selectors.clubDisplayName())}</div>
+          <div class="font-type text-2xl text-paper-100 leading-tight break-words">${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(Selectors.clubDisplayName())}</div>
           <div class="text-sm text-paper-300">Poziom ${s.club.leagueLevel}: <span class="text-amber-glow">${Selectors.leagueName()}</span> · 📊 ${gameState.season.table[US] && gameState.season.table[US].p ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'}</div>
           <div class="text-sm text-paper-300">🏟️ ${Utils.escape(Selectors.stadiumName())}</div>
           <div class="text-sm text-paper-300 mt-1">📅 ${Selectors.weekLabel()}</div>
@@ -2951,7 +3092,8 @@ const UI = {
       return `
       <article class="paper text-ink-900 p-6 relative mb-4">
         <div class="stamp absolute top-3 right-3 px-2 py-0.5 font-type text-xs">PILNE</div>
-        <div class="text-xs uppercase tracking-widest text-ink-700">Od: ${Utils.escape(Utils.val(d.from))}</div>
+        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Od: ${Utils.escape(Utils.val(d.from))}</div>
+        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
         <h3 class="font-type text-2xl mt-1 mb-3 pr-16">${Utils.escape(Utils.val(d.title))}</h3>
         <p class="leading-relaxed mb-5">${Utils.escape(Utils.val(d.body))}</p>
         <div class="grid gap-3 ${cols}">${opts}</div>
@@ -3213,7 +3355,8 @@ const UI = {
           <div class="stamp absolute top-4 right-4 px-3 py-1 font-type text-lg bg-paper-100">ODWOŁANY</div>
           <h2 class="font-type text-xl mb-2">Powód upadku</h2>
           <p class="mb-5 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
-          <h2 class="font-type text-xl mb-2">Bilans prezesury: ${Utils.escape(gameState.club.name)}</h2>
+          <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
+          <h2 class="font-type text-xl mb-2">Bilans prezesury</h2>
           <table class="w-full text-sm mb-6">
             ${row('Rozegrane sezony (pełne)', st.seasons)}
             ${row('Mecze (W-R-P)', st.matches + ' (' + st.wins + '-' + st.draws + '-' + st.losses + ')')}
@@ -3532,11 +3675,11 @@ const UI = {
       return `
       <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
         <div>
-          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(u.cost)}</span></div>
+          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : ''}</span></div>
           <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
           <div class="text-xs text-ink-700 italic">📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</div>
         </div>
-        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < u.cost)}</div>
+        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))}</div>
       </div>`;
     }).join('');
     return UI.card('E', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
@@ -3564,24 +3707,40 @@ const App = {
 };
 
 const Actions = {
-  'pick-club'(el) {
-    const input = document.getElementById('club-name');
-    if (input) { input.value = el.dataset.name; input.focus(); }
+  'form-set'(el) {
+    const f = gameState.ui.form;
+    f[el.dataset.field] = el.dataset.value;
+    gameState.ui.startError = '';
+    UI.renderAll();
+  },
+
+  'random-club'() {
+    const c = Utils.rand(DATA.cultClubs);
+    const f = gameState.ui.form;
+    const listed = DATA.clubPrefixes.includes(c.prefix);
+    Object.assign(f, {
+      prefix: listed ? c.prefix : 'custom', customPrefix: listed ? '' : c.prefix,
+      town: c.town, character: c.character, colors: c.colors,
+      stadium: '', stadiumEdited: false, president: Utils.rand(DATA.presidentNames),
+    });
+    gameState.ui.startError = '';
+    UI.renderAll();
   },
 
   'start-game'() {
-    const input = document.getElementById('club-name');
-    const name = (input ? input.value : '').trim();
-    if (!name) {
-      gameState.ui.startError = 'Klub bez nazwy to jak bramka bez siatki. Wpisz coś, Prezesie!';
-      const err = document.getElementById('start-error');
-      if (err) err.textContent = gameState.ui.startError;
-      if (input) { input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake'); }
-      return;
-    }
+    const f = gameState.ui.form;
+    const name = Selectors.formClubName(f);
+    const fail = (msg) => {
+      gameState.ui.startError = msg;
+      UI.renderAll();
+      const box = document.querySelector('input[data-field="town"]');
+      if (box) { box.classList.add('shake'); box.focus(); }
+    };
+    if (!f.town.trim()) return fail('Klub bez miejscowości to jak bramka bez siatki. Wpisz, skąd jesteście, Prezesie!');
+    if (DATA.rivals.some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail('Taki klub już gra w tej B-klasie! Wymyśl coś innego, bo Związek się pogubi.');
     const existing = Storage.load();
     if (existing && existing.club.name && !confirm('W szufladzie jest zapis klubu ' + existing.club.name + '. Nowa prezesura go nadpisze. Kontynuować?')) return;
-    Engine.startGame(name);
+    Engine.startGame({ name, town: f.town.trim(), character: f.character, colors: f.colors, stadium: f.stadium, president: f.president });
     App.commit();
     window.scrollTo(0, 0);
   },
@@ -3698,8 +3857,24 @@ document.addEventListener('click', (e) => {
 
 window.addEventListener('resize', () => UI.fitActionBar());
 
+document.addEventListener('input', (e) => {
+  const field = e.target.dataset && e.target.dataset.field;
+  if (!field || gameState.screen !== 'start') return;
+  const f = gameState.ui.form;
+  f[field] = e.target.value;
+  if (field === 'stadium') f.stadiumEdited = e.target.value.trim() !== '';
+  const stadiumBox = document.querySelector('input[data-field="stadium"]');
+  if (field === 'town' && stadiumBox && !f.stadiumEdited) stadiumBox.placeholder = Selectors.defaultStadium(f.town.trim() || '[Miejscowość]');
+  const preview = document.getElementById('form-preview');
+  if (preview) preview.innerHTML = UI.formPreview();
+  // poprawiony formularz = stary komunikat o błędzie znika
+  gameState.ui.startError = '';
+  const err = document.getElementById('start-error');
+  if (err) err.textContent = '';
+});
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.id === 'club-name') Actions['start-game']();
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.field) Actions['start-game']();
 });
 
 /* START */
