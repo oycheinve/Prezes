@@ -57,8 +57,9 @@
     summary::-webkit-details-marker { display: none; }
     details[open] > summary .fold-chevron { transform: rotate(180deg); }
     .fold-chevron { transition: transform .15s; }
-    .tap { min-height: 48px; }
-    .scroll-thin::-webkit-scrollbar { width: 8px; }
+    /* Rama aplikacji na pełną wysokość ekranu: przewija się tylko obszar roboczy */
+    .app-shell { height: 100vh; height: 100dvh; }
+    .scroll-thin::-webkit-scrollbar { width: 4px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
   </style>
 </head>
@@ -1185,7 +1186,8 @@ function createInitialState() {
       squadSort: 'pos',         // sortowanie kadry: pos | goals | rating
       deskView: null,           // Biurko na telefonie: decisions | log (null = automatycznie)
       logWeeks: 3,              // ile tygodni dziennika pokazać od razu
-      folds: {},                // zapamiętane rozwinięcia sekcji (Finanse, Kadra)
+      folds: {},                // zapamiętane rozwinięcia wierszy (Kadra)
+      sub: {},                  // wybrany podwidok zakładki (np. finance: 'tickets')
     },
   };
 }
@@ -2750,43 +2752,16 @@ const UI = {
   renderAll() {
     UI._uid = 0;
     UI.applyTheme(gameState.screen === 'start' ? gameState.ui.form.colors : gameState.club.colors);
+    // Obszar roboczy przewija się sam – po akcji w tym samym widoku zostajemy w tym samym miejscu
+    const work = document.getElementById('work');
+    const key = gameState.activeTab + ':' + UI.sub(gameState.activeTab, '') + ':' + gameState.ui.deskView + ':' + gameState.calendar.week;
+    const keep = work && work.dataset.key === key ? work.scrollTop : 0;
     const root = UI.root();
     root.innerHTML = gameState.screen === 'start' ? UI.startScreen()
       : gameState.screen === 'gameover' ? UI.gameOverScreen()
       : UI.gameScreen();
-    UI.fitActionBar();
-  },
-
-  // Treść nigdy nie chowa się pod stałym paskiem: dolny margines = realna wysokość paska.
-  fitActionBar() {
-    const page = document.getElementById('game-root');
-    if (!page) return;
-    // Na komputerze widoczny jest pasek akcji, na telefonie dok z przyciskiem i nawigacją (drugi ma wtedy wysokość 0).
-    const h = Math.max(...['action-bar', 'mobile-dock'].map((id) => (document.getElementById(id) || {}).offsetHeight || 0));
-    page.style.paddingBottom = (h + 20) + 'px';
-  },
-
-  isMobile: () => window.matchMedia('(max-width: 1023px)').matches,
-
-  // Zwijana sekcja: na telefonie domyślnie zwinięta (chyba że mobileOpen), na komputerze rozwinięta; wybór gracza jest zapamiętany.
-  fold(key, letter, title, subtitle, info, body, extraClass = '', mobileOpen = false) {
-    const stored = (gameState.ui.folds || {})[key];
-    const open = stored != null ? stored : (UI.isMobile() ? mobileOpen : true);
-    return `
-    <details data-fold="${key}" class="paper min-w-0 ${extraClass}" ${open ? 'open' : ''}>
-      <summary class="tap flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none">
-        <span class="text-sm font-semibold text-ink-700 w-5 text-center flex-shrink-0">${letter}</span>
-        <div class="min-w-0 flex-1">
-          <h3 class="text-[15px] sm:text-base font-semibold leading-tight">${title}</h3>
-          ${info ? `<p class="text-xs text-ink-700 truncate">${info}</p>` : ''}
-        </div>
-        <span class="fold-chevron text-ink-700 text-xl flex-shrink-0">⌄</span>
-      </summary>
-      <div class="px-4 pb-4 pt-3 border-t border-paper-300">
-        ${subtitle ? `<p class="text-xs text-ink-700 mb-3">${subtitle}</p>` : ''}
-        ${body}
-      </div>
-    </details>`;
+    const fresh = document.getElementById('work');
+    if (fresh) { fresh.dataset.key = key; fresh.scrollTop = keep; }
   },
 
   /* ---------- Motyw: barwy klubu jako akcenty interfejsu ---------- */
@@ -2990,95 +2965,46 @@ const UI = {
   },
 
   /* ---------- GŁÓWNY EKRAN GRY ---------- */
+  /* ---------- RAMA APLIKACJI (telefon; na komputerze ta sama kolumna na środku) ---------- */
   gameScreen() {
     return `
-    <div id="game-root" class="min-h-screen flex flex-col pb-44 sm:pb-28 overflow-x-hidden">
-      ${UI.mobileHeader()}
-      <div class="hidden lg:block">${UI.statusBar()}</div>
-      <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
-        ${UI.navigation()}
-        <main class="flex-1 min-w-0 px-3 py-4 sm:px-6 sm:py-6">${UI.activeTabContent()}</main>
-      </div>
-      ${UI.actionBar()}
-      ${UI.mobileDock()}
+    <div id="game-root" class="app-shell mx-auto w-full max-w-[480px] flex flex-col bg-desk-900 sm:border-x border-desk-700">
+      ${UI.appHeader()}
+      <main id="work" class="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-thin px-2.5 py-2">${UI.activeTabContent()}</main>
+      ${UI.appDock()}
     </div>`;
   },
 
-  // Komputer: cienki pasek akcji na dole – [NASTĘPNY TYDZIEŃ] dostępny z każdej zakładki.
-  actionBar() {
-    const canAdvance = Engine.canAdvanceWeek();
-    const pending = gameState.pendingDecisions.length;
-    const msg = canAdvance
-      ? (Selectors.isMatchWeek() ? 'W ten weekend gramy – kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
-      : 'Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '. Nikt nie lubi czekać.';
-    return `
-    <div id="action-bar" class="hidden lg:block fixed bottom-0 left-0 right-0 z-50 bg-desk-900 border-t border-desk-700">
-      <div class="max-w-7xl mx-auto px-6 py-2 flex items-center gap-6">
-        <p class="flex-1 text-sm ${canAdvance ? 'text-paper-400' : 'text-amber-glow font-medium'}">
-          ${msg}
-          ${!canAdvance && gameState.activeTab !== 'desk' ? '<button data-action="switch-tab" data-tab="desk" class="underline underline-offset-4 ml-2 text-paper-100">Idź na Biurko</button>' : ''}
-        </p>
-        <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
-          class="btn-press px-6 py-2 rounded-lg text-sm font-semibold tracking-wide
-          ${canAdvance ? 'bg-amber-glow text-ink-900 hover:brightness-110' : 'bg-desk-700 text-paper-400 cursor-not-allowed'}">
-          Następny tydzień →
-        </button>
-      </div>
-    </div>`;
-  },
-
-  // Etykieta + wartość: cienka etykieta, duża i gruba liczba
-  stat(label, value, extra = '', valueClass = 'text-paper-100') {
-    return `
-      <div class="min-w-0">
-        <div class="text-[10px] uppercase tracking-wider text-paper-400 font-medium truncate">${label}</div>
-        <div class="text-base lg:text-lg font-bold leading-tight truncate ${valueClass}">${value}</div>
-        ${extra}
-      </div>`;
-  },
-
-  thinBar(v) {
-    return `<div class="h-1 rounded-full bg-desk-700 mt-1 overflow-hidden"><div class="h-full rounded-full ${Selectors.moodColor(v)}" style="width:${v}%"></div></div>`;
-  },
-
-  matchLine() {
+  // Nagłówek w dwóch linijkach: klub + liczby i najbliższy mecz
+  appHeader() {
     const s = gameState;
+    const played = s.season.table[US] && s.season.table[US].p;
     const fx = Selectors.currentFixture();
     const rival = Selectors.rival(fx.rival);
     const inPre = !Selectors.isMatchWeek();
-    const form = s.record.form.map((r) => `<span class="w-1.5 h-1.5 rounded-full ${{ W: 'bg-grass', D: 'bg-amber-400', L: 'bg-stamp' }[r]}" title="${{ W: 'Wygrana', D: 'Remis', L: 'Porażka' }[r]}"></span>`).join('');
-    return `
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="text-lg leading-none flex-shrink-0">${s.weather.icon}</span>
-        <div class="min-w-0">
-          <div class="text-sm font-semibold truncate">${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</div>
-          <div class="text-[11px] text-paper-400 truncate">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</div>
-        </div>
-        ${form ? `<div class="flex gap-1 flex-shrink-0 ml-auto">${form}</div>` : ''}
+    const mood = (label, v) => `
+      <div class="min-w-0">
+        <div class="flex items-baseline gap-1 leading-none"><span class="text-[10px] text-paper-400">${label}</span><b class="text-[13px] ${v < 25 ? 'text-stamp' : 'text-paper-100'}">${v}%</b></div>
+        <div class="h-[3px] rounded-full bg-desk-700 mt-1 overflow-hidden"><div class="h-full rounded-full ${Selectors.moodColor(v)}" style="width:${v}%"></div></div>
       </div>`;
-  },
-
-  // Telefon: cienki nagłówek – nazwa, trzy liczby i jedna linia meczu, bez ramek
-  mobileHeader() {
-    const s = gameState;
-    const played = s.season.table[US] && s.season.table[US].p;
     return `
-    <header class="lg:hidden bg-desk-900 border-b border-desk-700 px-3 pt-2.5 pb-2 space-y-2">
-      <div class="flex items-center gap-2">
-        ${UI.crest(s.club.colors, s.club.name, 24)}
-        <div class="min-w-0 flex-1">
-          <div class="text-[15px] font-bold leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
-          <div class="text-[11px] text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · S${s.calendar.season} T${s.calendar.week}</div>
+    <header class="flex-shrink-0 bg-desk-900 border-b border-desk-700 px-2.5 py-1.5">
+      <div class="flex items-center gap-2 h-7">
+        ${UI.crest(s.club.colors, s.club.name, 20)}
+        <div class="min-w-0 flex-1 flex items-baseline gap-1.5">
+          <span class="text-[14px] font-bold truncate">${Utils.escape(Selectors.clubDisplayName())}</span>
+          <span class="text-[11px] text-paper-400 whitespace-nowrap">${played ? Selectors.ourPosition() + '. msc' : Selectors.leagueName()}</span>
         </div>
-        <button data-action="exit-menu" title="Wyjdź do menu (zapis zostaje)" class="btn-press w-9 h-9 rounded-lg text-paper-400 hover:bg-desk-800 flex-shrink-0">⏏</button>
-        <button data-action="reset-game" title="Rzuć papierami (nowa gra)" class="btn-press w-9 h-9 rounded-lg text-paper-400 hover:bg-desk-800 flex-shrink-0">🗑</button>
+        <span class="text-[11px] text-paper-400 whitespace-nowrap">S${s.calendar.season} · T${s.calendar.week}</span>
+        <button data-action="exit-menu" title="Wyjdź do menu (zapis zostaje)" class="btn-press w-7 h-7 rounded-md text-[13px] text-paper-400 hover:bg-desk-800">⏏</button>
+        <button data-action="reset-game" title="Rzuć papierami (nowa gra)" class="btn-press w-7 h-7 rounded-md text-[13px] text-paper-400 hover:bg-desk-800">🗑</button>
       </div>
-      <div class="grid grid-cols-3 gap-4">
-        ${UI.stat('Budżet', Utils.formatMoney(s.finance.budget), '', s.finance.budget < 0 ? 'text-stamp' : 'text-paper-100')}
-        ${UI.stat('Szatnia', s.morale.lockerRoom + '%', UI.thinBar(s.morale.lockerRoom))}
-        ${UI.stat('Kibice', s.morale.fans + '%', UI.thinBar(s.morale.fans))}
+      <div class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.7fr)] items-center gap-2.5 mt-0.5">
+        <div class="leading-none whitespace-nowrap"><span class="text-[10px] text-paper-400">Kasa</span> <b class="text-[13px] ${s.finance.budget < 0 ? 'text-stamp' : 'text-paper-100'}">${Utils.formatMoney(s.finance.budget)}</b></div>
+        ${mood('Szatnia', s.morale.lockerRoom)}
+        ${mood('Kibice', s.morale.fans)}
+        <div class="text-[11px] text-paper-300 truncate text-right">${s.weather.icon} <b class="text-paper-100">${inPre ? 'Liga za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'K' + (s.calendar.round + 1)}</b> ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' 🔥' : ''}</div>
       </div>
-      ${UI.matchLine()}
       ${UI.threats()}
     </header>`;
   },
@@ -3097,8 +3023,8 @@ const UI = {
     return 0;
   },
 
-  // Telefon: cienki dok – przycisk tygodnia nad dolną nawigacją
-  mobileDock() {
+  // Stały dok: przycisk tygodnia + nawigacja (nie nachodzi na obszar roboczy)
+  appDock() {
     const canAdvance = Engine.canAdvanceWeek();
     const pending = gameState.pendingDecisions.length;
     const short = { desk: 'Biurko', table: 'Tabela', finance: 'Finanse', staff: 'Sztab', squad: 'Kadra', scouting: 'Skauting', virtualx: 'X' };
@@ -3108,67 +3034,21 @@ const UI = {
       return `
       <button data-action="switch-tab" data-tab="${t.id}" aria-label="${t.label}"
         class="relative h-11 flex flex-col items-center justify-center min-w-0 ${active ? 'text-amber-glow' : 'text-paper-400'}">
-        <span class="text-base leading-none ${active ? '' : 'opacity-70'}">${t.icon}</span>
+        <span class="text-[15px] leading-none ${active ? '' : 'opacity-70'}">${t.icon}</span>
         <span class="text-[10px] mt-0.5 ${active ? 'font-semibold' : 'font-medium'} truncate max-w-full">${short[t.id] || t.label}</span>
         ${badge ? `<span class="absolute top-0.5 right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${t.id === 'finance' ? 'bg-stamp text-white' : 'bg-amber-glow text-ink-900'}">${badge}</span>` : ''}
       </button>`;
     }).join('');
     return `
-    <div id="mobile-dock" class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-desk-900 border-t border-desk-700" style="padding-bottom: env(safe-area-inset-bottom);">
-      <div class="px-3 pt-2">
-        <button data-action="${canAdvance ? 'next-week' : 'switch-tab'}" ${canAdvance ? '' : 'data-tab="desk"'}
-          class="btn-press w-full h-11 rounded-lg text-[15px] font-semibold tracking-wide ${canAdvance ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-amber-glow'}">
-          ${canAdvance ? 'Następny tydzień →' : '🔒 Najpierw ' + pending + ' ' + (pending === 1 ? 'sprawa' : 'sprawy') + ' na Biurku'}
+    <footer id="mobile-dock" class="flex-shrink-0 bg-desk-900 border-t border-desk-700" style="padding-bottom: env(safe-area-inset-bottom);">
+      <div class="px-2.5 pt-1.5">
+        <button data-action="${canAdvance ? 'next-week' : 'switch-tab'}" ${canAdvance ? '' : 'data-tab="desk" data-view="decisions"'}
+          class="btn-press w-full h-10 rounded-lg text-[14px] font-bold tracking-wide ${canAdvance ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-amber-glow'}">
+          ${canAdvance ? (Selectors.isMatchWeek() ? 'Następny tydzień » mecz' : 'Następny tydzień »') : '🔒 Najpierw ' + pending + ' ' + (pending === 1 ? 'sprawa' : 'sprawy') + ' na Biurku'}
         </button>
       </div>
-      <nav class="grid grid-cols-7 mt-1">${tabs}</nav>
-    </div>`;
-  },
-
-  // Komputer: jeden cienki wiersz statusu
-  statusBar() {
-    const s = gameState;
-    const played = s.season.table[US] && s.season.table[US].p;
-    return `
-    <header class="bg-desk-900 border-b border-desk-700">
-      <div class="max-w-7xl mx-auto px-6 py-3 grid grid-cols-[minmax(0,1.4fr)_auto_auto_auto_minmax(0,1.6fr)] items-center gap-8">
-        <div class="flex items-center gap-3 min-w-0">
-          ${UI.crest(s.club.colors, s.club.name, 34)}
-          <div class="min-w-0">
-            <div class="text-lg font-bold leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
-            <div class="text-xs text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · ${Selectors.weekLabel()}</div>
-          </div>
-        </div>
-        <div class="w-32">${UI.stat('Budżet', Utils.formatMoney(s.finance.budget), `<div class="text-[11px] text-paper-400 truncate">wypłaty ${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</div>`, s.finance.budget < 0 ? 'text-stamp' : 'text-paper-100')}</div>
-        <div class="w-28">${UI.stat('Szatnia', s.morale.lockerRoom + '%', UI.thinBar(s.morale.lockerRoom))}</div>
-        <div class="w-28">${UI.stat('Kibice', s.morale.fans + '%', UI.thinBar(s.morale.fans))}</div>
-        <div class="min-w-0">${UI.matchLine()}${UI.threats()}</div>
-      </div>
-    </header>`;
-  },
-
-  navigation() {
-    const items = DATA.tabs.map((t) => {
-      const active = t.id === gameState.activeTab;
-      const locked = !UI.tabRenderers[t.id];
-      return `
-      <button data-action="switch-tab" data-tab="${t.id}"
-        class="flex-shrink-0 lg:w-full text-left px-4 py-2.5 border-l-2 text-sm transition-colors
-        ${active ? 'border-amber-glow bg-desk-800 text-paper-100 font-semibold' : 'border-transparent text-paper-400 hover:bg-desk-800 hover:text-paper-100'}">
-        <span class="mr-2">${t.icon}</span>${t.label}${locked ? ' <span class="text-paper-400">🔒</span>' : ''}
-      </button>`;
-    }).join('');
-
-    return `
-    <nav class="hidden lg:block lg:w-56 lg:border-r border-desk-700 lg:py-5">
-      <div class="hidden lg:block px-4 pb-2 text-[10px] text-paper-400 uppercase tracking-wider font-medium">Pokoje klubowe</div>
-      <div class="flex lg:flex-col overflow-x-auto">${items}</div>
-      <div class="flex lg:flex-col gap-3 px-4 py-3 lg:pt-6 text-xs">
-        <span class="text-grass">💾 Autozapis: Tydzień ${gameState.calendar.week}</span>
-        <button data-action="exit-menu" class="text-paper-400 hover:text-paper-100 underline underline-offset-4 text-left">Wyjdź do menu</button>
-        <button data-action="reset-game" class="text-paper-400 hover:text-stamp underline underline-offset-4 text-left">Rzuć papierami (nowa gra)</button>
-      </div>
-    </nav>`;
+      <nav class="grid grid-cols-7">${tabs}</nav>
+    </footer>`;
   },
 
   activeTabContent() {
@@ -3190,33 +3070,85 @@ const UI = {
   underConstruction() {
     const tab = DATA.tabs.find((t) => t.id === gameState.activeTab);
     const idx = DATA.tabs.indexOf(tab) % DATA.underConstruction.length;
+    return UI.panel(tab.icon + ' ' + tab.label, '', `
+      <p class="text-[13px]">${DATA.underConstruction[idx]}</p>
+      <p class="text-[11px] text-ink-700 mt-2">Na drzwiach kartka: „Wracam za 5 min” — data: lipiec 2017.</p>`);
+  },
+
+  /* ---------- Wspólne klocki UI (gęste, mobilne) ---------- */
+  // Podwidok zakładki zapamiętany w gameState.ui.sub
+  sub(tab, def) {
+    const v = (gameState.ui.sub || {})[tab];
+    return v || def;
+  },
+
+  segs(action, current, items, attrs = '') {
     return `
-    <section class="paper p-8 max-w-2xl mx-auto mt-6 relative">
-      <h2 class="font-type text-3xl mb-4">${tab.icon} ${tab.label}</h2>
-      <p class="text-lg">${DATA.underConstruction[idx]}</p>
-      <p class="text-sm text-ink-700 mt-6">Na drzwiach kartka: „Wracam za 5 min” — data: lipiec 2017.</p>
+    <div class="grid gap-0.5 p-0.5 mb-2 rounded-lg bg-desk-800" style="grid-template-columns:repeat(${items.length},minmax(0,1fr))">
+      ${items.map(([v, label]) => `<button data-action="${action}" data-value="${v}" ${attrs}
+        class="btn-press h-8 px-1 rounded-md text-[12px] truncate ${current === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`).join('')}
+    </div>`;
+  },
+
+  subSegs(tab, current, items) {
+    return UI.segs('sub-view', current, items, `data-tab="${tab}"`);
+  },
+
+  panel(title, note, body, right = '', extraClass = '') {
+    return `
+    <section class="paper px-2.5 py-2 mb-2 ${extraClass}">
+      ${title ? `<div class="flex items-baseline justify-between gap-2 mb-1"><h3 class="text-[13px] font-bold leading-tight min-w-0">${title}</h3>${right}</div>` : ''}
+      ${note ? `<p class="text-[11px] text-ink-700 leading-snug mb-1.5">${note}</p>` : ''}
+      ${body}
     </section>`;
   },
 
-  /* ---------- Wspólne klocki UI ---------- */
-  card(letter, title, subtitle, body, extraClass = '') {
+  tile(label, value, sub = '', valueClass = '') {
     return `
-    <section class="paper p-4 ${extraClass}">
-      <div class="flex items-baseline gap-2.5 mb-3">
-        <span class="text-sm font-semibold text-ink-700 w-5 text-center">${letter}</span>
-        <div class="min-w-0"><h3 class="text-base font-semibold leading-tight">${title}</h3><p class="text-xs text-ink-700 font-light">${subtitle}</p></div>
+    <div class="paper px-2 py-1.5 min-w-0">
+      <div class="text-[10px] uppercase tracking-wide text-ink-700 font-medium truncate">${label}</div>
+      <div class="text-[15px] font-bold leading-tight truncate ${valueClass}">${value}</div>
+      ${sub ? `<div class="text-[10.5px] text-ink-700 truncate">${sub}</div>` : ''}
+    </div>`;
+  },
+
+  tiles(list, cols = 3) {
+    return `<div class="grid gap-1.5 mb-2" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${list.join('')}</div>`;
+  },
+
+  // Wiersz listy: tytuł, opis, przycisk po prawej
+  row(title, sub, right = '', extraClass = '') {
+    return `
+    <div class="flex items-center gap-2 py-1.5 border-b border-paper-300 last:border-0 ${extraClass}">
+      <div class="min-w-0 flex-1">
+        <div class="text-[12.5px] font-semibold leading-tight">${title}</div>
+        ${sub ? `<div class="text-[11px] text-ink-700 leading-snug">${sub}</div>` : ''}
       </div>
-      ${body}
-    </section>`;
+      ${right ? `<div class="flex-shrink-0">${right}</div>` : ''}
+    </div>`;
+  },
+
+  h4(text) {
+    return `<h4 class="text-[11px] uppercase tracking-wide font-semibold text-ink-700 mt-2 mb-1">${text}</h4>`;
   },
 
   choice(action, value, active, title, desc) {
     return `
     <button data-action="${action}" data-value="${value}"
-      class="btn-press w-full text-left px-3 py-2 border rounded-lg ${active ? 'border-amber-glow bg-amber-glow/15' : 'border-paper-300 bg-white hover:bg-paper-200'}">
-      <span class="block text-sm ${active ? 'font-semibold' : 'font-medium'}">${active ? '●' : '○'} ${title}</span>
-      ${desc ? `<span class="text-xs text-ink-700 font-light">${desc}</span>` : ''}
+      class="btn-press w-full min-w-0 text-left px-2 py-1.5 border rounded-lg ${active ? 'border-amber-glow bg-amber-glow/15' : 'border-paper-300 bg-white'}">
+      <span class="block text-[12px] leading-tight ${active ? 'font-bold' : 'font-semibold'}">${title}</span>
+      ${desc ? `<span class="block text-[10.5px] leading-snug text-ink-700 mt-0.5">${desc}</span>` : ''}
     </button>`;
+  },
+
+  // Kafelki wyboru w jednym rzędzie; pełny opis tylko dla aktywnej opcji
+  choiceRow(action, entries, current, title, desc) {
+    const active = entries.find(([id]) => id === current);
+    return `
+      <div class="grid gap-1.5" style="grid-template-columns:repeat(${entries.length},minmax(0,1fr))">
+        ${entries.map(([id, x]) => UI.choice(action, id, id === current, title(x, id), '')).join('')}
+      </div>
+      ${active ? `<p class="text-[11px] text-ink-700 leading-snug mt-1">${desc(active[1], active[0])}</p>` : ''}`;
   },
 
   smallBtn(action, attrs, label, disabled, variant = 'ink') {
@@ -3224,70 +3156,104 @@ const UI = {
       ? 'bg-stamp text-paper-100 hover:bg-red-700'
       : 'bg-ink-900 text-paper-100 hover:bg-ink-700';
     return `<button data-action="${action}" ${attrs} ${disabled ? 'disabled' : ''}
-      class="btn-press px-3 py-1.5 text-sm font-semibold rounded-lg ${disabled ? 'bg-paper-200 text-paper-400 cursor-not-allowed' : colors}">${label}</button>`;
+      class="btn-press h-8 px-2.5 text-[12px] font-semibold rounded-md whitespace-nowrap ${disabled ? 'bg-paper-300 text-ink-700 opacity-60 cursor-not-allowed' : colors}">${label}</button>`;
   },
 
   bar(value, colorClass) {
-    return `<div class="h-1.5 rounded-full bg-paper-300 mt-1.5 overflow-hidden"><div class="h-full rounded-full ${colorClass}" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
+    return `<div class="h-1 rounded-full bg-paper-300 mt-1 overflow-hidden"><div class="h-full rounded-full ${colorClass}" style="width:${Utils.clamp(value, 0, 100)}%"></div></div>`;
   },
 
   profileBadge(profile) {
     const pr = DATA.profiles[profile];
     const tone = { off: 'bg-rose-600 text-white', def: 'bg-sky-700 text-white', uni: 'bg-paper-300 text-ink-900' }[profile];
-    return `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${tone}" title="Pasuje do: ${pr.label}">${pr.short}</span>`;
+    return `<span class="inline-block px-1 rounded text-[9.5px] leading-[15px] font-bold ${tone}" title="Pasuje do: ${pr.label}">${pr.short}</span>`;
+  },
+
+  ratingBadge(r, prefix = '') {
+    const tone = r == null ? 'bg-paper-300 text-ink-700' : r >= 7.5 ? 'bg-grass text-white' : r >= 6 ? 'bg-ink-900 text-paper-100' : r >= 4.5 ? 'bg-amber-400 text-ink-900' : 'bg-stamp text-white';
+    return `<span class="inline-block px-1.5 rounded text-[11px] leading-[17px] font-bold whitespace-nowrap ${tone}">${prefix}${Selectors.ratingText(r)}</span>`;
+  },
+
+  formDots() {
+    return gameState.record.form.map((r) => `<span class="inline-block w-2 h-2 rounded-full mr-0.5 ${{ W: 'bg-grass', D: 'bg-amber-400', L: 'bg-stamp' }[r]}" title="${{ W: 'Wygrana', D: 'Remis', L: 'Porażka' }[r]}"></span>`).join('');
   },
 
   /* ---------- ZAKŁADKA: BIURKO ---------- */
   deskTab() {
     const pending = gameState.pendingDecisions.length;
-    // Na telefonie jedna sekcja naraz: sprawy, gdy coś czeka, inaczej dziennik (chyba że gracz wybrał sam).
-    const view = gameState.ui.deskView || (pending ? 'decisions' : 'log');
-    const seg = (v, label) => `<button data-action="desk-view" data-value="${v}"
-      class="btn-press flex-1 h-9 rounded-md text-sm ${view === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`;
-    return `
-    <div class="lg:hidden flex gap-1 p-0.5 mb-3 rounded-lg bg-desk-800">
-      ${seg('decisions', '❗ Pilne sprawy' + (pending ? ' (' + pending + ')' : ''))}${seg('log', '📖 Dziennik')}
-    </div>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
-      <section class="${view === 'log' ? 'hidden lg:block' : ''}">
-        <h2 class="hidden lg:block font-type text-base font-semibold text-paper-300 mb-2">Pilne Sprawy / Decyzje</h2>
-        ${UI.decisions()}
-      </section>
-
-      <section class="${view === 'decisions' ? 'hidden lg:block' : ''}">
-        <h2 class="hidden lg:block font-type text-base font-semibold text-paper-300 mb-2">📒 Dziennik Zdarzeń</h2>
-        ${UI.logPanel()}
-      </section>
-    </div>`;
+    // Jeden widok naraz: sprawy, gdy coś czeka, inaczej pulpit klubu (chyba że gracz wybrał sam).
+    const view = gameState.ui.deskView || (pending ? 'decisions' : 'club');
+    return UI.segs('desk-view', view, [['decisions', '❗ Sprawy' + (pending ? ' (' + pending + ')' : '')], ['club', '🏠 Klub'], ['log', '📖 Dziennik']])
+      + (view === 'decisions' ? UI.decisions() : view === 'log' ? UI.logPanel() : UI.clubDashboard());
   },
 
+  // Jedna sprawa naraz – mieści się na ekranie razem z odpowiedziami
   decisions() {
-    if (gameState.pendingDecisions.length === 0) {
-      return `
-      <div class="paper p-4 text-center">
-        <p class="font-type text-xl">Biurko puste.</p>
-        <p class="text-sm text-ink-700 mt-1">Tylko kubek z napisem „Najlepszy Dziadek” i pieczątka klubowa bez tuszu.</p>
-        <button data-action="desk-view" data-value="log" class="lg:hidden btn-press tap mt-4 w-full rounded-lg bg-ink-900 text-paper-100 font-semibold">📖 Otwórz Dziennik Zdarzeń</button>
-      </div>`;
+    const pending = gameState.pendingDecisions;
+    if (pending.length === 0) {
+      return UI.panel('Biurko puste.', 'Tylko kubek z napisem „Najlepszy Dziadek” i pieczątka klubowa bez tuszu.',
+        `<button data-action="desk-view" data-value="club" class="btn-press w-full h-9 mt-1 rounded-md bg-ink-900 text-paper-100 text-[13px] font-semibold">🏠 Pulpit klubu</button>`);
     }
-    return gameState.pendingDecisions.map((id) => {
-      const d = DATA.decisions[id];
-      const cols = d.options.length >= 3 ? 'grid-cols-1' : 'sm:grid-cols-2';   // 3 opcje: pełna szerokość, żeby długie słowa się mieściły
-      const opts = d.options.map((o, i) => `
-        <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
-          class="btn-press tap w-full min-w-0 text-left px-3.5 py-2.5 bg-white hover:bg-paper-200 active:bg-paper-300 border border-paper-300 rounded-lg [overflow-wrap:anywhere]">
-          <span class="text-[15px] font-semibold block leading-snug">${Utils.escape(Utils.val(o.label))}</span>
-          <span class="text-xs text-ink-700">${Utils.escape(Utils.val(o.hint))}</span>
-        </button>`).join('');
-      return `
-      <article class="paper p-4 sm:p-5 mb-3">
-        <div class="text-[11px] text-ink-700 font-light">Od: ${Utils.escape(Utils.val(d.from))}</div>
-        <div class="text-[11px] text-ink-700 font-light">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
-        <h3 class="text-lg sm:text-xl font-bold mt-1 mb-1.5">${Utils.escape(Utils.val(d.title))}</h3>
-        <p class="text-sm sm:text-[15px] leading-relaxed text-ink-700 mb-3">${Utils.escape(Utils.val(d.body))}</p>
-        <div class="grid gap-2 sm:gap-3 ${cols}">${opts}</div>
-      </article>`;
-    }).join('');
+    const d = DATA.decisions[pending[0]];
+    const opts = d.options.map((o, i) => `
+      <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
+        class="btn-press w-full min-w-0 text-left px-3 py-2 bg-white active:bg-paper-300 border border-paper-300 rounded-lg [overflow-wrap:anywhere]">
+        <span class="text-[13.5px] font-semibold block leading-snug">${Utils.escape(Utils.val(o.label))}</span>
+        <span class="text-[11px] text-ink-700 leading-snug block">${Utils.escape(Utils.val(o.hint))}</span>
+      </button>`).join('');
+    const rest = pending.slice(1).map((id) => Utils.escape(Utils.val(DATA.decisions[id].title))).join(' · ');
+    return `
+      <article class="paper px-3 py-2.5">
+        <div class="flex justify-between gap-2 text-[10.5px] text-ink-700">
+          <span class="truncate">Od: ${Utils.escape(Utils.val(d.from))}</span>
+          ${pending.length > 1 ? `<span class="whitespace-nowrap font-semibold">1 / ${pending.length}</span>` : ''}
+        </div>
+        <div class="text-[10.5px] text-ink-700 truncate">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
+        <h3 class="text-[16px] font-bold leading-tight mt-1 mb-1">${Utils.escape(Utils.val(d.title))}</h3>
+        <p class="text-[13px] leading-snug text-ink-700 mb-2">${Utils.escape(Utils.val(d.body))}</p>
+        <div class="grid gap-1.5">${opts}</div>
+      </article>
+      ${rest ? `<p class="text-[11px] text-paper-400 mt-1.5 truncate">Dalej czeka: ${rest}</p>` : ''}
+      <div class="mt-2">${UI.tiles(UI.clubTiles().slice(0, 3))}</div>`;
+  },
+
+  // Kafelki pulpitu: cały klub na jeden rzut oka (pierwsze trzy także pod sprawą na Biurku)
+  clubTiles() {
+    const s = gameState;
+    const rep = s.lastReport;
+    const row = s.season.table[US] || { p: 0, w: 0, d: 0, l: 0 };
+    const chem = Engine.chemistry(Selectors.projectedLineup());
+    const sp = Selectors.sponsor();
+    const dna = s.club.professionalism;
+    return [
+      UI.tile('Pozycja', row.p ? Selectors.ourPosition() + '.' : '–', Selectors.leagueName()),
+      UI.tile('Bilans tyg.', rep ? Utils.signedMoney(rep.total) : '–', 'wypłaty ' + Utils.formatMoney(Selectors.weeklyPayroll()), rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
+      UI.tile('Mecze W-R-P', row.w + '-' + row.d + '-' + row.l, UI.formDots() || 'jeszcze bez formy'),
+      UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
+      UI.tile('Kadra', s.squad.length + '/' + CONFIG.maxSquad, 'baza szatni ' + Selectors.lockerBaseline() + '%'),
+      UI.tile('Murawa', s.stadium.pitch + '%', Selectors.pitchLabel(s.stadium.pitch)),
+      UI.tile('Trener', Utils.escape(Selectors.coach().name), DATA.styles[Selectors.coach().style].label),
+      UI.tile('Sponsor', sp ? Utils.formatMoney(Selectors.sponsorWeekly(sp)) : 'brak', sp ? Utils.escape(sp.name) : 'nikt nie płaci'),
+      UI.tile('DNA klubu', (dna > 0 ? '+' : '') + dna, '„' + Utils.escape(Selectors.dnaLabel()) + '”'),
+    ];
+  },
+
+  clubDashboard() {
+    const s = gameState;
+    const fx = Selectors.currentFixture();
+    const rival = Selectors.rival(fx.rival);
+    const inPre = !Selectors.isMatchWeek();
+    const tiles = UI.tiles(UI.clubTiles());
+    const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
+      `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>`);
+
+    // Ostatni rozliczony tydzień z dziennika
+    const lastWeek = s.log.length ? s.log[0].week : null;
+    const entries = s.log.filter((e) => e.week === lastWeek).reverse();
+    const week = entries.length ? UI.panel('Tydzień ' + lastWeek + ' w skrócie', '', `
+      <ul class="space-y-1">${entries.map((e) => `<li class="text-[12px] leading-snug ${e.type === 'match' || e.type === 'summary' ? 'font-semibold' : ''}">${Utils.escape(e.text)}</li>`).join('')}</ul>`,
+      `<button data-action="desk-view" data-value="log" class="text-[11px] font-semibold text-ink-700 underline underline-offset-2 whitespace-nowrap">Dziennik</button>`) : '';
+    return tiles + match + week + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
   logPanel() {
@@ -3314,62 +3280,67 @@ const UI = {
 
     const shown = groups.slice(0, gameState.ui.logWeeks || 3);
     const html = shown.map((g) => `
-      <div class="mb-5">
-        <div class="text-[11px] uppercase tracking-wider font-semibold text-ink-700 mb-2">Tydzień ${g.week}</div>
-        <ul class="space-y-2">
+      <div class="mb-3">
+        <div class="text-[10.5px] uppercase tracking-wider font-semibold text-ink-700 mb-1">Tydzień ${g.week}</div>
+        <ul class="space-y-1">
           ${g.entries.map((e) => `
-            <li class="border-l-2 ${typeStyle[e.type] || typeStyle.flavor} pl-3 text-sm leading-snug ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
+            <li class="border-l-2 ${typeStyle[e.type] || typeStyle.flavor} pl-2 text-[12.5px] leading-snug ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
           `).join('')}
         </ul>
       </div>`).join('');
 
     const more = groups.length > shown.length
-      ? `<button data-action="log-more" class="btn-press tap w-full rounded-lg border border-paper-400 bg-paper-200 text-sm font-semibold">Pokaż starsze tygodnie (${groups.length - shown.length})</button>` : '';
-    return `<div class="paper p-4 sm:p-5 lg:max-h-[36rem] lg:overflow-y-auto scroll-thin">${html || '<p class="text-sm">Pusto. Nawet plotek brak.</p>'}${more}</div>`;
+      ? `<button data-action="log-more" class="btn-press w-full h-9 rounded-md border border-paper-400 bg-paper-200 text-[12px] font-semibold">Pokaż starsze tygodnie (${groups.length - shown.length})</button>` : '';
+    return `<div class="paper px-2.5 py-2">${html || '<p class="text-[13px]">Pusto. Nawet plotek brak.</p>'}${more}</div>`;
   },
 
   /* ---------- ZAKŁADKA: TABELA ---------- */
   tableTab() {
+    const view = UI.sub('table', 'table');
+    const segs = UI.subSegs('table', view, [['table', '📊 Tabela'], ['fixtures', '📅 Terminarz'], ['stats', '★ Statystyki']]);
+    const title = `<p class="text-[11px] text-paper-400 mb-1.5">${Selectors.leagueName()} · Sezon ${gameState.calendar.season} · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>`;
+    if (view === 'fixtures') return segs + title + UI.fixturesView();
+    if (view === 'stats') return segs + UI.teamStatsCard();
+
+    const top = gameState.club.leagueLevel < DATA.leagueLevels.length - 1;
     const rows = Selectors.standings().map((r, i) => {
       const us = r.team === US;
       const rival = Selectors.rival(r.team);
+      const edge = i < CONFIG.promotionSpots && top ? 'border-l-grass' : i === 9 ? 'border-l-stamp' : 'border-l-transparent';
       return `
-      <tr class="border-b border-paper-300 ${us ? 'bg-amber-glow/40 font-bold' : ''} ${i < CONFIG.promotionSpots && gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'border-l-4 border-l-grass' : ''} ${i === 9 ? 'border-l-4 border-l-stamp' : ''}">
-        <td class="py-1.5 pr-2 text-right font-type">${i + 1}.</td>
-        <td class="py-1.5 pr-2 max-w-[140px] sm:max-w-none truncate">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp text-xs">🔥</span>' : ''}</td>
-        <td class="text-center">${r.p}</td><td class="text-center hidden sm:table-cell">${r.w}</td><td class="text-center hidden sm:table-cell">${r.d}</td><td class="text-center hidden sm:table-cell">${r.l}</td>
-        <td class="text-center whitespace-nowrap">${r.gf}:${r.ga}</td>
-        <td class="text-center font-type text-lg">${r.pts}</td>
+      <tr class="border-b border-paper-300 last:border-0 ${us ? 'bg-amber-glow/25 font-bold' : ''}">
+        <td class="py-[5px] pl-1 pr-1 text-right border-l-[3px] ${edge}">${i + 1}.</td>
+        <td class="py-[5px] pr-1 max-w-0 w-full truncate">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp">🔥</span>' : ''}</td>
+        <td class="text-center px-1">${r.p}</td><td class="text-center px-1 text-ink-700">${r.w}</td><td class="text-center px-1 text-ink-700">${r.d}</td><td class="text-center px-1 text-ink-700">${r.l}</td>
+        <td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td>
+        <td class="text-right pr-1.5 font-bold">${r.pts}</td>
       </tr>`;
     }).join('');
+    return segs + title + `
+      <section class="paper py-1 mb-2 overflow-hidden">
+        <table class="w-full text-[12px]">
+          <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>
+          ${rows}
+        </table>
+      </section>
+      <p class="text-[10.5px] text-paper-400 leading-snug"><span class="inline-block w-2 h-2 bg-grass align-middle"></span> ${top ? 'Miejsca 1–' + CONFIG.promotionSpots + ': awans do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel + 1].name : 'Miejsce 1: Mistrz Polski'}
+        · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> ${gameState.club.leagueLevel > 1 ? 'Miejsce 10: spadek do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel - 1].name : 'Miejsce 10: wstyd na cały powiat'}
+        ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>
+      <p class="text-[10.5px] text-paper-400 mt-0.5 leading-snug">Drabina: ${DATA.leagueLevels.slice(1).map((l, i) => i + 1 === gameState.club.leagueLevel ? '<b class="text-paper-100">' + l.name + '</b>' : l.name).join(' → ')}</p>`;
+  },
+
+  fixturesView() {
     const results = gameState.season.lastResults.map((m) => {
       const us = m.home === US || m.away === US;
-      return `<li class="${us ? 'font-bold' : ''}">${Utils.escape(Selectors.teamName(m.home))} <b>${m.hg}:${m.ag}</b> ${Utils.escape(Selectors.teamName(m.away))}</li>`;
+      return `<li class="flex gap-1 ${us ? 'font-bold' : ''}"><span class="flex-1 min-w-0 truncate text-right">${Utils.escape(Selectors.teamName(m.home))}</span><b class="w-10 text-center">${m.hg}:${m.ag}</b><span class="flex-1 min-w-0 truncate">${Utils.escape(Selectors.teamName(m.away))}</span></li>`;
     }).join('');
     const upcoming = [];
-    for (let i = gameState.calendar.round; i < Math.min(gameState.calendar.round + 4, gameState.season.rounds.length); i++) {
+    for (let i = gameState.calendar.round; i < Math.min(gameState.calendar.round + 6, gameState.season.rounds.length); i++) {
       const f = Selectors.fixtureAt(i);
-      upcoming.push(`<li>Kolejka ${i + 1}: ${f.home ? 'u siebie vs' : 'wyjazd do'} <b>${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
+      upcoming.push(`<li class="flex gap-2"><span class="w-8 text-ink-700">K${i + 1}</span><span class="w-16 text-ink-700">${f.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? '<span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
     }
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
-    <p class="text-paper-400 text-sm mb-4">Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
-      ${UI.card('§', 'Tabela', 'M – mecze, W – wygrane, R – remisy, P – porażki', `
-        <div class="overflow-x-auto"><table class="w-full text-sm">
-          <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th class="hidden sm:table-cell">W</th><th class="hidden sm:table-cell">R</th><th class="hidden sm:table-cell">P</th><th>Bramki</th><th>Pkt</th></tr>
-          ${rows}
-        </table></div>
-        <p class="text-xs text-ink-700 mt-3"><span class="inline-block w-3 h-3 bg-grass align-middle"></span> ${gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'Miejsca 1–' + CONFIG.promotionSpots + ': awans do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel + 1].name : 'Miejsce 1: Mistrz Polski'}
-          · <span class="inline-block w-3 h-3 bg-stamp align-middle"></span> ${gameState.club.leagueLevel > 1 ? 'Miejsce 10: spadek do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel - 1].name : 'Miejsce 10: wstyd na cały powiat'}
-          ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>
-        <p class="text-xs text-ink-700 mt-1">Drabina: ${DATA.leagueLevels.slice(1).map((l, i) => i + 1 === gameState.club.leagueLevel ? '<b>' + l.name + '</b>' : l.name).join(' → ')}</p>`)}
-      <div class="grid grid-cols-1 gap-4 content-start">
-        ${UI.card('⚽', 'Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-sm space-y-1">${results}</ul>` : '<p class="text-sm">Liga jeszcze nie ruszyła.</p>')}
-        ${UI.card('📅', 'Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-sm space-y-1">${upcoming.join('')}</ul>` : '<p class="text-sm">Koniec sezonu.</p>')}
-      </div>
-      ${UI.teamStatsCard()}
-    </div>`;
+    return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>', UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
+      + UI.panel('📅 Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-[12px] space-y-0.5">${upcoming.join('')}</ul>` : '<p class="text-[12px]">Koniec sezonu.</p>');
   },
 
   // Strzelcy i średnie noty naszej drużyny
@@ -3380,29 +3351,22 @@ const UI = {
     const rated = squad.filter((p) => Selectors.avgRating(p) != null)
       .sort((a, b) => Selectors.avgRating(b) - Selectors.avgRating(a) || b.seasonRatingCount - a.seasonRatingCount).slice(0, 5);
     const row = (i, p, right) => `
-      <tr class="border-b border-paper-300">
-        <td class="py-1.5 pr-2 text-ink-700 w-6">${i + 1}.</td>
-        <td class="py-1.5 pr-2"><b>${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b> <span class="text-xs text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
+      <tr class="border-b border-paper-300 last:border-0">
+        <td class="py-1 pr-1 text-ink-700 w-5">${i + 1}.</td>
+        <td class="py-1 pr-1 max-w-0 w-full truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b> <span class="text-[10.5px] text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
         ${right}
       </tr>`;
-    const scorersHtml = scorers.length ? `<table class="w-full text-sm">
-        <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Sezon</th><th class="text-right pl-3">Kariera</th></tr>
-        ${scorers.map((p, i) => row(i, p, `<td class="py-1.5 text-right font-type font-bold text-lg">${p.seasonGoals}</td><td class="py-1.5 text-right pl-3 text-ink-700">${p.goals}</td>`)).join('')}
-      </table>` : '<p class="text-sm text-ink-700">Nikt jeszcze nie strzelił. Napastnicy twierdzą, że to wina wiatru.</p>';
-    const ratedHtml = rated.length ? `<table class="w-full text-sm">
-        <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Mecze</th><th class="text-right pl-3">Śr. nota</th></tr>
-        ${rated.map((p, i) => row(i, p, `<td class="py-1.5 text-right text-ink-700">${p.seasonRatingCount}</td><td class="py-1.5 text-right pl-3">${UI.ratingBadge(Selectors.avgRating(p))}</td>`)).join('')}
-      </table>` : '<p class="text-sm text-ink-700">Brak not – sezon jeszcze się nie zaczął.</p>';
-    return UI.card('★', 'Statystyki Naszej Drużyny', 'Sezon ' + gameState.calendar.season + ' · noty od 1.0 do 10.0 wystawia trener po każdym meczu', `
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div><h4 class="font-type font-bold mb-2">⚽ Najlepsi strzelcy klubu</h4>${scorersHtml}</div>
-        <div><h4 class="font-type font-bold mb-2">⭐ Najwyższa średnia ocen w sezonie</h4>${ratedHtml}</div>
-      </div>`, 'xl:col-span-2');
-  },
-
-  ratingBadge(r, prefix = '') {
-    const tone = r == null ? 'bg-paper-300 text-ink-700' : r >= 7.5 ? 'bg-grass text-white' : r >= 6 ? 'bg-ink-900 text-paper-100' : r >= 4.5 ? 'bg-amber-400 text-ink-900' : 'bg-stamp text-white';
-    return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-bold whitespace-nowrap ${tone}">${prefix}${Selectors.ratingText(r)}</span>`;
+    const scorersHtml = scorers.length ? `<table class="w-full text-[12px]">
+        <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Sezon</th><th class="text-right pl-2">Kariera</th></tr>
+        ${scorers.map((p, i) => row(i, p, `<td class="py-1 text-right font-bold text-[13px]">${p.seasonGoals}</td><td class="py-1 text-right pl-2 text-ink-700">${p.goals}</td>`)).join('')}
+      </table>` : '<p class="text-[12px] text-ink-700">Nikt jeszcze nie strzelił. Napastnicy twierdzą, że to wina wiatru.</p>';
+    const ratedHtml = rated.length ? `<table class="w-full text-[12px]">
+        <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Mecze</th><th class="text-right pl-2">Śr. nota</th></tr>
+        ${rated.map((p, i) => row(i, p, `<td class="py-1 text-right text-ink-700">${p.seasonRatingCount}</td><td class="py-1 text-right pl-2">${UI.ratingBadge(Selectors.avgRating(p))}</td>`)).join('')}
+      </table>` : '<p class="text-[12px] text-ink-700">Brak not – sezon jeszcze się nie zaczął.</p>';
+    return `<p class="text-[11px] text-paper-400 mb-1.5">Sezon ${gameState.calendar.season} · noty od 1.0 do 10.0 wystawia trener po każdym meczu</p>`
+      + UI.panel('⚽ Najlepsi strzelcy klubu', '', scorersHtml)
+      + UI.panel('⭐ Najwyższa średnia ocen w sezonie', '', ratedHtml);
   },
 
   /* ---------- ZAKŁADKA: SZTAB I TRENER ---------- */
@@ -3415,80 +3379,61 @@ const UI = {
     const chemColor = chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-glow' : 'bg-stamp';
     const carpetReady = gameState.calendar.week - c.lastCarpetWeek >= CONFIG.carpetCooldown;
     const isTemp = c.id === 'mirek';
+    const view = UI.sub('staff', 'coach');
+    const segs = UI.subSegs('staff', view, [['coach', '🧢 Trener'], ['market', '🤝 Giełda'], ['crew', '🧰 Sztab']]);
+    const intro = '<p class="text-[11px] text-paper-400 mb-1.5">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>';
 
-    const coachCard = UI.card('A', 'Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
-      <p class="text-sm mb-3">${Utils.escape(coach.desc)}</p>
-      <div class="grid sm:grid-cols-2 gap-3 mb-3 text-sm">
-        <div class="bg-paper-200 border border-paper-400 p-2">Styl: <b>${style.label}</b><br><span class="text-xs text-ink-700">„${style.motto}” · ustawienie ${style.formation.slice(1).join('-')}</span></div>
-        <div class="bg-paper-200 border border-paper-400 p-2">Pensja: <b>${Utils.formatMoney(Selectors.coachWeekly())}/tydz.</b><br><span class="text-xs text-ink-700">${coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach'}</span></div>
-      </div>
-      <div class="mb-3">
-        <div class="flex justify-between text-sm"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span>${chem}%</span></div>
-        ${UI.bar(chem, chemColor)}
-        <p class="text-xs text-ink-700 mt-1">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
-      </div>
-      ${c.lastReport ? `<blockquote class="border-l-4 border-grass pl-3 italic text-sm mb-3">„${Utils.escape(c.lastReport)}”</blockquote>` : ''}
-      <div class="flex flex-wrap gap-2">
+    if (view === 'market') {
+      const market = Object.entries(DATA.coaches).filter(([id]) => id !== 'mirek' && id !== c.id).map(([id, co]) => {
+        const st = DATA.styles[co.style];
+        const testLineup = (() => { const prev = c.id; c.id = id; const l = Engine.pickLineup([]); const ch = Engine.chemistry(l); c.id = prev; return ch; })();
+        const offer = Selectors.coachOffer(co);
+        return UI.row(`${Utils.escape(co.name)} <span class="font-normal text-ink-700">– ${Utils.escape(co.title)}</span>`,
+          `<b>${st.label}</b> („${st.motto}”) · podpis ${Utils.formatMoney(offer.sign)} · <b>${Utils.formatMoney(offer.weekly)}/tydz.</b><br>${Utils.escape(co.desc)}<br>Przewidywana chemia z naszą kadrą: <b>${testLineup}%</b> (${Selectors.chemLabel(testLineup)})`,
+          UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < offer.sign));
+      }).join('');
+      return segs + intro + UI.panel('Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market);
+    }
+
+    if (view === 'crew') {
+      const staffRows = Object.entries(DATA.staffSlots).map(([slot, def]) => {
+        const m = gameState.staff[slot];
+        const cand = DATA.staffCandidates[slot];
+        const canHireExt = !m || m.kind === 'volunteer';
+        return `
+        <div class="py-1.5 border-b border-paper-300 last:border-0">
+          <div class="text-[10px] uppercase tracking-wide text-ink-700 font-medium">${def.icon} ${def.label}</div>
+          ${m ? UI.row(`${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}`,
+            `${Utils.escape(m.desc)} · ${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}`,
+            m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp'), '!py-0.5 !border-0')
+            : '<div class="text-[12px] italic text-ink-700">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
+          ${canHireExt ? UI.row(`<span class="font-normal">Kandydat z zewnątrz:</span> ${Utils.escape(cand.name)}`,
+            `${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}`,
+            UI.smallBtn('hire-staff', `data-slot="${slot}"`, 'Zatrudnij', false), 'bg-paper-200 rounded-md px-1.5 mt-1 !border-0') : ''}
+        </div>`;
+      }).join('');
+      return segs + intro + UI.panel('Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', staffRows + `
+        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę po sezonie, sam zgłosi się na Biurko.</p>`);
+    }
+
+    return segs + intro + UI.tiles([
+      UI.tile('Styl', style.label, 'ustawienie ' + style.formation.slice(1).join('-')),
+      UI.tile('Pensja', Utils.formatMoney(Selectors.coachWeekly()), 'na tydzień'),
+      UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
+    ]) + UI.panel('Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
+      <p class="text-[12px] leading-snug mb-1.5">${Utils.escape(coach.desc)}</p>
+      <p class="text-[11px] text-ink-700 mb-1.5">„${style.motto}” · ${coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach'}</p>
+      <div class="flex justify-between text-[12px]"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span>${chem}%</span></div>
+      ${UI.bar(chem, chemColor)}
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
+      ${c.lastReport ? `<blockquote class="border-l-2 border-grass pl-2 italic text-[12px] my-1.5">„${Utils.escape(c.lastReport)}”</blockquote>` : ''}
+      <div class="flex flex-wrap gap-1.5 mt-1.5">
         ${UI.smallBtn('carpet-coach', '', '🟥 Wezwij na dywanik', !carpetReady)}
         ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="severance"', 'Zwolnij z odprawą (' + Utils.formatMoney(Engine.severance()) + ')', gameState.finance.budget < Engine.severance(), 'stamp')}
         ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="cold"', 'Zwolnij bez odprawy (foch szatni)', false, 'stamp')}
       </div>
-      <p class="text-xs text-ink-700 mt-2">${carpetReady ? 'Dywanik: krótka rozmowa ostrzegawcza. Zwykle mobilizuje, czasem obraża.' : 'Na dywanik można wezwać ponownie w Tygodniu ' + (c.lastCarpetWeek + CONFIG.carpetCooldown) + '.'}</p>
+      <p class="text-[10.5px] text-ink-700 mt-1">${carpetReady ? 'Dywanik: krótka rozmowa ostrzegawcza. Zwykle mobilizuje, czasem obraża.' : 'Na dywanik można wezwać ponownie w Tygodniu ' + (c.lastCarpetWeek + CONFIG.carpetCooldown) + '.'}</p>
     `);
-
-    const market = Object.entries(DATA.coaches).filter(([id]) => id !== 'mirek' && id !== c.id).map(([id, co]) => {
-      const st = DATA.styles[co.style];
-      const testLineup = (() => { const prev = c.id; c.id = id; const l = Engine.pickLineup([]); const ch = Engine.chemistry(l); c.id = prev; return ch; })();
-      return `
-      <div class="border-b border-paper-300 py-3">
-        <div class="flex justify-between gap-3 items-start">
-          <div>
-            <div class="font-type text-lg">${Utils.escape(co.name)} <span class="text-sm font-mono text-ink-700">– ${Utils.escape(co.title)}</span></div>
-            <div class="text-sm">Styl: <b>${st.label}</b> („${st.motto}”) · podpis ${Utils.formatMoney(Selectors.coachOffer(co).sign)} · <b>${Utils.formatMoney(Selectors.coachOffer(co).weekly)}/tydz.</b></div>
-            <div class="text-xs text-ink-700">${Utils.escape(co.desc)}</div>
-            <div class="text-xs mt-1">Przewidywana chemia z naszą kadrą: <b>${testLineup}%</b> (${Selectors.chemLabel(testLineup)})</div>
-          </div>
-          <div class="flex-shrink-0">${UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < Selectors.coachOffer(co).sign)}</div>
-        </div>
-      </div>`;
-    }).join('');
-
-    const staffRows = Object.entries(DATA.staffSlots).map(([slot, def]) => {
-      const m = gameState.staff[slot];
-      const cand = DATA.staffCandidates[slot];
-      const canHireExt = !m || m.kind === 'volunteer';
-      return `
-      <div class="border-b border-paper-300 py-3">
-        <div class="text-xs uppercase tracking-wider text-ink-700">${def.icon} ${def.label}</div>
-        ${m ? `
-          <div class="flex justify-between gap-3 items-start mt-1">
-            <div>
-              <div class="font-bold">${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}</div>
-              <div class="text-xs text-ink-700">${Utils.escape(m.desc)}</div>
-              <div class="text-xs">${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}</div>
-            </div>
-            <div class="flex-shrink-0">${m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp')}</div>
-          </div>` : '<div class="text-sm italic text-ink-700 mt-1">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
-        ${canHireExt ? `
-          <div class="flex justify-between gap-3 items-start mt-2 bg-paper-200 p-2">
-            <div>
-              <div class="text-sm"><b>Kandydat z zewnątrz:</b> ${Utils.escape(cand.name)}</div>
-              <div class="text-xs text-ink-700">${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}</div>
-            </div>
-            <div class="flex-shrink-0">${UI.smallBtn('hire-staff', `data-slot="${slot}"`, 'Zatrudnij', false)}</div>
-          </div>` : ''}
-      </div>`;
-    }).join('');
-
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📋 Sztab i Trener</h2>
-    <p class="text-paper-400 text-sm mb-4">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      ${coachCard}
-      ${UI.card('B', 'Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market)}
-      ${UI.card('C', 'Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', staffRows + `
-        <p class="text-xs text-ink-700 mt-3">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę po sezonie, sam zgłosi się na Biurko.</p>`, 'xl:col-span-2')}
-    </div>`;
   },
 
   /* ---------- ZAKŁADKA: KADRA I SZATNIA ---------- */
@@ -3504,76 +3449,56 @@ const UI = {
       : byPos);
     const count = (pr) => gameState.squad.filter((p) => p.profile === pr).length;
     const canRelease = gameState.squad.length > CONFIG.minSquad;
-    const sortBtn = (value, label) => `<button data-action="squad-sort" data-value="${value}"
-      class="btn-press h-9 px-3 rounded-md text-sm ${sort === value ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium hover:bg-desk-800'}">${label}</button>`;
+    const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_20px_34px_24px] items-center gap-1';
 
-    const cards = squad.map((p) => {
+    // Gęsta tabela; stuknięcie w wiersz rozwija szczegóły zawodnika
+    const rows = squad.map((p) => {
       const inXI = lineup.includes(p);
-      const chips = [
-        inXI ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-grass text-white">W SKŁADZIE</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-paper-300 text-ink-700">ŁAWKA</span>',
-        p.favorite ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-ink-900">⭐ ULUBIENIEC</span>' : '',
-        p.legend ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-ink-900 text-paper-100">🏆 LEGENDA</span>' : '',
-        p.talent ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-600 text-white">💎 PEREŁKA</span>' : '',
-      ].join('');
       const key = 'pl-' + p.id;
-      const stored = (gameState.ui.folds || {})[key];
-      const open = stored != null ? stored : !UI.isMobile();
+      const open = !!(gameState.ui.folds || {})[key];
       return `
-      <details data-fold="${key}" class="paper ${inXI ? 'border-l-4 border-l-grass' : 'border-l-4 border-l-paper-400'}" ${open ? 'open' : ''}>
-        <summary class="tap flex items-center gap-3 px-3 py-2 sm:px-4 cursor-pointer select-none">
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] uppercase tracking-wider text-ink-700 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · sezon: ${p.seasonApps} m / ${p.seasonGoals} g</div>
-            <div class="text-[15px] sm:text-base font-semibold leading-tight truncate">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
-            <div class="flex flex-wrap gap-1 mt-1">${chips}</div>
-          </div>
-          <div class="flex flex-col items-end gap-1 flex-shrink-0">${UI.ratingBadge(Selectors.avgRating(p), 'Śr. ')}${UI.profileBadge(p.profile)}</div>
-          <span class="fold-chevron text-ink-700 text-lg flex-shrink-0">⌄</span>
+      <details data-fold="${key}" class="border-b border-paper-300 last:border-0" ${open ? 'open' : ''}>
+        <summary class="${cols} h-[27px] px-1.5 text-[12px] cursor-pointer select-none border-l-[3px] ${inXI ? 'border-l-grass' : 'border-l-transparent'}">
+          <span class="text-[11px]">${DATA.positions[p.pos].icon}</span>
+          <span class="truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b>${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
+          <span class="text-center text-ink-700">${p.age}</span>
+          <span class="text-center">${p.seasonApps}</span>
+          <span class="text-center font-semibold">${p.seasonGoals}</span>
+          <span class="text-right">${UI.ratingBadge(Selectors.avgRating(p))}</span>
+          <span class="text-right">${UI.profileBadge(p.profile)}</span>
         </summary>
-        <div class="px-3 sm:px-4 pb-4 pt-3 border-t border-paper-300">
-          <p class="text-sm italic mb-2">„${Utils.escape(p.trait)}”</p>
-          <div class="text-xs space-y-0.5">
-            <div>Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b></div>
-            <div>Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
+        <div class="px-2 py-1.5 bg-paper-200 text-[11.5px] leading-snug">
+          <div class="flex justify-between gap-2 items-start">
+            <div class="min-w-0">
+              <div class="font-semibold">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)} · ${DATA.positions[p.pos].label} · ${inXI ? '<span class="text-grass font-bold">W SKŁADZIE</span>' : 'ŁAWKA'}</div>
+              <div class="italic text-ink-700">„${Utils.escape(p.trait)}”</div>
+            </div>
+            ${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj', !canRelease, 'stamp')}
           </div>
-          <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
-            <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Sezon</div><b>${p.seasonApps} meczów · ${p.seasonGoals} goli</b></div>
-            <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Kariera w klubie</div><b>${p.apps} meczów · ${p.goals} goli</b></div>
-          </div>
-          <div class="text-xs text-ink-700 mt-2">Śr. nota w sezonie: ${UI.ratingBadge(Selectors.avgRating(p))}${p.lastRating != null ? ' · ostatni mecz: ' + UI.ratingBadge(p.lastRating) : ''}${Selectors.careerRating(p) != null ? ' · w karierze: <b>' + Selectors.ratingText(Selectors.careerRating(p)) + '</b>' : ''}</div>
-          <div class="pt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
+          <div class="mt-1">Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
+          <div>Sezon: <b>${p.seasonApps} m · ${p.seasonGoals} g</b> · Kariera w klubie: <b>${p.apps} m · ${p.goals} g</b>${p.lastRating != null ? ' · ostatni mecz: ' + UI.ratingBadge(p.lastRating) : ''}${Selectors.careerRating(p) != null ? ' · w karierze: <b>' + Selectors.ratingText(Selectors.careerRating(p)) + '</b>' : ''}</div>
+          ${p.favorite || p.legend || p.talent ? `<div class="mt-0.5">${[p.favorite ? '⭐ Ulubieniec trybun' : '', p.legend ? '🏆 Legenda klubu' : '', p.talent ? '💎 Perełka powiatu' : ''].filter(Boolean).join(' · ')}</div>` : ''}
         </div>
       </details>`;
     }).join('');
 
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">👟 Kadra i Szatnia</h2>
-    <p class="text-paper-400 text-sm mb-4">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
-    <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-5">
-      <div class="paper p-2.5 sm:p-4 min-w-0">
-        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Chemia<span class="hidden sm:inline"> z trenerem (${DATA.styles[coach.style].label.toLowerCase()})</span></div>
-        <div class="font-type text-lg sm:text-2xl font-bold">${chem}%<span class="hidden sm:inline"> – ${Selectors.chemLabel(chem)}</span></div>
-        ${UI.bar(chem, chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-400' : 'bg-stamp')}
-      </div>
-      <div class="paper p-2.5 sm:p-4 min-w-0">
-        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Kadra</div>
-        <div class="font-type text-lg sm:text-2xl font-bold">${gameState.squad.length}/${CONFIG.maxSquad}</div>
-        <div class="flex flex-wrap gap-1 mt-1">${UI.profileBadge('off')}<span class="text-xs">${count('off')}</span>${UI.profileBadge('def')}<span class="text-xs">${count('def')}</span>${UI.profileBadge('uni')}<span class="text-xs">${count('uni')}</span></div>
-      </div>
-      <div class="paper p-2.5 sm:p-4 min-w-0">
-        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Koszt kadry</div>
-        <div class="font-type text-lg sm:text-2xl font-bold truncate">${Utils.formatMoney(Selectors.squadWages())}<span class="text-xs sm:text-base">/tydz.</span></div>
-        <div class="text-[11px] sm:text-xs text-ink-700">Baza szatni: <b>${Selectors.lockerBaseline()}%</b><span class="hidden sm:inline"> (Legendy, liderzy, sztab i bojler ją podnoszą)</span></div>
-      </div>
-    </div>
-    <div class="grid grid-cols-3 sm:inline-flex items-center gap-0.5 p-0.5 mb-3 rounded-lg bg-desk-800">
-      <span class="hidden sm:inline text-xs text-paper-400 px-2">Sortuj</span>
-      ${sortBtn('pos', '<span class="sm:hidden">Pozycja</span><span class="hidden sm:inline">Domyślnie / Pozycja</span>')}${sortBtn('goals', 'Wg goli')}${sortBtn('rating', 'Wg noty')}
-    </div>
-    <p class="lg:hidden text-xs text-paper-400 mb-2">Stuknij zawodnika, żeby zobaczyć szczegóły.</p>
-    <div class="grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 2xl:grid-cols-3 items-start">${cards}</div>`;
+    return UI.tiles([
+      UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
+      UI.tile('Kadra', gameState.squad.length + '/' + CONFIG.maxSquad, `OF ${count('off')} · DF ${count('def')} · UNI ${count('uni')}`),
+      UI.tile('Koszt', Utils.formatMoney(Selectors.squadWages()), 'na tydzień'),
+      UI.tile('Baza szatni', Selectors.lockerBaseline() + '%', 'legendy, sztab, bojler'),
+    ], 4)
+    + UI.segs('squad-sort', sort, [['pos', 'Pozycja'], ['goals', 'Wg goli'], ['rating', 'Wg noty']])
+    + `<section class="paper overflow-hidden mb-1.5">
+        <div class="${cols} h-6 px-1.5 border-l-[3px] border-l-transparent text-[9.5px] uppercase font-semibold text-ink-700 bg-paper-200">
+          <span></span><span>Zawodnik · ${DATA.styles[coach.style].label.toLowerCase()}</span><span class="text-center">Wiek</span><span class="text-center">M</span><span class="text-center">G</span><span class="text-right">Nota</span><span class="text-right">Pr.</span>
+        </div>
+        ${rows}
+      </section>
+      <p class="text-[10.5px] text-paper-400 leading-snug">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun. Zielony pasek = jedenastka trenera; stuknij wiersz po szczegóły.</p>`;
   },
 
-  // Ostrzeżenia w pasku: długi, komornik, walne zebranie, prokuratura
+  // Ostrzeżenia w nagłówku: długi, komornik, walne zebranie, prokuratura
   threats() {
     const t = Selectors.debtThresholds();
     const b = gameState.finance.budget;
@@ -3583,7 +3508,7 @@ const UI = {
     else if (b < t.warn) items.push('<span class="text-amber-glow font-bold">💸 Odsetki + strajk</span>');
     if (Selectors.underInvestigation()) items.push('<span class="text-stamp font-bold">🔍 Pod lupą prokuratury</span>');
     if (gameState.season.promotionBan) items.push('<span class="text-stamp font-bold">⛔ Zakaz awansu</span>');
-    return items.length ? `<div class="text-xs mt-1 space-x-2">${items.join(' ')}</div>` : '';
+    return items.length ? `<div class="text-[11px] mt-1 truncate space-x-2">${items.join(' ')}</div>` : '';
   },
 
   /* ---------- EKRAN KOŃCA GRY ---------- */
@@ -3633,6 +3558,49 @@ const UI = {
     const coach = Selectors.coach();
     const budget = gameState.finance.budget;
     const full = gameState.squad.length >= CONFIG.maxSquad;
+    const view = UI.sub('scouting', 'scout');
+    const segs = UI.subSegs('scouting', view, [['scout', '🚗 Zwiady'], ['youth', '🌱 Szkółka'], ['notes', '📝 Notatki']]);
+    const intro = '<p class="text-[11px] text-paper-400 mb-1.5">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>';
+
+    if (view === 'youth') {
+      const lvl = DATA.youthLevels[Selectors.youthLevel()];
+      const ups = Object.entries(DATA.youthUpgrades).map(([id, u]) => {
+        const owned = sc.youthUpgrades[id];
+        return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(u.cost)}</span>`, Utils.escape(u.desc),
+          owned ? '<span class="text-[11px] font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-youth', `data-id="${id}"`, 'Kup', budget < u.cost));
+      }).join('');
+      const pulled = sc.lastYouthPullKey === Selectors.youthPullKey();
+      const juniors = gameState.squad.filter((p) => p.age <= 19).map((p) =>
+        `<li>${p.talent ? '💎 ' : ''}<b>${Utils.escape(Selectors.playerName(p))}</b> – ${p.age} l., ${DATA.positions[p.pos].label.toLowerCase()} · ${Selectors.skillLabel(p.skill)}</li>`).join('');
+      return segs + UI.panel('Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
+        <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1.5">
+          <div class="text-[10px] uppercase tracking-wide text-ink-700">Poziom szkółki</div>
+          <div class="text-[13px] font-bold">${Utils.escape(lvl.label)}</div>
+          <div class="text-[11px] text-ink-700 leading-snug">${Utils.escape(lvl.desc)}</div>
+        </div>
+        <p class="text-[11.5px] leading-snug">Juniorzy zwykle: <b>${Selectors.skillLabel(lvl.skillMin)}</b> – <b>${Selectors.skillLabel(lvl.skillMax)}</b>. Szansa na 💎 Perełkę powiatu: <b>${Math.round(lvl.talentChance * 100)}%</b>. Perełki rozwijają się dużo szybciej.</p>
+        ${UI.h4('Inwestycje w szkółkę')}
+        ${ups}
+        ${UI.h4('Wyciągnij juniora z Orlika')}
+        <div class="flex items-center gap-2">
+          <p class="flex-1 text-[11px] text-ink-700 leading-snug">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
+          ${UI.smallBtn('pull-junior', '', pulled ? 'Już w tej rundzie' : '🌱 Wyciągnij', pulled || full)}
+        </div>
+        ${UI.h4('Młodzież w kadrze (do 19 lat)')}
+        ${juniors ? `<ul class="text-[12px] space-y-0.5">${juniors}</ul>` : '<p class="text-[12px] italic">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
+      `);
+    }
+
+    if (view === 'notes') {
+      return segs + intro + UI.panel('Notatki Szwagra', 'Złote myśli z objazdów', `
+        <ul class="text-[12.5px] space-y-1.5 list-disc pl-4">
+          <li>„Profil zawodnika ważniejszy niż ksywa. Jak trener chce tiki-taki, to drwala mu nie wciskaj.”</li>
+          <li>„Ja zawsze trochę przesadzam. Ale tylko trochę. Plus minus jedna klasa.”</li>
+          <li>„Najlepsi grajkowie są na festynach strażackich. Najgorsi – też.”</li>
+          <li>„W szatni jest 22 haczyki. Więcej ludzi nie wejdzie, bo ławka się złamie.”</li>
+        </ul>`);
+    }
+
     const fitInfo = (p) => {
       const f = Engine.profileFit(p, coach.style);
       if (f >= 1) return '<span class="text-grass font-bold">✓ pasuje do stylu trenera</span>';
@@ -3640,82 +3608,31 @@ const UI = {
       return '<span class="text-stamp font-bold">✗ trener będzie kręcił nosem</span>';
     };
     const cands = sc.candidates.map((p) => `
-      <article class="bg-paper-200 border border-paper-400 rounded-lg p-3">
+      <article class="py-1.5 border-b border-paper-300 last:border-0">
         <div class="flex justify-between items-start gap-2">
-          <div>
-            <div class="text-xs uppercase tracking-wider text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
-            <div class="font-type text-lg leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
+          <div class="min-w-0">
+            <div class="text-[10px] uppercase tracking-wide text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. ${UI.profileBadge(p.profile)}</div>
+            <div class="text-[13px] font-bold leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
           </div>
-          ${UI.profileBadge(p.profile)}
+          ${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee)}
         </div>
-        <p class="text-sm italic my-2">Szwagier: „${Utils.escape(p.trait)}”</p>
-        <div class="text-xs space-y-0.5">
-          <div>${Utils.escape(tier.who)} szacuje: <b>${Selectors.skillLabel(p.rumorSkill)}</b> <span class="text-ink-700">${tier.accuracy >= 1 ? '(szwagier lubi przesadzać)' : tier.accuracy > 0 ? '(czasem się myli)' : '(ocena pewna)'}</span></div>
-          <div>Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · ${fitInfo(p)}</div>
-          <div>Chce: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · odstępne: <b>${Utils.formatMoney(p.fee)}</b></div>
+        <p class="text-[11.5px] italic leading-snug">Szwagier: „${Utils.escape(p.trait)}”</p>
+        <div class="text-[11px] leading-snug">
+          ${Utils.escape(tier.who)} szacuje: <b>${Selectors.skillLabel(p.rumorSkill)}</b> <span class="text-ink-700">${tier.accuracy >= 1 ? '(szwagier lubi przesadzać)' : tier.accuracy > 0 ? '(czasem się myli)' : '(ocena pewna)'}</span>
+          · Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · ${fitInfo(p)}
+          · Chce: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · odstępne: <b>${Utils.formatMoney(p.fee)}</b>
         </div>
-        <div class="mt-2 text-right">${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee)}</div>
       </article>`).join('');
 
-    const scoutCard = UI.card('A', 'Siatka Skautingowa: ' + Utils.escape(tier.name), Utils.escape(tier.desc), `
-      <p class="text-sm mb-3">Wyjazd kosztuje <b>${Utils.formatMoney(Selectors.scoutTier().cost)}</b> i trwa <b>${CONFIG.scoutWeeks} tygodnie</b>. Wraca z ${tier.count[0]}–${tier.count[1]} nazwiskami. Na wyższym poziomie ligowym przywozi lepszych (i droższych) grajków.</p>
-      ${nextTier ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm flex justify-between gap-3 items-center">
-        <div><b>Ulepszenie: ${Utils.escape(nextTier.name)}</b> – ${Utils.formatMoney(nextTier.upgradeCost)}<br><span class="text-xs text-ink-700">${Utils.escape(nextTier.desc)} Dostępne od ligi: ${DATA.leagueLevels[nextTier.minLevel].name}.</span></div>
-        <div class="flex-shrink-0">${UI.smallBtn('upgrade-scout', '', 'Ulepsz', gameState.club.leagueLevel < nextTier.minLevel || budget < nextTier.upgradeCost || !!sc.missionReturnWeek)}</div>
-      </div>` : ''}
+    return segs + UI.panel('Siatka Skautingowa: ' + Utils.escape(tier.name), Utils.escape(tier.desc), `
+      <p class="text-[11.5px] leading-snug mb-1.5">Wyjazd kosztuje <b>${Utils.formatMoney(Selectors.scoutTier().cost)}</b> i trwa <b>${CONFIG.scoutWeeks} tygodnie</b>. Wraca z ${tier.count[0]}–${tier.count[1]} nazwiskami. Na wyższym poziomie ligowym przywozi lepszych (i droższych) grajków.</p>
       ${sc.missionReturnWeek
-        ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm">🚗 ${Utils.escape(tier.who)} jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
-        : `<div class="mb-3">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(Selectors.scoutTier().cost) + ')', budget < Selectors.scoutTier().cost)}</div>`}
-      <div class="text-xs text-ink-700 mb-2">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
-      ${cands ? `<div class="grid grid-cols-1 gap-3 md:grid-cols-2">${cands}</div>` : '<p class="text-sm italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
-    `, 'xl:col-span-2');
-
-    const lvl = DATA.youthLevels[Selectors.youthLevel()];
-    const ups = Object.entries(DATA.youthUpgrades).map(([id, u]) => {
-      const owned = sc.youthUpgrades[id];
-      return `
-      <div class="border-b border-paper-300 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(u.cost)}</span></div>
-          <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
-        </div>
-        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-youth', `data-id="${id}"`, 'Kup', budget < u.cost)}</div>
-      </div>`;
-    }).join('');
-    const pulled = sc.lastYouthPullKey === Selectors.youthPullKey();
-    const juniors = gameState.squad.filter((p) => p.age <= 19).map((p) =>
-      `<li>${p.talent ? '💎 ' : ''}<b>${Utils.escape(Selectors.playerName(p))}</b> – ${p.age} l., ${DATA.positions[p.pos].label.toLowerCase()} · ${Selectors.skillLabel(p.skill)}</li>`).join('');
-
-    const youthCard = UI.card('B', 'Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
-      <div class="bg-paper-200 border border-paper-400 p-3 mb-3">
-        <div class="text-xs uppercase tracking-wider text-ink-700">Poziom szkółki</div>
-        <div class="font-type text-lg">${Utils.escape(lvl.label)}</div>
-        <div class="text-xs text-ink-700">${Utils.escape(lvl.desc)}</div>
-      </div>
-      <p class="text-sm mb-3">Juniorzy zwykle: <b>${Selectors.skillLabel(lvl.skillMin)}</b> – <b>${Selectors.skillLabel(lvl.skillMax)}</b>. Szansa na 💎 Perełkę powiatu: <b>${Math.round(lvl.talentChance * 100)}%</b>. Perełki rozwijają się dużo szybciej.</p>
-      <h4 class="font-type mb-1">Inwestycje w szkółkę</h4>
-      ${ups}
-      <h4 class="font-type mt-4 mb-1">Wyciągnij juniora z Orlika</h4>
-      <p class="text-xs text-ink-700 mb-2">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
-      ${UI.smallBtn('pull-junior', '', pulled ? 'W tej rundzie już wyciągnięty' : '🌱 Wyciągnij juniora', pulled || full)}
-      <h4 class="font-type mt-4 mb-1">Młodzież w kadrze (do 19 lat)</h4>
-      ${juniors ? `<ul class="text-sm space-y-1">${juniors}</ul>` : '<p class="text-sm italic">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
-    `);
-
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">🔭 Skauting i Młodzież</h2>
-    <p class="text-paper-400 text-sm mb-4">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      ${scoutCard}
-      ${youthCard}
-      ${UI.card('C', 'Notatki Szwagra', 'Złote myśli z objazdów', `
-        <ul class="text-sm space-y-2 list-disc pl-5">
-          <li>„Profil zawodnika ważniejszy niż ksywa. Jak trener chce tiki-taki, to drwala mu nie wciskaj.”</li>
-          <li>„Ja zawsze trochę przesadzam. Ale tylko trochę. Plus minus jedna klasa.”</li>
-          <li>„Najlepsi grajkowie są na festynach strażackich. Najgorsi – też.”</li>
-          <li>„W szatni jest 22 haczyki. Więcej ludzi nie wejdzie, bo ławka się złamie.”</li>
-        </ul>`)}
-    </div>`;
+        ? `<div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1.5 text-[12px]">🚗 ${Utils.escape(tier.who)} jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
+        : `<div class="mb-1.5">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(Selectors.scoutTier().cost) + ')', budget < Selectors.scoutTier().cost)}</div>`}
+      ${nextTier ? UI.row(`Ulepszenie: ${Utils.escape(nextTier.name)} – ${Utils.formatMoney(nextTier.upgradeCost)}`, `${Utils.escape(nextTier.desc)} Dostępne od ligi: ${DATA.leagueLevels[nextTier.minLevel].name}.`,
+        UI.smallBtn('upgrade-scout', '', 'Ulepsz', gameState.club.leagueLevel < nextTier.minLevel || budget < nextTier.upgradeCost || !!sc.missionReturnWeek), 'bg-paper-200 rounded-md px-2 !border-0') : ''}
+      <div class="text-[11px] text-ink-700 mt-1.5">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
+    `) + UI.panel('Notes Szwagra', '', cands || '<p class="text-[12px] italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>');
   },
 
   /* ---------- ZAKŁADKA: WIRTUALNY X ---------- */
@@ -3723,101 +3640,86 @@ const UI = {
     const x = gameState.x;
     const posted = x.lastPostWeek === gameState.calendar.week;
     const dna = gameState.club.professionalism;
+    const view = UI.sub('virtualx', posted ? 'feed' : 'post');
+    const segs = UI.subSegs('virtualx', view, [['post', '✍️ Profil klubu'], ['feed', '📰 Feed']]);
+    const intro = '<p class="text-[11px] text-paper-400 mb-1.5">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>';
+
+    if (view === 'feed') {
+      const feed = gameState.feed.slice(0, 40).map((p) => `
+        <article class="flex gap-2 py-1.5 border-b border-paper-300 last:border-0 ${p.official ? 'border-l-2 border-l-amber-glow pl-1.5' : ''}">
+          <div class="w-7 h-7 flex-shrink-0 rounded-full bg-ink-900 flex items-center justify-center text-[14px]">${p.avatar}</div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[11.5px] truncate"><b>${Utils.escape(p.handle)}</b> <span class="text-ink-700">· T${p.week}</span>${p.official ? ' <span class="text-[9.5px] bg-amber-glow px-1 rounded font-bold">✔ OFICJALNY</span>' : ''}</div>
+            <p class="text-[12.5px] leading-snug break-words">${Utils.escape(p.text)}</p>
+            <div class="text-[10.5px] text-ink-700 flex gap-3"><span>💬 ${p.replies}</span><span>🔁 ${p.shares}</span><span>❤️ ${p.likes}</span></div>
+          </div>
+        </article>`).join('');
+      return segs + `<section class="paper px-2.5 py-1">${feed || '<p class="text-[12px] py-1.5">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</p>'}</section>`;
+    }
+
     const tones = Object.entries(DATA.xTones).map(([id, t]) => `
       <button data-action="x-post" data-tone="${id}" ${posted ? 'disabled' : ''}
-        class="btn-press w-full text-left px-3 py-2 border border-paper-400 rounded-lg ${posted ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : 'bg-paper-200 hover:bg-paper-300'}">
-        <span class="font-type block">${t.icon} ${t.label}</span>
-        <span class="text-xs ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
+        class="btn-press w-full text-left px-2.5 py-1.5 border border-paper-300 rounded-lg ${posted ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : 'bg-white'}">
+        <span class="block text-[13px] font-semibold">${t.icon} ${t.label}</span>
+        <span class="block text-[11px] leading-snug ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
       </button>`).join('');
-    const feed = gameState.feed.slice(0, 40).map((p) => `
-      <article class="paper p-4 ${p.official ? 'border-l-4 border-amber-glow' : ''}">
-        <div class="flex gap-3">
-          <div class="w-10 h-10 flex-shrink-0 rounded-full bg-ink-900 flex items-center justify-center text-xl">${p.avatar}</div>
-          <div class="min-w-0">
-            <div class="text-sm"><b>${Utils.escape(p.handle)}</b> <span class="text-ink-700">· Tydzień ${p.week}</span>${p.official ? ' <span class="text-[10px] bg-amber-glow px-1 font-bold">✔ OFICJALNY</span>' : ''}</div>
-            <p class="text-sm mt-1 break-words">${Utils.escape(p.text)}</p>
-            <div class="text-xs text-ink-700 mt-2 flex gap-4"><span>💬 ${p.replies}</span><span>🔁 ${p.shares}</span><span>❤️ ${p.likes}</span></div>
-          </div>
-        </div>
-      </article>`).join('');
-
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">📱 Wirtualny X</h2>
-    <p class="text-paper-400 text-sm mb-4">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.4fr]">
-      <div class="grid grid-cols-1 gap-4 content-start">
-        ${UI.card('✍️', 'Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
-          ${posted ? '<p class="text-sm font-bold text-stamp mb-3">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-sm mb-3">Wybierz ton oficjalnego komunikatu:</p>'}
-          <div class="grid grid-cols-1 gap-2">${tones}</div>
-          ${x.hype ? '<p class="text-xs font-bold text-stamp mt-3">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}
-        `)}
-        ${UI.card('🧬', 'DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
-          <div class="flex justify-between text-sm"><span><b>„${Utils.escape(Selectors.dnaLabel())}”</b></span><span>${dna > 0 ? '+' : ''}${dna}</span></div>
-          ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-grass' : dna > -25 ? 'bg-amber-glow' : 'bg-stamp')}
-          <p class="text-xs text-ink-700 mt-2">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>
-        `)}
-      </div>
-      <section>
-        <h3 class="font-type text-xl text-amber-glow mb-3">Feed</h3>
-        <div class="grid grid-cols-1 gap-3">${feed || '<div class="paper p-4 text-sm">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>'}</div>
-      </section>
-    </div>`;
+    return segs + intro + UI.panel('Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
+        ${posted ? '<p class="text-[12px] font-bold text-stamp mb-1.5">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-[12px] mb-1.5">Wybierz ton oficjalnego komunikatu:</p>'}
+        <div class="grid gap-1.5">${tones}</div>
+        ${x.hype ? '<p class="text-[11px] font-bold text-stamp mt-1.5">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}`)
+      + UI.panel('🧬 DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
+        <div class="flex justify-between text-[12px]"><b>„${Utils.escape(Selectors.dnaLabel())}”</b><span>${dna > 0 ? '+' : ''}${dna}</span></div>
+        ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-grass' : dna > -25 ? 'bg-amber-glow' : 'bg-stamp')}
+        <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>`);
   },
 
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
   financeTab() {
-    return `
-    <h2 class="font-type text-xl sm:text-2xl font-bold text-paper-100 mb-1">💰 Finanse i Stadion</h2>
-    <p class="text-paper-400 text-sm mb-4">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
-    <div class="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2 items-start">
-      ${UI.reportCard()}
-      ${UI.ticketsCard()}
-      ${UI.merchCard()}
-      ${UI.sponsorCard()}
-      ${UI.loansCard()}
-      ${UI.stadiumCard()}
-    </div>`;
+    const view = UI.sub('finance', 'report');
+    const rep = gameState.lastReport;
+    const views = { report: UI.reportCard, tickets: UI.ticketsCard, merch: UI.merchCard, sponsor: UI.sponsorCard, loans: UI.loansCard, stadium: UI.stadiumCard };
+    return UI.tiles([
+      UI.tile('Kasa', Utils.formatMoney(gameState.finance.budget), 'stan konta', gameState.finance.budget < 0 ? 'text-stamp' : ''),
+      UI.tile('Wypłaty', Utils.formatMoney(Selectors.weeklyPayroll()), 'na tydzień'),
+      UI.tile('Ostatni tydzień', rep ? Utils.signedMoney(rep.total) : '–', rep ? 'Tydzień ' + rep.week : 'brak rozliczenia', rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
+    ]) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety'], ['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']])
+      + (views[view] || UI.reportCard)();
   },
 
   reportCard() {
     const rep = gameState.lastReport;
     const body = !rep
-      ? '<p class="text-sm">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
-      : `<table class="w-full text-sm">
+      ? '<p class="text-[12px]">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
+      : `<table class="w-full text-[12.5px]">
           ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
-          <tr><td class="pt-2 text-sm font-semibold">Razem</td><td class="pt-2 text-right font-type text-lg whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
+          <tr><td class="pt-1.5 font-semibold">Razem</td><td class="pt-1.5 text-right font-bold text-[14px] whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
-    return UI.fold('fin-report', '§', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.',
-      rep ? 'Razem: ' + Utils.signedMoney(rep.total) + ' · stan konta ' + Utils.formatMoney(gameState.finance.budget) : 'Jeszcze nic nie rozliczono', body, '', true);
+    return UI.panel('Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body)
+      + `<p class="text-[10.5px] text-paper-400 leading-snug">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”.</p>`;
   },
 
   ticketsCard() {
     const md = gameState.matchday;
-    const ticketBtns = Object.entries(DATA.tickets).map(([id, t]) => UI.choice('set-ticket', id, md.ticket === id, t.label, t.desc)).join('');
-    const sausageBtns = Object.entries(DATA.sausages).map(([id, s]) =>
-      UI.choice('set-sausage', id, md.sausage === id, s.label + ' – ' + s.price + ' zł', s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')).join('');
-
     const next = Selectors.nextHomeFixture();
     const st = gameState.seasonTickets;
-    let preview = '<p class="text-sm">W tym sezonie u siebie już nie gramy.</p>';
+    let preview = '<p class="text-[12px]">W tym sezonie u siebie już nie gramy.</p>';
     if (next) {
       const est = Engine.estimateAttendance(next.fixture);
       const holders = st.roundsLeft > 0 ? Math.min(st.holders, est) : 0;
-      preview = `<p class="text-sm">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' <span class="text-stamp font-bold">🔥 KOSA – podwójne zainteresowanie!</span>' : ''}.<br>
+      preview = `<p class="text-[12px] leading-snug">Najbliższy mecz u siebie: <b>Kolejka ${next.kolejka} vs ${Utils.escape(next.fixture.rival)}</b>${Selectors.rival(next.fixture.rival).derby ? ' <span class="text-stamp font-bold">🔥 KOSA – podwójne zainteresowanie!</span>' : ''}.
         Szacowana frekwencja przy obecnej pogodzie: <b>~${est}</b> widzów${holders ? `, w tym ${holders} karnetowiczów (nie płacą na bramce)` : ''}.</p>`;
     }
     const ticketsInfo = st.roundsLeft > 0
       ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.`
       : 'Karnety: brak aktywnych.';
 
-    return UI.fold('fin-tickets', 'A', 'Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.',
-      'Bilet ' + DATA.tickets[md.ticket].price + ' zł · ' + DATA.sausages[md.sausage].label, `
-      <div class="bg-paper-200 border border-paper-400 p-3 mb-4">${preview}<p class="text-xs text-ink-700 mt-1">${ticketsInfo}</p></div>
-      <h4 class="font-type mb-2">Cena biletu</h4>
-      <div class="grid grid-cols-1 gap-2 mb-5">${ticketBtns}</div>
-      <h4 class="font-type mb-2">Menu w budce Pana Zenka</h4>
-      <div class="grid grid-cols-1 gap-2">${sausageBtns}</div>
-      <p class="text-xs text-ink-700 mt-3">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
+    return UI.panel('Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
+      <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}<p class="text-[11px] text-ink-700">${ticketsInfo}</p></div>
+      ${UI.h4('Cena biletu')}
+      ${UI.choiceRow('set-ticket', Object.entries(DATA.tickets), md.ticket, (t) => t.label, (t) => t.desc)}
+      ${UI.h4('Menu w budce Pana Zenka')}
+      ${UI.choiceRow('set-sausage', Object.entries(DATA.sausages), md.sausage, (s) => s.label + ' – ' + s.price + ' zł', (s) => s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')}
+      <p class="text-[10.5px] text-ink-700 mt-1.5 leading-snug">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
     `);
   },
 
@@ -3826,24 +3728,15 @@ const UI = {
     const favorites = gameState.squad.filter((p) => p.favorite).length;
     const rows = Object.entries(DATA.merch).map(([id, item]) => {
       const cost = item.batch * item.unitCost;
-      return `
-      <tr class="border-b border-paper-300">
-        <td class="py-2 pr-2"><b>${item.label}</b><br><span class="text-xs text-ink-700">hurt ${item.unitCost} zł · sprzedaż ${Engine.merchPrice(id)} zł</span></td>
-        <td class="py-2 px-2 text-center font-type text-lg">${m.stock[id]}</td>
-        <td class="py-2 text-right">${UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' szt. (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost)}</td>
-      </tr>`;
+      return UI.row(`${item.label} <span class="font-normal text-ink-700">· magazyn</span> ${m.stock[id]}`, `hurt ${item.unitCost} zł · sprzedaż ${Engine.merchPrice(id)} zł`,
+        UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' szt. (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost));
     }).join('');
     const frozen = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id] * DATA.merch[id].unitCost, 0);
-    const markupBtns = Object.entries(DATA.merchMarkups).map(([id, mk]) => UI.choice('set-markup', id, m.markup === id, mk.label, '')).join('');
-    return UI.fold('fin-merch', 'B', 'Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.',
-      'Magazyn: ' + Object.keys(DATA.merch).map((id) => m.stock[id]).join(' / ') + ' szt. · narzut ' + DATA.merchMarkups[m.markup].label.split(' –')[0].toLowerCase(), `
-      <table class="w-full text-sm mb-3">
-        <tr class="text-xs uppercase text-ink-700"><th class="text-left">Towar</th><th>Magazyn</th><th></th></tr>
-        ${rows}
-      </table>
-      <p class="text-xs text-ink-700 mb-4">Zamrożony kapitał w kartonach: <b>${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
-      <h4 class="font-type mb-2">Narzut</h4>
-      <div class="grid grid-cols-1 gap-2">${markupBtns}</div>
+    return UI.panel('Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
+      ${rows}
+      <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Zamrożony kapitał w kartonach: <b>${Utils.formatMoney(frozen)}</b>. Sprzedano łącznie: ${m.soldTotal} szt. Schodzi szybciej po wygranych i w tygodnie meczów u siebie. Ulubieńcy Trybun w kadrze (${favorites}) napędzają sprzedaż koszulek.</p>
+      ${UI.h4('Narzut')}
+      ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
     `);
   },
 
@@ -3853,34 +3746,28 @@ const UI = {
     let body = '';
     if (active) {
       body = `
-        <div class="bg-paper-200 border border-grass p-3 mb-4">
-          <div class="text-xs uppercase tracking-wider text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
-          <div class="font-type text-xl">${Utils.escape(active.name)}</div>
-          <p class="text-sm">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
-          <p class="text-xs text-stamp mt-1">⚠️ ${Utils.escape(active.requirement)}</p>
-          <div class="mt-3">${UI.smallBtn('end-sponsor', '', 'Wypowiedz umowę', false, 'stamp')}</div>
+        <div class="bg-paper-200 border border-grass rounded-md px-2 py-1.5 mb-1">
+          <div class="flex justify-between items-start gap-2">
+            <div class="min-w-0">
+              <div class="text-[10px] uppercase tracking-wide text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
+              <div class="text-[14px] font-bold">${Utils.escape(active.name)}</div>
+            </div>
+            ${UI.smallBtn('end-sponsor', '', 'Wypowiedz', false, 'stamp')}
+          </div>
+          <p class="text-[12px]">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
+          <p class="text-[11px] text-stamp">⚠️ ${Utils.escape(active.requirement)}</p>
         </div>`;
     }
     const offers = Object.entries(DATA.sponsors).filter(([id]) => id !== s.active).map(([id, sp]) => {
       const burned = s.burned.includes(id);
-      return `
-      <div class="border-b border-paper-300 py-3 ${burned ? 'opacity-50' : ''}">
-        <div class="flex justify-between gap-3 items-start">
-          <div>
-            <div class="font-type text-lg">${Utils.escape(sp.name)}</div>
-            <div class="text-sm"><b>${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</b> · ${sp.clubPrefix ? 'Dopisek do nazwy: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName)}${Engine.describeEffects(sp.signEffects)}</div>
-            <div class="text-xs text-ink-700">${Utils.escape(sp.pitch)}</div>
-            <div class="text-xs text-stamp">${Utils.escape(sp.requirement)}</div>
-          </div>
-          <div class="flex-shrink-0">${burned ? '<span class="stamp inline-block px-2 text-xs font-type">SPALONY</span>' : UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', !!s.active)}</div>
-        </div>
-      </div>`;
+      return UI.row(`${Utils.escape(sp.name)} <span class="font-normal">· <b>${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</b></span>`,
+        `${sp.clubPrefix ? 'Dopisek do nazwy: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName)}${Engine.describeEffects(sp.signEffects)}<br>${Utils.escape(sp.pitch)}<br><span class="text-stamp">${Utils.escape(sp.requirement)}</span>`,
+        burned ? '<span class="text-[11px] font-bold text-stamp">SPALONY</span>' : UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', !!s.active), burned ? 'opacity-50' : '');
     }).join('');
-    return UI.fold('fin-sponsor', 'C', 'Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.',
-      active ? active.name + ' · ' + Utils.formatMoney(Selectors.sponsorWeekly(active)) + '/tydz.' : 'Brak sponsora', `
+    return UI.panel('Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.', `
       ${body}
       ${offers}
-      <p class="text-xs text-ink-700 mt-3">Skandale w kartotece klubu: <b>${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca.</p>
+      <p class="text-[11px] text-ink-700 mt-1">Skandale w kartotece klubu: <b>${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca.</p>
     `);
   },
 
@@ -3888,65 +3775,55 @@ const UI = {
     const L = gameState.loans;
     const takenRows = Object.entries(DATA.lenders).map(([id, l]) => {
       const active = L.taken.find((x) => x.id === id);
-      return `
-      <div class="border-b border-paper-300 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${Utils.escape(l.name)}</div>
-          <div class="text-xs text-ink-700">${Utils.formatMoney(l.amount)} → ${l.installments} rat × ${Utils.formatMoney(l.rate)} (oddajesz ${Utils.formatMoney(l.installments * l.rate)}). ${Utils.escape(l.note)}</div>
-          ${active ? `<div class="text-xs text-stamp font-bold">Spłacasz: zostało ${active.remaining} rat (${Utils.formatMoney(active.remaining * active.rate)})</div>` : ''}
-        </div>
-        <div class="flex-shrink-0">${UI.smallBtn('take-loan', `data-id="${id}"`, 'Pożycz', !!active)}</div>
-      </div>`;
+      return UI.row(Utils.escape(l.name),
+        `${Utils.formatMoney(l.amount)} → ${l.installments} rat × ${Utils.formatMoney(l.rate)} (oddajesz ${Utils.formatMoney(l.installments * l.rate)}). ${Utils.escape(l.note)}${active ? `<br><b class="text-stamp">Spłacasz: zostało ${active.remaining} rat (${Utils.formatMoney(active.remaining * active.rate)})</b>` : ''}`,
+        UI.smallBtn('take-loan', `data-id="${id}"`, 'Pożycz', !!active));
     }).join('');
     const givenRows = Object.entries(DATA.borrowers).map(([id, b]) => {
       const active = L.given.find((x) => x.id === id);
-      return `
-      <div class="border-b border-paper-300 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${Utils.escape(b.name)}</div>
-          <div class="text-xs text-ink-700">Chce ${Utils.formatMoney(b.amount)}, odda ${Utils.formatMoney(b.returns)} za ${b.weeks} tyg. ${Utils.escape(b.plea)}</div>
-          ${active ? `<div class="text-xs text-grass font-bold">Pożyczone! Termin zwrotu: Tydzień ${active.dueWeek}${active.delays ? ' (przesunięty ' + active.delays + '×)' : ''}</div>` : ''}
-        </div>
-        <div class="flex-shrink-0">${UI.smallBtn('lend-money', `data-id="${id}"`, 'Daj', !!active || gameState.finance.budget < b.amount)}</div>
-      </div>`;
+      return UI.row(Utils.escape(b.name),
+        `Chce ${Utils.formatMoney(b.amount)}, odda ${Utils.formatMoney(b.returns)} za ${b.weeks} tyg. ${Utils.escape(b.plea)}${active ? `<br><b class="text-grass">Pożyczone! Termin zwrotu: Tydzień ${active.dueWeek}${active.delays ? ' (przesunięty ' + active.delays + '×)' : ''}</b>` : ''}`,
+        UI.smallBtn('lend-money', `data-id="${id}"`, 'Daj', !!active || gameState.finance.budget < b.amount));
     }).join('');
-    return UI.fold('fin-loans', 'D', 'Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.',
-      (L.taken.length ? 'Spłacamy: ' + L.taken.length : 'Brak długów u prezesów') + (L.given.length ? ' · pożyczyliśmy: ' + L.given.length : ''), `
-      <h4 class="font-type mb-1">Pożycz od innego prezesa</h4>
+    return UI.panel('Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.', `
+      ${UI.h4('Pożycz od innego prezesa')}
       ${takenRows}
-      <h4 class="font-type mt-4 mb-1">Pożycz komuś nasze nadwyżki</h4>
+      ${UI.h4('Pożycz komuś nasze nadwyżki')}
       ${givenRows}
-      <p class="text-xs text-ink-700 mt-3">Raty schodzą automatycznie co tydzień. Dłużnicy czasem „zapominają”…</p>
+      <p class="text-[11px] text-ink-700 mt-1">Raty schodzą automatycznie co tydzień. Dłużnicy czasem „zapominają”…</p>
     `);
   },
 
   stadiumCard() {
     const st = gameState.stadium;
     const pitchColor = st.pitch >= 60 ? 'bg-grass' : st.pitch >= 30 ? 'bg-amber-glow' : 'bg-stamp';
-    const upgrades = Object.entries(DATA.upgrades).map(([id, u]) => {
+    const upgradeRow = ([id, u]) => {
       const owned = st.upgrades[id];
-      return `
-      <div class="border-b border-paper-300 py-2 flex justify-between gap-3 items-center">
-        <div>
-          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : ''}</span></div>
-          <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
-          <div class="text-xs text-ink-700 italic">📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</div>
-        </div>
-        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))}</div>
-      </div>`;
-    }).join('');
-    return UI.fold('fin-stadium', 'E', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.',
-      'Murawa: ' + Selectors.pitchLabel(st.pitch) + ' (' + st.pitch + '%) · inwestycje: ' + Object.values(st.upgrades).filter(Boolean).length + '/' + Object.keys(DATA.upgrades).length, `
-      <div class="mb-3">
-        <div class="flex justify-between text-sm"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
-        ${UI.bar(st.pitch, pitchColor)}
-        <p class="text-xs text-ink-700 mt-1">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
-      </div>
-      <ul class="text-sm list-disc pl-5 mb-4">${Selectors.facilityLabels().map((f) => `<li>${Utils.escape(f)}</li>`).join('')}</ul>
-      <h4 class="font-type mb-1">Inwestycje</h4>
+      return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : ''}</span>`,
+        `${Utils.escape(u.desc)} <i>📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</i>`,
+        owned ? '<span class="text-[11px] font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id)));
+    };
+    // Inwestycje na dalsze ligi zwinięte w jedną linijkę – na ekranie zostaje to, co ważne teraz
+    const all = Object.entries(DATA.upgrades);
+    const later = all.filter(([id, u]) => !st.upgrades[id] && (u.licenseLevel || 0) > gameState.club.leagueLevel + 1);
+    const upgrades = all.filter((e) => !later.includes(e)).map(upgradeRow).join('')
+      + (later.length ? `
+      <details data-fold="st-later" class="mt-1" ${(gameState.ui.folds || {})['st-later'] ? 'open' : ''}>
+        <summary class="flex items-center justify-between h-8 px-2 rounded-md bg-paper-200 text-[12px] font-semibold cursor-pointer select-none">
+          <span>Na wyższe ligi: ${later.map(([, u]) => Utils.escape(u.label.split(' ')[0])).join(', ')} (${later.length})</span><span class="fold-chevron text-ink-700">⌄</span>
+        </summary>
+        ${later.map(upgradeRow).join('')}
+      </details>` : '');
+    return UI.panel('Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
+      <div class="flex justify-between text-[12px]"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
+      ${UI.bar(st.pitch, pitchColor)}
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
+      <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>
+      ${UI.h4('Inwestycje')}
       ${upgrades}
-    `, 'xl:col-span-2');
+    `);
   },
+
 };
 
 /* ---------------------------------------------------------------------
@@ -4023,6 +3900,7 @@ const Actions = {
 
   'switch-tab'(el) {
     gameState.activeTab = el.dataset.tab;
+    if (el.dataset.view) gameState.ui.deskView = el.dataset.view;
     if (el.dataset.tab === 'virtualx') gameState.ui.seenFeedId = gameState.x.lastPostId;
     if (el.dataset.tab === 'scouting') gameState.ui.seenScoutKey = gameState.scouting.candidates.map((p) => p.id).join(',');
     App.commit();
@@ -4075,7 +3953,13 @@ const Actions = {
     if (m && confirm('Zwolnić ze sztabu: ' + m.name + '?')) { Engine.fireStaff(el.dataset.slot); App.commit(); }
   },
   'desk-view'(el) {
-    if (['decisions', 'log'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
+    if (['decisions', 'club', 'log'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
+    App.commit();
+  },
+  'sub-view'(el) {
+    if (!DATA.tabs.some((t) => t.id === el.dataset.tab)) return;
+    if (!gameState.ui.sub) gameState.ui.sub = {};
+    gameState.ui.sub[el.dataset.tab] = el.dataset.value;
     App.commit();
   },
   'log-more'() {
@@ -4124,8 +4008,6 @@ document.addEventListener('click', (e) => {
   const handler = Actions[el.dataset.action];
   if (handler) handler(el, e);
 });
-
-window.addEventListener('resize', () => UI.fitActionBar());
 
 // Zapamiętujemy, które sekcje gracz zwinął/rozwinął (przetrwa odświeżenie widoku i zapis).
 // (zdarzenie „toggle” leci też przy wstawianiu otwartych sekcji – liczymy tylko kliknięcia gracza)
