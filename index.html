@@ -1008,6 +1008,14 @@ const DATA = {
       ],
     },
 
+    mediaStrategy: {
+      id: 'mediaStrategy',
+      from: 'Pani Halinka (admin fanpage’a)',
+      title: () => 'Strategia medialna na sezon ' + gameState.calendar.season,
+      body: 'Prezesie, nie będę co tydzień biegać z telefonem. Niech Pan powie raz, jak klub ma gadać w internecie przez cały sezon – a ja się tego trzymam do ostatniej kolejki.',
+      options: [],              // uzupełniane z DATA.mediaStrategies (niżej, po definicji DATA)
+    },
+
     seasonTickets: {
       id: 'seasonTickets',
       from: 'Kierownik drużyny – pan Rysiek',
@@ -1278,7 +1286,7 @@ const DATA = {
       options: [
         {
           label: 'Bierzemy. Post pochwalny poleci.',
-          hint: () => Utils.signedMoney(Selectors.lifelineAmount(2000)) + ', kibice -3%, DNA -2, zużywa tygodniowy post na X',
+          hint: () => Utils.signedMoney(Selectors.lifelineAmount(2000)) + ', kibice -3%, DNA -2, laurka na X',
           effects: () => ({ budget: Selectors.lifelineAmount(2000), fans: -3 }),
           log: 'Dotacja od radnego Pączka wpłynęła. Na Wirtualnym X poszedł post z laurką i zdjęciem radnego w szaliku klubu.',
           onChoose: () => {
@@ -1535,6 +1543,22 @@ const DATA = {
     },
   },
 
+  // Strategia medialna: wybierana raz na sezon, działa pasywnie przez całe rozgrywki
+  mediaStrategies: {
+    neutral: {
+      icon: '🕊️', label: 'Neutralna', sub: 'Dyplomatycznie: „szacunek dla rywali, dziękujemy kibicom”', tone: 'humble', pressure: 1,
+      effects: ['Sponsorzy płacą +10%', 'DNA powoli w stronę profesjonalizmu', 'Bez kar i bez fajerwerków'],
+    },
+    populist: {
+      icon: '📢', label: 'Populistyczna', sub: '„Wszyscy na stadion! Będzie pogrom!”', tone: 'hype', pressure: 2,
+      effects: ['+10% widzów na meczach u siebie', 'Wygrana: kibice +2%, porażka: kibice -3%', 'Sponsorzy bez zmian'],
+    },
+    spicy: {
+      icon: '🌶️', label: 'Zadziorna', sub: 'Szpilki w sędziów, Związek i rywali z Kosy', tone: 'spicy', pressure: 3,
+      effects: ['Kibice +1% po każdym meczu', 'Przed derbami szatnia +3%', 'Sponsorzy płacą -10%', 'Ok. 8% szans co tydzień na karę OZPN, DNA powoli w dół'],
+    },
+  },
+
   partners: ['Jessica, dziewczyna', 'Klaudia, narzeczona', 'Pani Bożenka, teściowa', 'Marlena, żona', 'Dżesika („to skomplikowane”)'],
 
   tabs: [
@@ -1638,7 +1662,7 @@ function createInitialState() {
       sausages: 0, topLevel: 1, promotions: 0, relegations: 0, titles: 0,
     },
     gameOver: null,             // { reason, title } po odwołaniu prezesa
-    x: { lastPostWeek: 0, hype: false, lastPostId: 0 },
+    x: { lastPostWeek: 0, hype: false, lastPostId: 0, strategy: null, strategySeason: 0 },
     dark: { fixed: null, risky: false, lastOfferWeek: -99, offersThisSeason: 0 },
     calls: { lastWeek: 0, playerId: null, caller: 'self', callerName: '', rival: '' },
     coach: {
@@ -1705,6 +1729,14 @@ function createInitialState() {
     },
   };
 }
+
+DATA.decisions.mediaStrategy.options = Object.entries(DATA.mediaStrategies).map(([id, st]) => ({
+  label: st.icon + ' ' + st.label + ' – ' + st.sub,
+  hint: st.effects.join(' · '),
+  effects: {},
+  log: 'Pani Halinka zapisała w zeszycie: „Na ten sezon ton ' + st.label.toLowerCase() + '”.',
+  onChoose: () => Engine.setMediaStrategy(id),
+}));
 
 let gameState = createInitialState();
 
@@ -1973,6 +2005,7 @@ const Engine = {
     if (Selectors.coach().style === 'off') base *= 1.1;   // na widowisko przychodzi więcej ludzi
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
     if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
+    if (Selectors.mediaStrategy() === 'populist') base *= 1.1;   // strategia populistyczna: „wszyscy na stadion”
     // Letnicy z miasta nie liczą każdej złotówki na bilecie
     base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
     if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
@@ -2112,6 +2145,9 @@ const Engine = {
       fans += result === 'L' ? -6 : result === 'W' ? 2 : 0;
       gameState.x.hype = false;
     }
+    // Strategia medialna sezonu
+    if (Selectors.mediaStrategy() === 'populist') fans += result === 'W' ? 2 : result === 'L' ? -3 : 0;
+    if (Selectors.mediaStrategy() === 'spicy') fans += 1;
     const locker = { W: 5, D: 1, L: -4 }[result];
     Engine.applyEffects({ fans, lockerRoom: locker });
 
@@ -2770,42 +2806,28 @@ const Engine = {
     });
   },
 
-  // Oficjalny post klubu – raz na tydzień
-  officialPost(tone) {
+  // Strategia medialna: raz na sezon
+  setMediaStrategy(id) {
     const x = gameState.x;
-    const t = DATA.xTones[tone];
-    if (!t || x.lastPostWeek === gameState.calendar.week) return;
-    x.lastPostWeek = gameState.calendar.week;
+    const st = DATA.mediaStrategies[id];
+    if (!st || x.strategySeason === gameState.calendar.season) return false;
+    x.strategy = id;
+    x.strategySeason = gameState.calendar.season;
+    gameState.pendingDecisions = gameState.pendingDecisions.filter((d) => d !== 'mediaStrategy');
+    Engine.addLog('📱 Strategia medialna na sezon ' + gameState.calendar.season + ': ' + st.icon + ' ' + st.label + '.', 'decision');
+    Engine.mediaPost();
+    return true;
+  },
+
+  // Post z profilu klubu w tonie strategii (bez kosztów i efektów – sam klimat feedu)
+  mediaPost() {
+    const st = DATA.mediaStrategies[Selectors.mediaStrategy()];
+    const t = DATA.xTones[st.tone];
     const fx = Selectors.currentFixture();
-    const derby = Selectors.rival(fx.rival).derby;
-    let text, effects = {};
-    if (tone === 'humble') {
-      text = Utils.rand(t.texts);
-      effects = { fans: +1 };
-      // Same pokorne posty zrobią z klubu najwyżej „Ambitny Ludowy Klub” – na profesjonalizm trzeba zapracować czynami.
-      if (gameState.club.professionalism < 40) Engine.shiftDNA(+2);
-    } else if (tone === 'hype') {
-      text = Utils.rand(t.texts)(fx.rival);
-      effects = { fans: +4 };
-      x.hype = true;
-    } else {
-      const target = derby ? 'rival' : Utils.rand(['ref', 'union']);
-      text = t.texts[target](fx.rival);
-      effects = derby ? { fans: +8, lockerRoom: +4 } : { fans: +8 };
-      Engine.xPost('official', text, true);
-      Engine.applyEffects(effects);
-      Engine.addLog('📱 Oficjalny post na Wirtualnym X (' + t.label + '): „' + text + '”' + Engine.describeEffects(effects), 'decision');
-      if (Math.random() < 0.35) {
-        Engine.money('Kara OZPN: wpis na Wirtualnym X', -300);
-        Engine.shiftDNA(-3);
-        Engine.xPost('portal', 'Wydział Dyscypliny OZPN ukarał ' + Selectors.clubDisplayName() + ' karą 300 zł za „szkalowanie ' + t.targetLabel[target] + '” w mediach społecznościowych. Klub: „Odwołamy się”. Nie odwoła się.');
-        Engine.addLog('⚖️ Wydział Dyscypliny OZPN wlepia 300 zł kary za „szkalowanie ' + t.targetLabel[target] + '”. Pani Halinka łapie się za głowę.', 'event');
-      }
-      return;
-    }
+    const text = st.tone === 'humble' ? Utils.rand(t.texts)
+      : st.tone === 'hype' ? Utils.rand(t.texts)(fx.rival)
+      : t.texts[Selectors.rival(fx.rival).derby ? 'rival' : Utils.rand(['ref', 'union'])](fx.rival);
     Engine.xPost('official', text, true);
-    Engine.applyEffects(effects);
-    Engine.addLog('📱 Oficjalny post na Wirtualnym X (' + t.label + '): „' + text + '”' + Engine.describeEffects(effects), 'decision');
   },
 
   /* ----- Telefony z szatni ----- */
@@ -2979,6 +3001,23 @@ const Engine = {
     function matchday() {
       if (Selectors.isMatchWeek()) Engine.playMatchday();
     },
+    function mediaStrategyTick() {
+      // Pasywny wpływ strategii medialnej (bez cotygodniowego postowania)
+      const id = Selectors.mediaStrategy();
+      const w = gameState.calendar.week;
+      if (w % 2 === 0) Engine.mediaPost();
+      if (id === 'neutral' && w % 4 === 0 && gameState.club.professionalism < 40) Engine.shiftDNA(+1);
+      if (id === 'spicy') {
+        if (w % 4 === 0) Engine.shiftDNA(-1);
+        const fx = Selectors.currentFixture();
+        if (Selectors.isMatchWeek() && Selectors.rival(fx.rival).derby) Engine.applyEffects({ lockerRoom: +3 });
+        if (Math.random() < 0.08) {
+          const fine = Math.round(300 * Selectors.econ());
+          Engine.money('Kara OZPN: wpis na Wirtualnym X', -fine);
+          Engine.addLog('⚖️ Wydział Dyscypliny OZPN ukarał klub za „zadziorny” wpis na X: ' + Utils.formatMoney(fine) + '.', 'event');
+        }
+      }
+    },
     function socialFeed() {
       const ctx = gameState.report.matchCtx;
       if (ctx) Engine.matchPosts(ctx);
@@ -3104,6 +3143,7 @@ const Engine = {
     function scheduleDecisions() {
       if (!Selectors.isMatchWeek()) return;
       if (gameState.calendar.round % CONFIG.roundsPerRunda === 0) Engine.offerSeasonTickets();
+      if (gameState.calendar.round === 0 && !Selectors.strategyLocked()) Engine.pushDecision('mediaStrategy');
       const fx = Selectors.currentFixture();
       if (fx.home && Selectors.rival(fx.rival).derby && !gameState.stadium.upgrades.monitoring) Engine.pushDecision('derbySecurity');
       Engine.maybeLockerCall();
@@ -3128,7 +3168,9 @@ const Selectors = {
   leagueName: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).name,
   econ: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).econ,
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
-  sponsorWeekly: (sp) => Math.round(sp.weekly * Selectors.econ()),
+  sponsorWeekly: (sp) => Math.round(sp.weekly * Selectors.econ() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1)),
+  mediaStrategy: () => gameState.x.strategy || 'neutral',
+  strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
   coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)),
   scoutTier: () => DATA.scoutTiers[gameState.scouting.tier] || DATA.scoutTiers[0],
@@ -4394,10 +4436,11 @@ const UI = {
   /* ---------- ZAKŁADKA: WIRTUALNY X ---------- */
   virtualXTab() {
     const x = gameState.x;
-    const posted = x.lastPostWeek === gameState.calendar.week;
     const dna = gameState.club.professionalism;
-    const view = UI.sub('virtualx', posted ? 'feed' : 'post');
-    const segs = UI.subSegs('virtualx', view, [['post', '✍️ Profil klubu'], ['feed', '📰 Feed']]);
+    const locked = Selectors.strategyLocked();
+    const current = Selectors.mediaStrategy();
+    const view = UI.sub('virtualx', locked ? 'feed' : 'post');
+    const segs = UI.subSegs('virtualx', view, [['post', '🎯 Strategia'], ['feed', '📰 Feed']]);
     const intro = '<p class="text-[11px] text-paper-400 mb-1.5">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>';
 
     if (view === 'feed') {
@@ -4413,20 +4456,32 @@ const UI = {
       return segs + `<section class="paper px-2.5 py-1">${feed || '<p class="text-[12px] py-1.5">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</p>'}</section>`;
     }
 
-    const tones = Object.entries(DATA.xTones).map(([id, t]) => `
-      <button data-action="x-post" data-tone="${id}" ${posted ? 'disabled' : ''}
-        class="btn-press w-full text-left px-2.5 py-1.5 border border-paper-300 rounded-lg ${posted ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : 'bg-white'}">
-        <span class="block text-[13px] font-semibold">${t.icon} ${t.label}</span>
-        <span class="block text-[11px] leading-snug ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
-      </button>`).join('');
-    return segs + intro + UI.panel('Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
-        ${posted ? '<p class="text-[12px] font-bold text-stamp mb-1.5">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-[12px] mb-1.5">Wybierz ton oficjalnego komunikatu:</p>'}
-        <div class="grid gap-1.5">${tones}</div>
-        ${x.hype ? '<p class="text-[11px] font-bold text-stamp mt-1.5">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}`)
+    const st = DATA.mediaStrategies[current];
+    const cards = Object.entries(DATA.mediaStrategies).map(([id, s]) => {
+      const active = locked && id === current;
+      const can = !locked;
+      return `
+      <button data-action="set-strategy" data-value="${id}" ${can ? '' : 'disabled'}
+        class="btn-press w-full text-left px-2.5 py-2 border rounded-lg ${active ? 'border-amber-glow bg-amber-glow/15' : can ? 'border-paper-300 bg-white' : 'border-paper-300 bg-paper-200 opacity-60 cursor-not-allowed'}">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="text-[13.5px] font-bold">${s.icon} ${s.label}</span>
+          <span class="text-[10px] text-ink-700 whitespace-nowrap">presja mediów ${'●'.repeat(s.pressure)}${'○'.repeat(3 - s.pressure)}</span>
+        </div>
+        <div class="text-[11px] text-ink-700 italic">${s.sub}</div>
+        <div class="text-[11px] leading-snug mt-0.5">${s.effects.join(' · ')}</div>
+      </button>`;
+    }).join('');
+    return segs + intro + UI.tiles([
+      UI.tile('Strategia', locked ? st.icon + ' ' + st.label : 'do wyboru', locked ? 'sezon ' + x.strategySeason : 'ustal raz na sezon'),
+      UI.tile('Presja mediów', locked ? '●'.repeat(st.pressure) + '○'.repeat(3 - st.pressure) : '–', locked ? ['', 'niska', 'średnia', 'wysoka'][st.pressure] : ''),
+      UI.tile('DNA klubu', (dna > 0 ? '+' : '') + dna, '„' + Utils.escape(Selectors.dnaLabel()) + '”'),
+    ]) + UI.panel('Strategia medialna na sezon ' + gameState.calendar.season, locked
+        ? 'Ustalona na cały sezon – Pani Halinka postuje sama, zgodnie z linią klubu. Zmiana w następnym sezonie.'
+        : 'Wybierz raz – działa pasywnie przez cały sezon. Pani Halinka postuje sama co dwa tygodnie.', `
+        <div class="grid gap-1.5">${cards}</div>`)
       + UI.panel('🧬 DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
-        <div class="flex justify-between text-[12px]"><b>„${Utils.escape(Selectors.dnaLabel())}”</b><span>${dna > 0 ? '+' : ''}${dna}</span></div>
         ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-grass' : dna > -25 ? 'bg-amber-glow' : 'bg-stamp')}
-        <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>`);
+        <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Podnoszą: neutralna strategia, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>`);
   },
 
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
@@ -4774,7 +4829,7 @@ const Actions = {
   'sign-candidate'(el) { Engine.signCandidate(el.dataset.id); App.commit(); },
   'buy-youth'(el)      { Engine.buyYouthUpgrade(el.dataset.id); App.commit(); },
   'pull-junior'()      { Engine.pullJunior(); App.commit(); },
-  'x-post'(el)         { Engine.officialPost(el.dataset.tone); App.commit(); },
+  'set-strategy'(el)   { Engine.setMediaStrategy(el.dataset.value); App.commit(); },
 
   'reset-game'() {
     if (confirm('Na pewno rzucasz papierami? Zapis zostanie skasowany, a klub zostanie bez prezesa (znowu).')) {
