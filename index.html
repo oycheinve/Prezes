@@ -1048,6 +1048,80 @@ const DATA = {
       ],
     },
 
+    starDemand: {
+      id: 'starDemand',
+      cutscene: { icon: '🌟', place: 'Szatnia · po treningu', scripted: true },
+      player: () => Selectors.starPlayer(),
+      from: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' (z menedżerem z miasta)' : 'Szatnia'; },
+      title: 'Za dobry na ten klub',
+      body: () => {
+        const p = Selectors.starPlayer();
+        if (!p) return 'Gwiazda zgasła, zanim zdążyła zaświecić.';
+        return '„Prezesie, ja tu już nic więcej nie osiągnę. Klub z wyższej ligi daje ' + Utils.formatMoney(Selectors.starFee(p)) + ' odstępnego i normalny kontrakt. Albo mnie Pan puści, albo… sam Pan zobaczy, jak się gra z kimś, kto nie chce grać.” Menedżer w okularach przeciwsłonecznych kiwa głową.';
+      },
+      options: [
+        {
+          label: 'Puścić go – sprzedaż do wyższej ligi',
+          hint: () => { const p = Selectors.starPlayer(); return p ? '+' + Utils.formatMoney(Selectors.starFee(p)) + ', szatnia -2%' + (p.favorite ? ', kibice -6% (Ulubieniec!)' : '') : ''; },
+          effects: () => { const p = Selectors.starPlayer(); return p ? { budget: Selectors.starFee(p), lockerRoom: -2, fans: p.favorite ? -6 : 0 } : {}; },
+          log: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' odchodzi wyżej. Na pożegnanie podpisał koszulkę dla pana Heńka.' : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => Engine.endStar(true),
+        },
+        {
+          label: 'Obiecać transfer po sezonie',
+          hint: 'Spokój do końca sezonu – ale jak w oknie transferowym go nie sprzedasz, bunt wybuchnie podwójnie',
+          effects: { lockerRoom: +1 },
+          log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes podał rękę: „Po sezonie pogadamy”. ' + Selectors.playerName(p) + ' zapisał to w telefonie.' : 'Obietnica bez adresata.'; },
+          onChoose: () => { gameState.star.promised = gameState.calendar.season; },
+        },
+        {
+          label: 'Nie ma mowy – zostajesz',
+          hint: 'Bunt w szatni: nastroje w dół co tydzień, chemia -15, słabsza gra, dopóki go nie sprzedasz albo nie uspokoisz',
+          effects: { lockerRoom: -5 },
+          log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes odmówił. ' + Selectors.playerName(p) + ' trzasnął drzwiami szatni tak, że spadł kalendarz z traktorami.' : 'Odmowa.'; },
+          onChoose: () => Engine.startRebellion('odmowa transferu'),
+        },
+      ],
+    },
+    starRebel: {
+      id: 'starRebel',
+      cutscene: { icon: '🔥', place: 'Szatnia · bunt trwa', scripted: true },
+      player: () => Selectors.starPlayer(),
+      from: 'Kapitan drużyny (szeptem)',
+      title: 'Bunt w szatni',
+      body: () => {
+        const p = Selectors.starPlayer();
+        return p ? 'Kapitan łapie Prezesa przed treningiem: „Prezesie, ' + p.nick + ' podburza chłopaków. Nie podaje, siedzi w telefonie, a młodzi patrzą na niego jak w obrazek. Tak dalej nie pociągniemy.”' : 'Bunt wygasł sam.';
+      },
+      options: [
+        {
+          label: 'Sprzedać go teraz, nawet taniej',
+          hint: () => { const p = Selectors.starPlayer(); return p ? '+' + Utils.formatMoney(Math.round(Selectors.starFee(p) * 0.6)) + ' (60% ceny), koniec buntu' + (p.favorite ? ', kibice -6%' : '') : ''; },
+          effects: () => { const p = Selectors.starPlayer(); return p ? { budget: Math.round(Selectors.starFee(p) * 0.6), fans: p.favorite ? -6 : 0 } : {}; },
+          log: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' sprzedany w trakcie sezonu za pół darmo. Szatnia oddycha z ulgą.' : 'Sprzedaż bez zawodnika.'; },
+          onChoose: () => Engine.endStar(true),
+        },
+        {
+          label: 'Uspokoić: premia i podwyżka',
+          hint: () => { const p = Selectors.starPlayer(); return p ? Utils.signedMoney(-Selectors.calmCost(p)) + ' premii, +' + Math.round(p.wage * 0.5) + ' zł/tydz., ok. 60% szans na spokój' : ''; },
+          effects: () => { const p = Selectors.starPlayer(); return p ? { budget: -Selectors.calmCost(p) } : {}; },
+          log: 'Prezes wręcza kopertę i nowy kontrakt na serwetce z budki pana Zenka.',
+          onChoose: () => {
+            const p = Selectors.starPlayer(); if (!p) return;
+            p.wage += Math.round(p.wage * 0.5);
+            if (Math.random() < 0.6) { Engine.endStar(false); Engine.applyEffects({ lockerRoom: +5 }); Engine.addLog('🤝 ' + Selectors.playerName(p) + ' przyjął kopertę i znowu podaje piłkę kolegom. Koniec buntu. [szatnia +5%]', 'event'); }
+            else Engine.addLog('😤 ' + Selectors.playerName(p) + ' schował kopertę do kieszeni i… dalej się buntuje.', 'event');
+          },
+        },
+        {
+          label: 'Przeczekać',
+          hint: 'Bunt trwa dalej',
+          effects: {},
+          log: 'Prezes udaje, że nic się nie dzieje. Szatnia wie swoje.',
+        },
+      ],
+    },
+
     wageDemand: {
       id: 'wageDemand',
       player: () => Selectors.callPlayer(),
@@ -1629,7 +1703,8 @@ function createInitialState() {
     },
     lastMatch: null,            // dane ostatniego meczu dla ekranu meczowego
     seasonSummary: null,        // podsumowanie roczne: wynik, emerytury, nowi zawodnicy
-    transfer: { open: false, season: 0, market: [], bought: 0, sold: 0 },   // okno transferowe po sezonie (do 1. kolejki)
+    transfer: { open: false, season: 0, market: [], bought: 0, sold: 0 },
+    star: { playerId: null, rebel: false, promised: 0, lastWeek: 0, talkWeek: 0 },   // gwiazda „za dobra na ten klub”   // okno transferowe po sezonie (do 1. kolejki)
     cutscenes: { lastWeek: 0, recent: [], targetId: null },
     merch: {
       stock: { mug: 0, scarf: 0, shirt: 0 },
@@ -1927,7 +2002,8 @@ const Engine = {
     if (!lineup.length) return 0;
     const fit = lineup.reduce((s, p) => s + Engine.profileFit(p, coach.style), 0) / lineup.length;
     const staffChem = Object.values(gameState.staff).reduce((s, m) => s + (m ? m.chem : 0), 0);
-    return Math.round(Utils.clamp(25 + fit * 70 + staffChem, 0, 100));
+    const rebel = Selectors.rebel() ? 15 : 0;   // buntownik rozbija zgranie
+    return Math.round(Utils.clamp(25 + fit * 70 + staffChem - rebel, 0, 100));
   },
 
   teamStrength(lineup, chem) {
@@ -1939,6 +2015,7 @@ const Engine = {
     s *= 1 + Selectors.coach().quality;
     s *= 1 - missing * 0.06;
     if (gameState.debt.strike) s *= 0.9;           // strajk: nie ma na paliwo, nie ma gry
+    if (Selectors.rebel()) s *= 0.92;              // bunt gwiazdy: nikt nie podaje do nikogo
     return s;
   },
 
@@ -2477,6 +2554,61 @@ const Engine = {
     return p;
   },
 
+  /* ----- Gwiazdy za dobre na ten klub: żądanie transferu i bunt ----- */
+  isTooGood(p, avgSkill) {
+    const formStar = p.seasonRatingCount >= 4 && Selectors.avgRating(p) >= 7 && p.skill >= avgSkill + 1;
+    return p.skill >= Math.max(avgSkill + 2, 7 + Selectors.levelSkillBonus()) || formStar;
+  },
+
+  maybeStarDemand() {
+    const st = gameState.star;
+    if (st.playerId || gameState.calendar.week - st.lastWeek < 10) return;
+    const lineup = Engine.pickLineup([]);
+    if (!lineup.length) return;
+    const avg = lineup.reduce((s, p) => s + p.skill, 0) / lineup.length;
+    const pool = gameState.squad.filter((p) => p.starAsked !== gameState.calendar.season && Engine.isTooGood(p, avg));
+    if (!pool.length || Math.random() > 0.5) return;
+    const p = pool.sort((a, b) => b.skill - a.skill)[0];
+    p.starAsked = gameState.calendar.season;
+    Object.assign(st, { playerId: p.id, rebel: false, promised: 0, lastWeek: gameState.calendar.week });
+    Engine.pushDecision('starDemand');
+  },
+
+  startRebellion(reason) {
+    const st = gameState.star;
+    const p = Selectors.starPlayer();
+    if (!p) return;
+    st.rebel = true;
+    st.promised = 0;
+    st.talkWeek = gameState.calendar.week;
+    Engine.addLog('🔥 BUNT W SZATNI (' + reason + '): ' + Selectors.playerName(p) + ' podburza drużynę.', 'event');
+  },
+
+  endStar(sold) {
+    const st = gameState.star;
+    const p = Selectors.starPlayer();
+    if (p && sold) gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+    Object.assign(st, { playerId: null, rebel: false, promised: 0 });
+  },
+
+  // Co tydzień: skutki buntu, powrót gwiazdy na dywanik co 4 tygodnie, koniec buntu, gdy zawodnika już nie ma
+  starTick() {
+    const st = gameState.star;
+    if (!st.playerId) return;
+    const p = Selectors.starPlayer();
+    if (!p) {
+      if (st.rebel) Engine.addLog('🕊️ Buntownika nie ma już w klubie. W szatni znowu słychać śmiechy.', 'event');
+      Engine.endStar(false);
+      return;
+    }
+    if (!st.rebel) return;
+    Engine.applyEffects({ lockerRoom: -3 });
+    if (gameState.calendar.week - st.talkWeek >= 4 && !gameState.pendingDecisions.includes('starRebel')) {
+      st.talkWeek = gameState.calendar.week;
+      Engine.pushDecision('starRebel');
+    }
+  },
+
   /* ----- Okno transferowe: tylko po sezonie, do pierwszego meczu nowych rozgrywek ----- */
   openTransferWindow() {
     const bonus = Selectors.levelSkillBonus();
@@ -2496,6 +2628,11 @@ const Engine = {
     if (!t.open) return;
     t.open = false;
     t.market = [];
+    const st = gameState.star;
+    if (st.promised && Selectors.starPlayer()) {
+      Engine.startRebellion('złamana obietnica transferu');
+      Engine.applyEffects({ lockerRoom: -8, fans: -3 });
+    }
     Engine.addLog('🔒 Okno transferowe zamknięte. Przyszło: ' + t.bought + ', odeszło: ' + t.sold + '.', 'system');
   },
 
@@ -2515,7 +2652,7 @@ const Engine = {
     const t = gameState.transfer;
     const p = gameState.squad.find((x) => x.id === id);
     if (!t.open || !p || gameState.squad.length <= CONFIG.minSquad) return;
-    const price = Selectors.sellPrice(p);
+    const price = p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p);
     gameState.squad = gameState.squad.filter((x) => x.id !== id);
     Engine.money('Sprzedaż: ' + Selectors.playerName(p), price);
     const effects = p.legend ? { fans: -10, lockerRoom: -6 } : p.favorite ? { fans: -6 } : {};
@@ -3110,6 +3247,9 @@ const Engine = {
         Engine.addLog('🙋 Z łapanki spod sklepu: ' + Selectors.playerName(p) + ' (' + p.age + ' l.). „Grałem kiedyś w trampkarzach, to się nada.”', 'event');
       }
     },
+    function starRebellion() {
+      Engine.starTick();
+    },
     function moraleDrift() {
       const drift = (v, target) => (v < target ? v + 1 : v > target ? v - 1 : v);
       gameState.morale.lockerRoom = drift(gameState.morale.lockerRoom, Selectors.lockerBaseline());
@@ -3142,6 +3282,7 @@ const Engine = {
       const fx = Selectors.currentFixture();
       if (fx.home && Selectors.rival(fx.rival).derby && !gameState.stadium.upgrades.monitoring) Engine.pushDecision('derbySecurity');
       Engine.maybeLockerCall();
+      Engine.maybeStarDemand();
       Engine.maybePassat();
       Engine.maybeBalance();
     },
@@ -3252,6 +3393,10 @@ const Selectors = {
   youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
   youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
+  starPlayer: () => gameState.squad.find((p) => p.id === gameState.star.playerId) || null,
+  rebel: () => !!(gameState.star.rebel && Selectors.starPlayer()),
+  starFee: (p) => Math.round(p.skill * 220 * Selectors.econ() / 10) * 10,
+  calmCost: (p) => Math.round(p.skill * 80 * Selectors.econ() / 10) * 10,
   sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * Selectors.econ() / 10) * 10),
   cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
   cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
@@ -3817,7 +3962,8 @@ const UI = {
       : gameState.squad.slice().sort((a, b) => DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill).map((p) => {
         const ps = p.prevSeason;
         const stats = ps ? 'Sezon: ' + ps.apps + ' m · ' + ps.goals + ' g · nota ' + Selectors.ratingText(ps.avg) : 'W klubie: ' + p.apps + ' m · ' + p.goals + ' g';
-        return `<div class="flex items-center gap-2 py-2 border-b border-desk-700 last:border-0">${head(p, stats + ' · ' + p.wage + ' zł/tydz.')}${btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(Selectors.sellPrice(p)), gameState.squad.length <= CONFIG.minSquad, 'bg-stamp text-white')}</div>`;
+        const star = p.id === gameState.star.playerId;
+        return `<div class="flex items-center gap-2 py-2 border-b border-desk-700 last:border-0">${head(p, (star ? (gameState.star.promised ? '🌟 obiecany transfer · ' : '🔥 buntownik · ') : '') + stats + ' · ' + p.wage + ' zł/tydz.')}${btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)), gameState.squad.length <= CONFIG.minSquad, 'bg-stamp text-white')}</div>`;
       }).join('');
     return UI.overlayFrame(`
       <div class="flex-shrink-0 px-4 pt-5 text-paper-100">
@@ -4324,7 +4470,7 @@ const UI = {
       <details data-fold="${key}" class="border-b border-paper-300 last:border-0" ${open ? 'open' : ''}>
         <summary class="${cols} h-[27px] px-1.5 text-[12px] cursor-pointer select-none border-l-[3px] ${inXI ? 'border-l-grass' : 'border-l-transparent'}">
           <span class="text-[11px]">${DATA.positions[p.pos].icon}</span>
-          <span class="truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b>${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
+          <span class="truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b>${p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
           <span class="text-center text-ink-700">${p.age}</span>
           <span class="text-center">${p.seasonApps}</span>
           <span class="text-center font-semibold">${p.seasonGoals}</span>
@@ -4373,6 +4519,7 @@ const UI = {
     else if (b < t.warn) items.push('<span class="text-amber-glow font-bold">💸 Odsetki + strajk</span>');
     if (Selectors.underInvestigation()) items.push('<span class="text-stamp font-bold">🔍 Pod lupą prokuratury</span>');
     if (gameState.season.promotionBan) items.push('<span class="text-stamp font-bold">⛔ Zakaz awansu</span>');
+    if (Selectors.rebel()) items.push('<span class="text-stamp font-bold">🔥 Bunt: „' + Utils.escape(Selectors.starPlayer().nick) + '”</span>');
     return items.length ? `<div class="text-[11px] mt-1 truncate space-x-2">${items.join(' ')}</div>` : '';
   },
 
