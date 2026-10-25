@@ -91,7 +91,7 @@
    1. DANE STAŁE
    --------------------------------------------------------------------- */
 const CONFIG = {
-  saveVersion: 3,
+  saveVersion: 4,
   startBudget: 2500,
   startLockerRoom: 50,
   startFans: 50,
@@ -102,6 +102,10 @@ const CONFIG = {
   minSquad: 13,             // poniżej tego trener dobiera chłopaków z łapanki
   carpetCooldown: 4,        // co ile tygodni można wezwać trenera na dywanik
   maxFavorites: 4,          // tylu Ulubieńców Trybun naraz
+  maxSquad: 22,             // limit kadry (szatnia ma 22 haczyki)
+  scoutCost: 80,            // benzyna + „załącznik” dla Szwagra
+  scoutWeeks: 2,            // tyle trwa objazd festynów
+  maxFeed: 80,              // tyle postów trzyma Wirtualny X
 };
 
 const US = 'US';            // identyfikator naszego klubu w terminarzu i tabeli
@@ -122,8 +126,13 @@ const DATA = {
     3: 'Klasa Okręgowa',
   },
 
+  // DNA klubu: club.professionalism od -100 (patologia) do +100 (profesjonalizm)
   dnaLevels: [
-    'Prowincjonalny Rozpierdol',
+    { min: -999, label: 'Prowincjonalna Patologia' },
+    { min: -60,  label: 'Klub z Zarzutami' },
+    { min: -25,  label: 'Prowincjonalny Rozpierdol' },
+    { min: 25,   label: 'Ambitny Ludowy Klub' },
+    { min: 60,   label: 'Wiejski Profesjonalizm' },
   ],
 
   // strength – siła w skali silnika meczowego (nasz klub ~1.2–1.5); derby = lokalna Kosa
@@ -350,8 +359,8 @@ const DATA = {
       stadiumName: 'Stadion „Ostatnia Prosta”',
       signEffects: { fans: -4 },
       pitch: 'Płacą najlepiej w powiecie. Kibice pukają się w czoło, rywale śpiewają marsza żałobnego.',
-      requirement: 'Zrywa po 2 skandalach w trakcie umowy (zadyma, zatrucie, długi) – „u nas wszystko z godnością”.',
-      breaks: (s) => s.club.scandals - s.sponsor.scandalsAtSign >= 2,
+      requirement: 'Zrywa po 2 skandalach w trakcie umowy (zadyma, zatrucie, długi) albo gdy DNA klubu zjedzie do „Klubu z Zarzutami” – „u nas wszystko z godnością”.',
+      breaks: (s) => s.club.scandals - s.sponsor.scandalsAtSign >= 2 || s.club.professionalism < -25,
       breakLog: 'Zakład „Ostatnia Prosta” zrywa umowę: „Pański klub to nie jest godne miejsce spoczynku dla naszego logo”.',
     },
   },
@@ -511,6 +520,120 @@ const DATA = {
       ],
     },
 
+    wageDemand: {
+      id: 'wageDemand',
+      from: () => {
+        const p = Selectors.callPlayer(), c = gameState.calls;
+        if (!p) return 'Telefon z szatni';
+        return c.caller === 'partner' ? c.callerName + ' zawodnika ' + p.first + ' „' + p.nick + '”' : Selectors.playerName(p) + ' (telefon o 23:40)';
+      },
+      title: () => { const p = Selectors.callPlayer(); return p ? '„' + p.nick + '” chce podwyżki' : 'Telefon z szatni'; },
+      body: () => {
+        const p = Selectors.callPlayer(), c = gameState.calls;
+        if (!p) return 'Rozmówca się rozłączył.';
+        return c.caller === 'partner'
+          ? '„Dzień dobry, tu ' + c.callerName.split(',')[0] + '. Mój ' + p.first + ' za darmo nie będzie biegał po tym kartoflisku. Dzieci trzeba wykarmić, a z ' + c.rival + ' dzwonili już dwa razy. Plus 15 złotych na paliwo albo w sobotę go nie puszczę!”'
+          : '„Prezesie, ropa podrożała, a z ' + c.rival + ' dają więcej. Albo plus 15 zł na paliwo, albo zaczynam się rozglądać. Nie chcę, ale muszę. Pan rozumie.”';
+      },
+      options: [
+        {
+          label: 'Dobra, dajemy podwyżkę',
+          hint: '+15 zł/tydz. do jego utrzymania, szatnia +2%',
+          effects: { lockerRoom: +2 },
+          log: () => { const p = Selectors.callPlayer(); return p ? Selectors.playerName(p) + ' dostaje +15 zł na paliwo. „Wiedziałem, że Prezes to swój chłop.”' : 'Podwyżka – ale nie ma komu.'; },
+          onChoose: () => { const p = Selectors.callPlayer(); if (p) p.wage += 15; },
+        },
+        {
+          label: 'Skrzynka piwa i kiełbasa na zgodę',
+          hint: '-60 zł, ok. 60% szans, że wystarczy',
+          effects: { budget: -60 },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes zawiózł skrzynkę i pęto kiełbasy pod dom „' + p.nick + '”.' : 'Skrzynka pojechała w ciemno.'; },
+          onChoose: () => {
+            const p = Selectors.callPlayer(); if (!p) return;
+            if (Math.random() < 0.6) Engine.addLog('🍺 „' + p.nick + '” przyjął skrzynkę i temat podwyżki ucichł. Na razie.', 'event');
+            else { Engine.applyEffects({ lockerRoom: -5 }); Engine.addLog('😒 „' + p.nick + '”: „Za skrzynkę to ja mogę sąsiadowi płot pomalować”. Foch w szatni. [szatnia -5%]', 'event'); }
+          },
+        },
+        {
+          label: 'Nie ma kasy. Klub to rodzina.',
+          hint: 'Za darmo. Ryzyko: foch szatni albo odejście zawodnika',
+          effects: {},
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes odmówił podwyżki: „' + p.first + ', klub to rodzina, a w rodzinie się nie liczy”.' : 'Odmowa.'; },
+          onChoose: () => {
+            const p = Selectors.callPlayer(); if (!p) return;
+            const r = Math.random();
+            if (r < 0.45) {
+              Engine.applyEffects({ lockerRoom: -10 });
+              Engine.addLog('😤 „' + p.nick + '” strzelił focha. W szatni ciche dni, na treningu biega w słuchawkach. [szatnia -10%]', 'event');
+            } else if (r < 0.75) {
+              gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+              if (p.favorite) Engine.applyEffects({ fans: -8 });
+              Engine.addLog('🚪 ' + Selectors.playerName(p) + ' odchodzi do ' + gameState.calls.rival + '. „Tam przynajmniej płacą za paliwo.”' + (p.favorite ? ' Kibice wściekli – odszedł Ulubieniec Trybun! [kibice -8%]' : ''), 'event');
+            } else {
+              Engine.addLog('🙄 „' + p.nick + '” burknął „no dobra” i się rozłączył. Tym razem się udało.', 'event');
+            }
+          },
+        },
+      ],
+    },
+
+    passatSell: {
+      id: 'passatSell',
+      from: 'Pan w czarnym Passacie B5 (tablice z innego województwa)',
+      title: 'Propozycja nie do odrzucenia',
+      body: () =>
+        'Pod remizą zatrzymuje się czarny Passat B5. Szyba zjeżdża do połowy. „Panie Prezesie, w sobotę gracie z ' + Selectors.currentFixture().rival + '. ' +
+        'Wiadomo, różnie w piłce bywa. Jak będzie różnie na naszą korzyść, to w reklamówce z Biedronki czeka 1200 zł. Nikt się nie dowie.” Silnik cały czas pracuje.',
+      options: [
+        {
+          label: 'Biorę reklamówkę',
+          hint: '+1200 zł, ten mecz przegramy, DNA → patologia, 25% ryzyka afery',
+          effects: { budget: +1200 },
+          log: 'Reklamówka zmieniła właściciela pod remizą. Prezes rozgląda się nerwowo. Passat odjeżdża bez świateł.',
+          onChoose: () => { gameState.dark.fixed = 'sell'; gameState.dark.risky = true; Engine.shiftDNA(-15); },
+        },
+        {
+          label: 'Pogoń go grabiami',
+          hint: 'DNA +3, szatnia +2%',
+          effects: { lockerRoom: +2 },
+          log: 'Prezes pogonił Passata grabiami pana Heńka. Zawodnicy widzieli z okna szatni i biją brawo.',
+          onChoose: () => Engine.shiftDNA(+3),
+        },
+        {
+          label: 'Zgłoś to dzielnicowemu Bębnowi',
+          hint: 'DNA +6, kibice +2%',
+          effects: { fans: +2 },
+          log: 'Prezes zgłosił sprawę dzielnicowemu. Bęben zanotował numer rejestracyjny na paczce papierosów i obiecał „się przyjrzeć po weselu”.',
+          onChoose: () => Engine.shiftDNA(+6),
+        },
+      ],
+    },
+
+    passatBuy: {
+      id: 'passatBuy',
+      from: 'Pan w czarnym Passacie B5 (ten sam, tylko w okularach)',
+      title: 'Pomoc w walce o awans',
+      body: () =>
+        '„Panie Prezesie, widzę, że jesteście wysoko. Ładnie. Szkoda by było zmarnować. W sobotę ' + Selectors.currentFixture().rival + '. ' +
+        'Za 800 zł sędzia będzie widział wszystko na waszą korzyść, a ich bramkarz będzie miał gorszy dzień. Gwarancji nie dajemy, ale statystyka jest po naszej stronie.”',
+      options: [
+        {
+          label: 'Płacę 800 zł',
+          hint: 'Mocny boost na ten mecz, DNA → patologia, 25% ryzyka afery',
+          effects: { budget: -800 },
+          log: 'Koperta przechodzi przez uchyloną szybę Passata. „Miło się robi interesy.”',
+          onChoose: () => { gameState.dark.fixed = 'buy'; gameState.dark.risky = true; Engine.shiftDNA(-12); },
+        },
+        {
+          label: 'Wygramy uczciwie albo wcale',
+          hint: 'DNA +4, szatnia +3%',
+          effects: { lockerRoom: +3 },
+          log: 'Prezes zatrzasnął drzwi Passata: „U nas punkty zdobywa się na boisku!”. Szatnia słyszała – i jest dumna.',
+          onChoose: () => Engine.shiftDNA(+4),
+        },
+      ],
+    },
+
     fansVsCoach: {
       id: 'fansVsCoach',
       from: 'Stowarzyszenie Kibiców „Młyn” (3 osoby i pies)',
@@ -535,6 +658,100 @@ const DATA = {
       ],
     },
   },
+
+  /* ----- Skauting: Szwagier na festynach ----- */
+  festivals: [
+    'festyn strażacki w Kamionce',
+    'dożynki gminne w Głogówku',
+    'zabawa w remizie w Zabłociu',
+    'turniej szóstek pod Kauflandem',
+    'odpust w Kąkolewnicy',
+  ],
+
+  // Plotkarskie raporty Szwagra: pozycja, profil, widełki klasy, opcjonalnie wiek i cecha silnika
+  scoutGossip: [
+    { text: 'Kiedyś król strzelców ligi szóstek pod Kauflandem.', pos: 'FWD', profile: 'off', skill: [5, 7] },
+    { text: 'Ściana w obronie, ale ma wszywkę i zakaz prowadzenia pojazdów – trzeba go dowozić.', pos: 'DEF', profile: 'def', skill: [5, 7], tag: 'worker' },
+    { text: 'Grał w juniorach Stali, potem zniknął na zmywaku w Anglii. Wrócił z akcentem.', pos: 'MID', profile: 'uni', skill: [4, 7] },
+    { text: 'Bramkarz z ligi oldbojów. Łapie wszystko oprócz grypy.', pos: 'GK', profile: 'uni', skill: [4, 6] },
+    { text: 'Na festynie wygrał konkurs karnych. W nagrodę dostał prosiaka.', pos: 'FWD', profile: 'off', skill: [4, 6], tag: 'freekick' },
+    { text: 'Gra boso, bo „korki uwierają”. Technika jak z Brazylii, kondycja jak z PRL-u.', pos: 'MID', profile: 'off', skill: [4, 7] },
+    { text: 'Siostrzeniec sołtysa. „Trzeba go wziąć, bo będzie przykro.”', pos: 'DEF', profile: 'def', skill: [2, 4] },
+    { text: 'Biega jak sarna, myśli jak sarna.', pos: 'MID', profile: 'off', skill: [3, 5] },
+    { text: 'Twardy jak podeszwa. Fauluje nawet sędziego, ale tylko lekko.', pos: 'DEF', profile: 'def', skill: [4, 6] },
+    { text: 'Mówi, że grał w III lidze. Nikt tego nie sprawdził.', pos: 'FWD', profile: 'uni', skill: [3, 7] },
+    { text: 'DJ na weselach w całym powiecie. Gra, jak nie gra.', pos: 'MID', profile: 'uni', skill: [4, 6], tag: 'party' },
+    { text: 'Ma 36 lat i płuca palacza, ale lewą nogą otwiera puszki.', pos: 'MID', profile: 'def', skill: [5, 6], age: [34, 37] },
+    { text: 'Miejscowy kowal. Główkuje tak, że piłka ma wgniecenia.', pos: 'DEF', profile: 'def', skill: [4, 6] },
+    { text: 'Licealista, „następny Lewandowski” według wujka. Wujek trenuje kury.', pos: 'FWD', profile: 'off', skill: [3, 6], age: [17, 19] },
+    { text: 'Bramkarz-listonosz. Wychodzi do każdej piłki jak do poleconego.', pos: 'GK', profile: 'def', skill: [3, 6] },
+  ],
+
+  /* ----- Szkółka: poziom = dresy (1) + Pan od WF-u (2) ----- */
+  youthLevels: [
+    { label: 'Klepisko za szkołą i dwie piłki lekarskie', skillMin: 2, skillMax: 4, talentChance: 0.04, desc: 'Trenuje kto chce, kiedy chce. Głównie nikt, nigdy.' },
+    { label: 'Stare dresy i pachołki z przetargu', skillMin: 3, skillMax: 4, talentChance: 0.10, desc: 'Dzieciaki wyglądają jak drużyna. Z daleka. We mgle.' },
+    { label: 'Pan od WF-u uczy dzieciaki w kapciach', skillMin: 3, skillMax: 5, talentChance: 0.15, desc: 'Fachowa wiedza z 1984 roku, tylko sprzętu brak.' },
+    { label: 'Gminna Akademia: dresy, pachołki i Pan od WF-u', skillMin: 4, skillMax: 5, talentChance: 0.25, desc: 'Z Orlika wychodzą chłopaki, którzy umieją przyjąć piłkę. Rewolucja.' },
+  ],
+
+  youthUpgrades: {
+    dresy:  { label: 'Stare dresy i pachołki z przetargu', cost: 500,  desc: 'Komplet dresów po LZS-ie z sąsiedniej gminy (tylko trochę pachną naftaliną) i 20 pachołków.' },
+    wfista: { label: 'Trener-emeryt od WF-u na pół etatu', cost: 1200, desc: 'Pan Kazimierz, 40 lat w podstawówce. Gwizdek ma od Gierka, cierpliwość anielską.' },
+  },
+
+  /* ----- Wirtualny X ----- */
+  xAccounts: {
+    ultras:   { avatar: '🔥', handle: () => '@Ultras' + Selectors.clubHandle() },
+    soltys:   { avatar: '🧓', handle: () => '@SołtysZdzisław' },
+    sukces:   { avatar: '🤡', handle: () => '@KibicSukcesu88' },
+    portal:   { avatar: '📰', handle: () => '@Powiat24_pl' },
+    grazynka: { avatar: '🛒', handle: () => '@SklepUGrażynki' },
+    wyjadacz: { avatar: '🍺', handle: () => '@StaryWyjadacz1979' },
+    official: { avatar: '🏟️', handle: () => '@' + Selectors.clubHandle() + '_Oficjalnie' },
+  },
+
+  xGossip: [
+    ['soltys',   'Kto zostawił traktor na parkingu przy boisku? Proszę przestawić, bo autobus z juniorami nie wjedzie.'],
+    ['grazynka', 'Promocja na kiełbasę dla każdego w szaliku klubowym! (szalik do kupienia w klubie, nie u mnie)'],
+    ['wyjadacz', 'Widziałem dziś trening. Biegają. Kiedyś też biegałem. Potem przestałem.'],
+    ['portal',   'Gmina rozważa remont szatni przy boisku. Rozważa od 2011 roku.'],
+    ['sukces',   'Słyszałem, że prezes kupuje gwiazdę z III ligi!!! (źródło: kolega szwagra)'],
+    ['ultras',   'Zbiórka na nowy transparent! Farba jest, prześcieradło jest, brakuje tylko ortografii.'],
+    ['soltys',   'Przypominam o zebraniu wiejskim w czwartek. Temat: boisko, krowy i kto ukradł siatki.'],
+  ],
+
+  xTones: {
+    humble: {
+      label: 'Pokorny / Dyplomatyczny', icon: '🕊️',
+      desc: 'Uspokaja nastroje. DNA klubu lekko w stronę profesjonalizmu (+2, do poziomu „Ambitny Ludowy Klub”), kibice +1%.',
+      texts: [
+        'Dziękujemy kibicom za wsparcie. Pracujemy dalej, krok po kroku. Szacunek dla rywali. 🤝',
+        'Klub to ludzie. Dziękujemy sponsorom, kibicom i Panu Heńkowi za koszenie. Do zobaczenia na boisku.',
+        'Wyciągamy wnioski i idziemy dalej. Razem jesteśmy silniejsi. 💪',
+      ],
+    },
+    hype: {
+      label: 'Mobilizacja i Pompka', icon: '📢',
+      desc: 'Kibice +4% i ok. 15% więcej widzów na najbliższym meczu. Ale jak przegramy – wyśmieją podwójnie (kibice -6%).',
+      texts: [
+        (rival) => 'WSZYSCY NA STADION! W sobotę ' + rival + '! Będzie ogień, będzie grill, będzie POGROM! 🔥🔥🔥',
+        () => 'Kto nie przyjdzie w sobotę, ten nie jest z naszej wsi! Zenek już rozpala grilla! 📢',
+      ],
+    },
+    spicy: {
+      label: 'Ostra Szpilka', icon: '🌶️',
+      desc: 'W sędziego, Związek albo rywala z Kosy. Kibice +8%, przed derbami szatnia +4%. Ale 35% szans na 300 zł kary od Wydziału Dyscypliny OZPN.',
+      texts: {
+        ref:   () => 'Pan sędzia z ostatniego meczu chyba zostawił okulary w samochodzie. Polecamy optyka w powiecie, mamy zniżkę. 👓',
+        union: () => 'OZPN znowu dał nam mecz o 11:00 w niedzielę. Ktoś w Związku chyba nie chodzi do kościoła albo nie ma krów. 🐄',
+        rival: (rival) => 'Kibice z ' + Selectors.handleFrom(rival) + ' pytają, czy w sobotę będzie autobus. Będzie. Nasz. Zaparkowany w waszej bramce. 🚌',
+      },
+      targetLabel: { ref: 'dobrego imienia sędziego', union: 'dobrego imienia Związku', rival: 'dobrego imienia rywala' },
+    },
+  },
+
+  partners: ['Jessica, dziewczyna', 'Klaudia, narzeczona', 'Pani Bożenka, teściowa', 'Marlena, żona', 'Dżesika („to skomplikowane”)'],
 
   tabs: [
     { id: 'desk',     label: 'Biurko',            icon: '🗄️' },
@@ -570,8 +787,7 @@ function createInitialState() {
     club: {
       name: '',
       leagueLevel: 1,
-      dna: DATA.dnaLevels[0],
-      professionalism: 0,       // pod przyszłą mechanikę DNA klubu
+      professionalism: 0,       // DNA klubu: -100 patologia … +100 profesjonalizm
       scandals: 0,              // zadymy, zatrucia, długi – patrzą na to sponsorzy
     },
     calendar: {
@@ -610,6 +826,17 @@ function createInitialState() {
     })),
     nextPlayerId: DATA.initialSquad.length,
     retirees: [],               // emerytowani Ulubieńcy/Legendy czekający na decyzję
+    scouting: {
+      missionReturnWeek: 0,     // 0 = Szwagier siedzi w domu
+      festival: '',
+      candidates: [],           // zawodnicy z raportu Szwagra (z fee i rumorSkill)
+      youthUpgrades: { dresy: false, wfista: false },
+      lastYouthPullKey: '',     // ręczne wyciągnięcie juniora: raz na rundę
+    },
+    feed: [],                   // posty na Wirtualnym X (najnowsze na początku)
+    x: { lastPostWeek: 0, hype: false, lastPostId: 0 },
+    dark: { fixed: null, risky: false, lastOfferWeek: -99, offersThisSeason: 0 },
+    calls: { lastWeek: 0, playerId: null, caller: 'self', callerName: '', rival: '' },
     coach: {
       id: 'mirek',
       hiredWeek: 1,
@@ -888,6 +1115,7 @@ const Engine = {
     if (rival.derby) base *= 2;
     if (Selectors.coach().style === 'off') base *= 1.1;   // na widowisko przychodzi więcej ludzi
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
+    if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
     base *= ticket.attendance;
     if (gameState.stadium.pitch < 25) base *= 0.85;
     let att = base * weather.attendance;
@@ -935,8 +1163,11 @@ const Engine = {
     const avg = (ourL + oppL) / 2;
     ourL = ourL * (1 - chaos) + avg * chaos;
     oppL = oppL * (1 - chaos) + avg * chaos;
-    const gf = Utils.poisson(Math.max(0.15, ourL));
-    const ga = Utils.poisson(Math.max(0.15, oppL));
+    const fixedMatch = gameState.dark.fixed;
+    if (fixedMatch === 'buy') { ourL *= 1.6; oppL *= 0.5; }        // „zmotywowany” sędzia i rywal
+    let gf = Utils.poisson(Math.max(0.15, ourL));
+    let ga = Utils.poisson(Math.max(0.15, oppL));
+    if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
     const result = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
 
     // --- Tabela: nasz mecz + reszta kolejki ---
@@ -963,7 +1194,7 @@ const Engine = {
     const scoreLine = fixture.home
       ? clubName + ' ' + gf + ':' + ga + ' ' + rival.name
       : rival.name + ' ' + ga + ':' + gf + ' ' + clubName;
-    const derbyTag = rival.derby ? ' 🔥 KOSA!' : '';
+    const derbyTag = rival.derby ? ' (🔥 KOSA)' : '';
     let extra = '';
     if (result === 'W' && oppS > ourS && chaos >= 0.5) extra = ' SENSACJA NA BŁOCIE! Faworyt utonął w kałużach.';
     Engine.addLog('⚽ Kolejka ' + kolejka + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie' : 'wyjazd') + ', ' + weather.icon + ' ' +
@@ -977,6 +1208,13 @@ const Engine = {
     if (result === 'L') { r.losses++; r.lossStreak++; }
     r.form.push(result); if (r.form.length > 5) r.form.shift();
     report.result = result;
+    // Kontekst meczu dla Wirtualnego X (uzupełniany niżej o zatrucia, zadymy itd.)
+    report.matchCtx = {
+      result, gf, ga, home: fixture.home, rival: rival.name, derby: rival.derby, weather: weather.id,
+      style: coach.style, coachId: coachState.id, coachName: coach.name,
+      favScorers: Object.keys(scorerCount).map((id) => gameState.squad.find((x) => x.id === id)).filter((p) => p && p.favorite).map((p) => p.nick),
+      poisoned: false, riot: false, hype: gameState.x.hype, fixed: fixedMatch,
+    };
 
     // --- Nastroje: kibice kochają gole, nienawidzą muru ---
     const mult = rival.derby ? 2 : 1;
@@ -985,6 +1223,10 @@ const Engine = {
     if (gf >= 3) fans += 1;
     if (gf + ga <= 1 && result !== 'W') fans -= coach.style === 'def' ? 4 : 2;
     fans += coach.fanMod;
+    if (gameState.x.hype) {                       // pompka na X: wygrana smakuje lepiej, porażka boli podwójnie
+      fans += result === 'L' ? -6 : result === 'W' ? 2 : 0;
+      gameState.x.hype = false;
+    }
     const locker = { W: 5, D: 1, L: -4 }[result];
     Engine.applyEffects({ fans, lockerRoom: locker });
 
@@ -1019,6 +1261,7 @@ const Engine = {
       gameState.seasonTickets.roundsLeft--;
       if (gameState.seasonTickets.roundsLeft === 0) gameState.seasonTickets.holders = 0;
     }
+    Engine.resolveDarkDeal();
     gameState.matchday.security = null;
     gameState.calendar.round++;
     if (gameState.calendar.round >= gameState.season.rounds.length) Engine.endSeason();
@@ -1048,6 +1291,8 @@ const Engine = {
       Engine.applyEffects({ fans: -5 });
       Engine.addLog('🤢 Po przerwie trzech kibiców pobiegło w krzaki za trybuną. Pasztetowa zbiera żniwo. [kibice -5%]', 'event');
       Engine.addScandal('zatrucie w budce z kiełbaskami');
+      Engine.shiftDNA(-3);
+      gameState.report.matchCtx.poisoned = true;
     }
 
     if (rival.derby) {
@@ -1058,6 +1303,8 @@ const Engine = {
         Engine.applyEffects({ fans: +2 });
         Engine.addLog('💥 ZADYMA! Przyjezdni kibice (' + rival.name + ') wtargnęli na murawę, wujek Staszek zgubił latarkę. Związek nalicza karę 600 zł. Miejscowi zachwyceni widowiskiem.', 'event');
         Engine.addScandal('zadyma na derbach');
+        Engine.shiftDNA(-5);
+        gameState.report.matchCtx.riot = true;
       } else {
         Engine.addLog('😅 Derby bez ochrony przeszły spokojnie. Wujek Staszek mówi, że to dzięki latarce.', 'event');
       }
@@ -1088,7 +1335,7 @@ const Engine = {
     const retiring = [];
     gameState.squad.forEach((p) => {
       p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0;
-      if (p.age <= 24 && Math.random() < 0.5) p.skill = Math.min(9, p.skill + 1);   // młodzi się rozwijają
+      if (p.age <= 24 && Math.random() < (p.talent ? 0.85 : 0.5)) p.skill = Math.min(9, p.skill + 1);   // młodzi się rozwijają (Perełki szybciej)
       if (p.age >= 33 && Math.random() < 0.4) p.skill = Math.max(1, p.skill - 1);   // starzy słabną
       if (p.favorite && !p.legend && p.seasons >= 5) {
         p.legend = true;
@@ -1107,14 +1354,12 @@ const Engine = {
     Engine.queueRetirementDecision();
 
     // Szkółka: 2 juniorów; Były Ligowiec ściąga kogoś lepszego
-    for (let i = 0; i < 2; i++) {
-      const p = Engine.generatePlayer({ ageMin: 17, ageMax: 18, skillMin: 3, skillMax: 5, wageMin: 5, wageMax: 5 });
-      Engine.addLog('🌱 Z miejscowej szkółki dołącza ' + Selectors.playerName(p) + ' (' + p.age + ' l., ' + DATA.positions[p.pos].label.toLowerCase() + ').', 'event');
-    }
+    for (let i = 0; i < 2; i++) Engine.youthIntake();
     if (Selectors.coach().attracts) Engine.coachBringsPlayer();
 
     gameState.calendar.season++;
     gameState.calendar.round = 0;
+    gameState.dark.offersThisSeason = 0;
     Object.assign(gameState.record, { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 });
     Engine.newSeason();
   },
@@ -1124,8 +1369,9 @@ const Engine = {
   },
 
   /* ----- Zawodnicy ----- */
-  generatePlayer({ ageMin = 18, ageMax = 32, skillMin = 3, skillMax = 6, wageMin = 10, wageMax = 30, pos = null } = {}) {
-    const trait = Utils.rand(DATA.traits);
+  // Tworzy zawodnika bez dodawania do kadry (skauting też z tego korzysta).
+  makePlayer({ ageMin = 18, ageMax = 32, skillMin = 3, skillMax = 6, wageMin = 10, wageMax = 30, pos = null, trait = null } = {}) {
+    trait = trait || Utils.rand(DATA.traits);
     const positions = ['GK', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD'];
     // Bramkarz, gdy brakuje – reszta losowo
     const needGK = gameState.squad.filter((p) => p.pos === 'GK').length < 2;
@@ -1140,13 +1386,19 @@ const Engine = {
       wage: Math.round(Utils.randInt(wageMin, wageMax) / 5) * 5,
       trait: trait.text, tag: trait.tag || null,
       apps: 0, goals: 0, seasons: 1, seasonApps: 0, seasonGoals: 0,
-      favorite: false, legend: false,
+      favorite: false, legend: false, talent: false,
     };
+    return p;
+  },
+
+  generatePlayer(opts = {}) {
+    const p = Engine.makePlayer(opts);
     gameState.squad.push(p);
     return p;
   },
 
   coachBringsPlayer() {
+    if (gameState.squad.length >= CONFIG.maxSquad) return;
     const p = Engine.generatePlayer({ ageMin: 26, ageMax: 32, skillMin: 6, skillMax: 8, wageMin: 30, wageMax: 45 });
     Engine.addLog('🤝 Trener ' + Selectors.coach().name + ' ściągnął „kolegę z dawnych lat”: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + '). Chce ' + p.wage + ' zł/tydz. „na paliwo”.', 'event');
   },
@@ -1258,6 +1510,250 @@ const Engine = {
     Engine.queueRetirementDecision();
   },
 
+  /* ----- DNA klubu ----- */
+  shiftDNA(delta) {
+    const before = Selectors.dnaLabel();
+    gameState.club.professionalism = Utils.clamp(gameState.club.professionalism + delta, -100, 100);
+    const after = Selectors.dnaLabel();
+    if (after !== before) Engine.addLog('🧬 DNA klubu się zmienia: teraz „' + after + '”.', 'system');
+  },
+
+  /* ----- Skauting: Szwagier ----- */
+  sendScout() {
+    const sc = gameState.scouting;
+    if (sc.missionReturnWeek || gameState.finance.budget < CONFIG.scoutCost) return;
+    Engine.money('Szwagier: benzyna i „załącznik” na festynie', -CONFIG.scoutCost);
+    sc.missionReturnWeek = gameState.calendar.week + CONFIG.scoutWeeks;
+    sc.festival = Utils.rand(DATA.festivals);
+    sc.candidates = [];
+    Engine.addLog('🚗 Szwagier pojechał na zwiady (' + sc.festival + '). Wziął ' + CONFIG.scoutCost + ' zł „na benzynę i załącznik”. Wraca w Tygodniu ' + sc.missionReturnWeek + '.', 'decision');
+  },
+
+  scoutReport() {
+    const sc = gameState.scouting;
+    const n = Utils.randInt(2, 3);
+    sc.candidates = Utils.shuffle(DATA.scoutGossip).slice(0, n).map((g) => {
+      const [ageMin, ageMax] = g.age || [19, 31];
+      const p = Engine.makePlayer({ ageMin, ageMax, skillMin: g.skill[0], skillMax: g.skill[1], pos: g.pos, trait: g });
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 10) / 5) * 5);
+      p.fee = Math.max(20, Math.round((30 + p.skill * 20 + Utils.randInt(-20, 20)) / 10) * 10);
+      p.rumorSkill = Utils.clamp(p.skill + Utils.randInt(-1, 1), 1, 9);   // Szwagier lubi przesadzać
+      return p;
+    });
+    sc.missionReturnWeek = 0;
+    Engine.addLog('🕵️ Szwagier wrócił ze zwiadów (' + sc.festival + '), ledwo trzymając się na nogach. W notesie ' + n + ' nazwiska. Raport w zakładce Skauting.', 'event');
+  },
+
+  signCandidate(id) {
+    const sc = gameState.scouting;
+    const p = sc.candidates.find((x) => x.id === id);
+    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    const fee = p.fee;
+    Engine.money('Odstępne: ' + Selectors.playerName(p), -fee);
+    sc.candidates = sc.candidates.filter((x) => x.id !== id);
+    delete p.fee; delete p.rumorSkill;
+    gameState.squad.push(p);
+    Engine.addLog('✍️ Kontrakt podpisany na masce Astry: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + ', ' + p.wage + ' zł/tydz.). Odstępne: ' + Utils.formatMoney(fee) + '. Szwagier: „A nie mówiłem?”', 'decision');
+  },
+
+  /* ----- Szkółka ----- */
+  buyYouthUpgrade(id) {
+    const u = DATA.youthUpgrades[id];
+    const ups = gameState.scouting.youthUpgrades;
+    if (!u || ups[id] || gameState.finance.budget < u.cost) return;
+    Engine.money('Szkółka: ' + u.label, -u.cost);
+    ups[id] = true;
+    Engine.shiftDNA(+3);
+    Engine.addLog('🎽 Inwestycja w szkółkę: ' + u.label + ' (' + Utils.formatMoney(u.cost) + '). Teraz: „' + DATA.youthLevels[Selectors.youthLevel()].label + '”.', 'finance');
+  },
+
+  youthIntake() {
+    if (gameState.squad.length >= CONFIG.maxSquad) {
+      Engine.addLog('🌱 Junior ze szkółki musi poczekać – w szatni nie ma wolnego haczyka (kadra ' + CONFIG.maxSquad + '/' + CONFIG.maxSquad + ').', 'event');
+      return null;
+    }
+    const lvl = DATA.youthLevels[Selectors.youthLevel()];
+    const talent = Math.random() < lvl.talentChance;
+    const p = Engine.generatePlayer({ ageMin: 17, ageMax: 18, skillMin: talent ? 5 : lvl.skillMin, skillMax: talent ? 6 : lvl.skillMax, wageMin: 5, wageMax: 5 });
+    p.talent = talent;
+    Engine.addLog(talent
+      ? '💎 PEREŁKA POWIATU! Ze szkółki wskakuje ' + Selectors.playerName(p) + ' (' + p.age + ' l., ' + DATA.positions[p.pos].label.toLowerCase() + '). Skauci z A-klasy już dzwonią do jego mamy.'
+      : '🌱 Ze szkółki dołącza ' + Selectors.playerName(p) + ' (' + p.age + ' l., ' + DATA.positions[p.pos].label.toLowerCase() + ') – „' + Selectors.skillLabel(p.skill) + '”.', 'event');
+    return p;
+  },
+
+  pullJunior() {
+    const key = Selectors.youthPullKey();
+    if (gameState.scouting.lastYouthPullKey === key || gameState.squad.length >= CONFIG.maxSquad) return;
+    gameState.scouting.lastYouthPullKey = key;
+    Engine.youthIntake();
+  },
+
+  /* ----- Wirtualny X ----- */
+  xPostRaw(avatar, handle, text, official = false) {
+    gameState.x.lastPostId++;
+    gameState.feed.unshift({
+      id: gameState.x.lastPostId, week: gameState.calendar.week, avatar, handle, text, official,
+      likes: Utils.randInt(official ? 15 : 2, official ? 120 : 70), shares: Utils.randInt(0, 15), replies: Utils.randInt(0, 25),
+    });
+    if (gameState.feed.length > CONFIG.maxFeed) gameState.feed.length = CONFIG.maxFeed;
+  },
+
+  xPost(accountId, text, official = false) {
+    const acc = DATA.xAccounts[accountId];
+    Engine.xPostRaw(acc.avatar, Utils.val(acc.handle), text, official);
+  },
+
+  // 2–4 posty po meczu: wynik + kontekst (styl, derby, ulubieńcy, afery)
+  matchPosts(c) {
+    const club = Selectors.clubDisplayName();
+    const score = c.gf + ':' + c.ga;
+    const total = c.gf + c.ga;
+    const must = [], extra = [];
+    if (c.result === 'W') {
+      Engine.xPost('ultras', Utils.rand([
+        'WYGRANA ' + score + ' z ' + c.rival + '! Cała wieś na rynku, ktoś przyniósł akordeon 🪗🔥',
+        score + '!!! Tak się gra w tej gminie! Dziś pijemy zdrowie trenera 🍻',
+        'Trzy punkty zostają u nas! ' + score + '. Kto nie skacze, ten z ' + Selectors.handleFrom(c.rival) + '! 🔥',
+      ]));
+      if (Math.random() < 0.5) extra.push(['sukces', 'Zawsze w was wierzyłem!!! (pierwszy raz na meczu od 2015) 💪']);
+    } else if (c.result === 'D') {
+      Engine.xPost('ultras', Utils.rand([
+        'Remis ' + score + '. Ani radość, ani smutek. Jak obiad u teściowej. 😐',
+        score + ' z ' + c.rival + '. Punkt to punkt, ale serce chciało więcej.',
+      ]));
+    } else {
+      Engine.xPost('sukces', Utils.rand([
+        score + '. Sprzedawczyki. Prezes do dymisji, trener do dymisji, ja też wychodzę. #KoniecZTymKlubem',
+        score + ' z ' + c.rival + '?! Mój pies by lepiej zagrał. A pies ma trzy nogi.',
+        'Przestaję kibicować. Od jutra. Albo od soboty, jak znowu przegramy. 😤',
+      ]));
+      if (Math.random() < 0.5) extra.push(['wyjadacz', 'Za moich czasów po takim meczu drużyna wracała do domu piechotą. I dobrze.']);
+    }
+    if (c.derby) {
+      const rivalText = c.result === 'W'
+        ? 'Sędzia kupiony, boisko krzywe, kiełbasa zimna. Wrócimy po swoje! 😤'
+        : c.result === 'L' ? 'Hahaha ' + Selectors.clubHandle() + ' znowu na kolanach 😂 KOSA JEST NASZA!'
+        : 'Remis u was to dla nas jak wygrana. Do zobaczenia w rewanżu 😤';
+      must.push(['@Fanatycy' + Selectors.handleFrom(c.rival), rivalText]);
+    }
+    if (c.hype && c.result === 'L') must.push(['sukces', '„WSZYSCY NA STADION, BĘDZIE POGROM” – no i był pogrom. Nasz. 🤡🤡🤡']);
+    if (c.poisoned) must.push(['portal', 'Zatrucie na stadionie w ' + club + '? Sanepid „przygląda się sprawie”. Pan Zenek: „To na pewno grzyby z wesela”.']);
+    if (c.riot) must.push(['portal', 'Zadyma na derbach ' + club + ' – ' + c.rival + '! Wydział Dyscypliny analizuje nagrania z telefonu pani Krysi. 📹']);
+    if (total >= 5) extra.push(['portal', 'Grad bramek: ' + total + ' goli w meczu ' + club + ' – ' + c.rival + '! „Tak się powinno grać w każdej wsi” – mówi pan Heniek, gospodarz obiektu.']);
+    if (total <= 1 && c.result !== 'W' && c.style === 'def') extra.push(['ultras', 'Przyszliśmy na mecz, obejrzeliśmy budowę muru 🧱🧱🧱 ' + c.coachName.toUpperCase() + ' WON! Chcemy goli!']);
+    if (c.style === 'def' && c.result === 'W' && c.gf <= 1) extra.push(['wyjadacz', 'Wygrali 1:0 i co z tego. Na mecz idzie się po gole, nie po krzyżówkę.']);
+    if (c.style === 'off' && c.gf >= 2) extra.push(['soltys', c.coachId === 'kamil' ? 'Ten młody z laptopem to jakiś czarodziej. Gra się jak w telewizji, tylko kałuże te same. 👏' : 'Nareszcie ofensywa! Warto wyjść z domu w sobotę. 👏']);
+    if ((c.weather === 'mud' || c.weather === 'rain') && c.result === 'W') extra.push(['soltys', 'Błoto po kolana, a chłopaki walczyli jak lwy. Pralka pani Krysi tego nie przeżyje. 💪']);
+    if (c.favScorers.length) extra.push(['grazynka', c.favScorers[0] + ' znowu strzelił! Dziś mortadela dla niego gratis 🥩']);
+    // Zawsze jest o czym pogadać pod sklepem
+    extra.push(Utils.rand([
+      ['wyjadacz', 'Sędzia dziś jak zwykle: widział tylko to, co chciał. Czyli nic.'],
+      ['soltys', 'Dziękuję wszystkim za doping. Proszę nie parkować na trawniku przy kościele.'],
+      ['grazynka', 'Po meczu kiełbasa -20%! Kto pierwszy, ten lepszy 🌭'],
+      ['portal', 'Relacja z meczu ' + club + ' – ' + c.rival + ' już na naszym portalu. Zdjęcia robił wnuczek pani Krysi.'],
+    ]));
+    // Post o wyniku już poszedł; dokładamy 1–2 komentarze (afery i derby mają pierwszeństwo).
+    const limit = Math.min(3, Math.max(Utils.randInt(1, 2), must.length));
+    must.concat(Utils.shuffle(extra)).slice(0, limit).forEach(([who, text]) => {
+      if (who.startsWith('@')) Engine.xPostRaw('😤', who, text);
+      else Engine.xPost(who, text);
+    });
+  },
+
+  // Oficjalny post klubu – raz na tydzień
+  officialPost(tone) {
+    const x = gameState.x;
+    const t = DATA.xTones[tone];
+    if (!t || x.lastPostWeek === gameState.calendar.week) return;
+    x.lastPostWeek = gameState.calendar.week;
+    const fx = Selectors.currentFixture();
+    const derby = Selectors.rival(fx.rival).derby;
+    let text, effects = {};
+    if (tone === 'humble') {
+      text = Utils.rand(t.texts);
+      effects = { fans: +1 };
+      // Same pokorne posty zrobią z klubu najwyżej „Ambitny Ludowy Klub” – na profesjonalizm trzeba zapracować czynami.
+      if (gameState.club.professionalism < 40) Engine.shiftDNA(+2);
+    } else if (tone === 'hype') {
+      text = Utils.rand(t.texts)(fx.rival);
+      effects = { fans: +4 };
+      x.hype = true;
+    } else {
+      const target = derby ? 'rival' : Utils.rand(['ref', 'union']);
+      text = t.texts[target](fx.rival);
+      effects = derby ? { fans: +8, lockerRoom: +4 } : { fans: +8 };
+      Engine.xPost('official', text, true);
+      Engine.applyEffects(effects);
+      Engine.addLog('📱 Oficjalny post na Wirtualnym X (' + t.label + '): „' + text + '”' + Engine.describeEffects(effects), 'decision');
+      if (Math.random() < 0.35) {
+        Engine.money('Kara OZPN: wpis na Wirtualnym X', -300);
+        Engine.shiftDNA(-3);
+        Engine.xPost('portal', 'Wydział Dyscypliny OZPN ukarał ' + Selectors.clubDisplayName() + ' karą 300 zł za „szkalowanie ' + t.targetLabel[target] + '” w mediach społecznościowych. Klub: „Odwołamy się”. Nie odwoła się.');
+        Engine.addLog('⚖️ Wydział Dyscypliny OZPN wlepia 300 zł kary za „szkalowanie ' + t.targetLabel[target] + '”. Pani Halinka łapie się za głowę.', 'event');
+      }
+      return;
+    }
+    Engine.xPost('official', text, true);
+    Engine.applyEffects(effects);
+    Engine.addLog('📱 Oficjalny post na Wirtualnym X (' + t.label + '): „' + text + '”' + Engine.describeEffects(effects), 'decision');
+  },
+
+  /* ----- Telefony z szatni ----- */
+  maybeLockerCall() {
+    const c = gameState.calls;
+    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < 4 || Math.random() > 0.3) return;
+    const lineup = Engine.pickLineup([]);
+    const pool = gameState.squad.filter((p) => p.favorite || (lineup.includes(p) && p.skill >= 5));
+    if (!pool.length) return;
+    const p = Utils.rand(pool);
+    const partner = Math.random() < 0.4;
+    Object.assign(c, {
+      lastWeek: gameState.calendar.week, playerId: p.id,
+      caller: partner ? 'partner' : 'self', callerName: partner ? Utils.rand(DATA.partners) : '',
+      rival: Utils.rand(DATA.rivals).name,
+    });
+    Engine.pushDecision('wageDemand');
+  },
+
+  /* ----- Ciemna strona: „Spółdzielnia” ----- */
+  maybePassat() {
+    const d = gameState.dark;
+    if (d.fixed || d.offersThisSeason >= 2 || gameState.calendar.week - d.lastOfferWeek < 4) return;
+    const kolejka = gameState.calendar.round + 1;
+    const broke = gameState.finance.budget < 0;
+    if (!(kolejka >= 14 || broke) || Math.random() > 0.3) return;
+    const t = gameState.season.table[US];
+    const contender = t && t.p > 0 && Selectors.ourPosition() <= 3;
+    d.lastOfferWeek = gameState.calendar.week;
+    d.offersThisSeason++;
+    Engine.pushDecision(contender && gameState.finance.budget >= 800 ? 'passatBuy' : 'passatSell');
+  },
+
+  resolveDarkDeal() {
+    const d = gameState.dark;
+    if (!d.fixed) return;
+    const kind = d.fixed;
+    d.fixed = null;
+    Engine.addLog(kind === 'sell'
+      ? '🎭 Bramkarz trzy razy „poślizgnął się na mokrej trawie”. Było sucho. Kibice drapią się po głowach.'
+      : '🎭 Sędzia widział dziś wszystko. Szczególnie to, czego nie było. Rywale wściekli.', 'event');
+    if (!d.risky) return;
+    d.risky = false;
+    if (Math.random() < 0.25) {
+      Engine.addScandal('AFERA KORUPCYJNA – nagranie z czarnego Passata');
+      Engine.applyEffects({ fans: -20, lockerRoom: -10 });
+      Engine.money('Kara Związku: afera korupcyjna', -1000);
+      Engine.shiftDNA(-20);
+      gameState.season.table[US].pts -= 3;
+      Engine.xPost('portal', 'AFERA W B-KLASIE! Nagranie z dyktafonu: „reklamówka z Biedronki”, „nikt się nie dowie”. Związek odejmuje ' + Selectors.clubDisplayName() + ' 3 punkty i nakłada 1000 zł kary! 🎙️');
+      Engine.addLog('🎙️ AFERA! Ktoś nagrał rozmowę z panem z Passata dyktafonem z Pepco. Związek: -3 pkt i 1000 zł kary. Kibice wściekli. [kibice -20%, szatnia -10%]', 'event');
+      if (gameState.sponsor.active) Engine.endSponsor('💨 Sponsor ' + Selectors.sponsor().name + ' ucieka po aferze: „Nie będziemy się tłumaczyć prokuratorowi z waszych reklamówek”.');
+    } else {
+      Engine.addLog('🤫 Nikt niczego nie nagrał. Na razie.', 'event');
+    }
+  },
+
   /* ----- Sklepik ----- */
   merchPrice(itemId) {
     return Math.round(DATA.merch[itemId].basePrice * DATA.merchMarkups[gameState.merch.markup].priceMod);
@@ -1333,6 +1829,11 @@ const Engine = {
     },
     function matchday() {
       if (Selectors.isMatchWeek()) Engine.playMatchday();
+    },
+    function socialFeed() {
+      const ctx = gameState.report.matchCtx;
+      if (ctx) Engine.matchPosts(ctx);
+      else if (Math.random() < 0.6) { const [who, text] = Utils.rand(DATA.xGossip); Engine.xPost(who, text); }
     },
     function merchSales() {
       const m = gameState.merch;
@@ -1441,11 +1942,17 @@ const Engine = {
       gameState.calendar.week += 1;
       gameState.weather = Utils.rand(DATA.weather);
     },
+    function scoutReturn() {
+      const sc = gameState.scouting;
+      if (sc.missionReturnWeek && gameState.calendar.week >= sc.missionReturnWeek) Engine.scoutReport();
+    },
     function scheduleDecisions() {
       if (!Selectors.isMatchWeek()) return;
       if (gameState.calendar.round % CONFIG.roundsPerRunda === 0) Engine.offerSeasonTickets();
       const fx = Selectors.currentFixture();
       if (fx.home && Selectors.rival(fx.rival).derby) Engine.pushDecision('derbySecurity');
+      Engine.maybeLockerCall();
+      Engine.maybePassat();
     },
   ],
 
@@ -1494,6 +2001,20 @@ const Selectors = {
     const boiler = gameState.stadium.upgrades.boiler ? 10 : 0;
     return Utils.clamp(50 + boiler + Math.min(9, legends * 3) + leaders * 2 + staff, 30, 85);
   },
+  dnaLabel: () => {
+    const v = gameState.club.professionalism;
+    let label = DATA.dnaLevels[0].label;
+    DATA.dnaLevels.forEach((l) => { if (v >= l.min) label = l.label; });
+    return label;
+  },
+  handleFrom: (name) => {
+    const words = String(name).trim().split(/\s+/);
+    return (words[words.length - 1] || 'Klub').replace(/[^\p{L}\p{N}]/gu, '') || 'Klub';
+  },
+  clubHandle: () => Selectors.handleFrom(gameState.club.name),
+  youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
+  youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
+  callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
   freeStaffSlot: () => Object.keys(DATA.staffSlots).find((k) => !gameState.staff[k]) || null,
   currentRetiree: () => gameState.retirees[0] || null,
   projectedLineup: () => Engine.pickLineup([]),
@@ -1618,6 +2139,14 @@ const UI = {
   renderAll() {
     const root = UI.root();
     root.innerHTML = gameState.screen === 'start' ? UI.startScreen() : UI.gameScreen();
+    UI.fitActionBar();
+  },
+
+  // Treść nigdy nie chowa się pod stałym paskiem: dolny margines = realna wysokość paska.
+  fitActionBar() {
+    const bar = document.getElementById('action-bar');
+    const page = document.getElementById('game-root');
+    if (bar && page) page.style.paddingBottom = (bar.offsetHeight + 24) + 'px';
   },
 
   /* ---------- EKRAN STARTOWY ---------- */
@@ -1683,7 +2212,7 @@ const UI = {
   /* ---------- GŁÓWNY EKRAN GRY ---------- */
   gameScreen() {
     return `
-    <div class="min-h-screen flex flex-col pb-40 sm:pb-28">
+    <div id="game-root" class="min-h-screen flex flex-col pb-44 sm:pb-28">
       ${UI.statusBar()}
       <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
         ${UI.navigation()}
@@ -1701,7 +2230,7 @@ const UI = {
       ? (Selectors.isMatchWeek() ? '⚽ W ten weekend gramy! Kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
       : '📌 Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '! Nikt nie lubi czekać.';
     return `
-    <div class="fixed bottom-0 inset-x-0 z-40 bg-desk-800 border-t-4 border-desk-600 shadow-[0_-8px_20px_rgba(0,0,0,0.5)]">
+    <div id="action-bar" class="fixed bottom-0 left-0 right-0 z-50 bg-desk-800 border-t-4 border-desk-600 shadow-[0_-8px_20px_rgba(0,0,0,0.5)]" style="position:fixed;bottom:0;left:0;right:0;z-index:50;">
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
         <p class="flex-1 text-sm text-center sm:text-left ${canAdvance ? 'text-paper-300' : 'text-amber-glow font-bold'}">
           ${msg}
@@ -1737,7 +2266,7 @@ const UI = {
           <div class="text-xs text-paper-400 uppercase tracking-widest">Budżet klubu</div>
           <div class="font-type text-3xl ${budgetClass} crt">${Utils.formatMoney(s.finance.budget)}</div>
           <div class="text-xs text-paper-400 mt-1">Wypłaty: <span class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</span></div>
-          <div class="text-xs text-paper-400">DNA: <span class="text-paper-200 italic">„${Utils.escape(s.club.dna)}”</span></div>
+          <div class="text-xs text-paper-400">DNA: <span class="text-paper-200 italic">„${Utils.escape(Selectors.dnaLabel())}”</span></div>
         </div>
 
         ${UI.meter('Szatnia', '🧦', s.morale.lockerRoom)}
@@ -1825,6 +2354,8 @@ const UI = {
     finance: () => UI.financeTab(),
     staff: () => UI.staffTab(),
     squad: () => UI.squadTab(),
+    scouting: () => UI.scoutingTab(),
+    virtualx: () => UI.virtualXTab(),
   },
 
   underConstruction() {
@@ -1903,10 +2434,10 @@ const UI = {
     }
     return gameState.pendingDecisions.map((id) => {
       const d = DATA.decisions[id];
-      const cols = d.options.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
+      const cols = d.options.length >= 3 ? 'grid-cols-1' : 'sm:grid-cols-2';   // 3 opcje: pełna szerokość, żeby długie słowa się mieściły
       const opts = d.options.map((o, i) => `
         <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
-          class="btn-press w-full text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 border-2 border-ink-900 shadow-[0_3px_0_#211d18]">
+          class="btn-press w-full min-w-0 text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 border-2 border-ink-900 shadow-[0_3px_0_#211d18] [overflow-wrap:anywhere]">
           <span class="font-type text-lg block">▸ ${Utils.escape(o.label)}</span>
           <span class="text-xs text-ink-700">${Utils.escape(Utils.val(o.hint))}</span>
         </button>`).join('');
@@ -2111,6 +2642,7 @@ const UI = {
           ${inXI ? '<span class="px-1.5 text-[10px] font-bold bg-grass text-paper-100">W SKŁADZIE TRENERA</span>' : '<span class="px-1.5 text-[10px] font-bold bg-paper-300 text-ink-700">ŁAWKA</span>'}
           ${p.favorite ? '<span class="px-1.5 text-[10px] font-bold bg-amber-glow text-ink-900">⭐ ULUBIENIEC TRYBUN</span>' : ''}
           ${p.legend ? '<span class="px-1.5 text-[10px] font-bold bg-stamp text-paper-100">🏆 LEGENDA KLUBU</span>' : ''}
+          ${p.talent ? '<span class="px-1.5 text-[10px] font-bold bg-ink-900 text-amber-glow">💎 PEREŁKA POWIATU</span>' : ''}
         </div>
         <div class="mt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
       </article>`;
@@ -2126,7 +2658,7 @@ const UI = {
         ${UI.bar(chem, chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-glow' : 'bg-stamp')}
       </div>
       <div class="paper text-ink-900 p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Profil kadry (${gameState.squad.length} ludzi)</div>
+        <div class="text-xs uppercase tracking-widest text-ink-700">Profil kadry (${gameState.squad.length}/${CONFIG.maxSquad} ludzi)</div>
         <div class="text-sm mt-1">${UI.profileBadge('off')} Ofensywni: <b>${count('off')}</b></div>
         <div class="text-sm">${UI.profileBadge('def')} Defensywni: <b>${count('def')}</b></div>
         <div class="text-sm">${UI.profileBadge('uni')} Uniwersalni: <b>${count('uni')}</b></div>
@@ -2138,6 +2670,139 @@ const UI = {
       </div>
     </div>
     <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">${cards}</div>`;
+  },
+
+  /* ---------- ZAKŁADKA: SKAUTING I MŁODZIEŻ ---------- */
+  scoutingTab() {
+    const sc = gameState.scouting;
+    const coach = Selectors.coach();
+    const budget = gameState.finance.budget;
+    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const fitInfo = (p) => {
+      const f = Engine.profileFit(p, coach.style);
+      if (f >= 1) return '<span class="text-grass font-bold">✓ pasuje do stylu trenera</span>';
+      if (f >= 0.5) return '<span class="text-ink-700 font-bold">~ trener jakoś go wkomponuje</span>';
+      return '<span class="text-stamp font-bold">✗ trener będzie kręcił nosem</span>';
+    };
+    const cands = sc.candidates.map((p) => `
+      <article class="bg-paper-200 border-2 border-ink-900 p-3">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="text-xs uppercase tracking-widest text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
+            <div class="font-type text-lg leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
+          </div>
+          ${UI.profileBadge(p.profile)}
+        </div>
+        <p class="text-sm italic my-2">Szwagier: „${Utils.escape(p.trait)}”</p>
+        <div class="text-xs space-y-0.5">
+          <div>Szwagier szacuje: <b>${Selectors.skillLabel(p.rumorSkill)}</b> <span class="text-ink-700">(szwagier lubi przesadzać)</span></div>
+          <div>Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · ${fitInfo(p)}</div>
+          <div>Chce: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · odstępne: <b>${Utils.formatMoney(p.fee)}</b></div>
+        </div>
+        <div class="mt-2 text-right">${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee)}</div>
+      </article>`).join('');
+
+    const scoutCard = UI.card('A', 'Siatka Skautingowa', 'Szwagier na festynie i pod sklepem. Opel Astra kombi, notes i nieograniczony apetyt.', `
+      <p class="text-sm mb-3">Wyjazd kosztuje <b>${Utils.formatMoney(CONFIG.scoutCost)}</b> (benzyna + „załącznik” na festynie) i trwa <b>${CONFIG.scoutWeeks} tygodnie</b>. Szwagier wraca z 2–3 nazwiskami z okolicznych wiosek.</p>
+      ${sc.missionReturnWeek
+        ? `<div class="bg-paper-200 border border-paper-400 p-3 mb-3 text-sm">🚗 Szwagier jest w trasie (${Utils.escape(sc.festival)}). Wraca w <b>Tygodniu ${sc.missionReturnWeek}</b>. Telefon wyłączony, „bo roaming”.</div>`
+        : `<div class="mb-3">${UI.smallBtn('send-scout', '', '🚗 Wyślij Szwagra na zwiady (' + Utils.formatMoney(CONFIG.scoutCost) + ')', budget < CONFIG.scoutCost)}</div>`}
+      <div class="text-xs text-ink-700 mb-2">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
+      ${cands ? `<div class="grid gap-3 md:grid-cols-2">${cands}</div>` : '<p class="text-sm italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>'}
+    `, 'xl:col-span-2');
+
+    const lvl = DATA.youthLevels[Selectors.youthLevel()];
+    const ups = Object.entries(DATA.youthUpgrades).map(([id, u]) => {
+      const owned = sc.youthUpgrades[id];
+      return `
+      <div class="border-b border-dashed border-paper-400 py-2 flex justify-between gap-3 items-center">
+        <div>
+          <div class="font-bold">${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(u.cost)}</span></div>
+          <div class="text-xs text-ink-700">${Utils.escape(u.desc)}</div>
+        </div>
+        <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-youth', `data-id="${id}"`, 'Kup', budget < u.cost)}</div>
+      </div>`;
+    }).join('');
+    const pulled = sc.lastYouthPullKey === Selectors.youthPullKey();
+    const juniors = gameState.squad.filter((p) => p.age <= 19).map((p) =>
+      `<li>${p.talent ? '💎 ' : ''}<b>${Utils.escape(Selectors.playerName(p))}</b> – ${p.age} l., ${DATA.positions[p.pos].label.toLowerCase()} · ${Selectors.skillLabel(p.skill)}</li>`).join('');
+
+    const youthCard = UI.card('B', 'Szkółka i Zaplecze (U-19 / Orlik)', 'Tu rodzą się Legendy. Albo przynajmniej ludzie do noszenia bramek.', `
+      <div class="bg-paper-200 border border-paper-400 p-3 mb-3">
+        <div class="text-xs uppercase tracking-widest text-ink-700">Poziom szkółki</div>
+        <div class="font-type text-lg">${Utils.escape(lvl.label)}</div>
+        <div class="text-xs text-ink-700">${Utils.escape(lvl.desc)}</div>
+      </div>
+      <p class="text-sm mb-3">Juniorzy zwykle: <b>${Selectors.skillLabel(lvl.skillMin)}</b> – <b>${Selectors.skillLabel(lvl.skillMax)}</b>. Szansa na 💎 Perełkę powiatu: <b>${Math.round(lvl.talentChance * 100)}%</b>. Perełki rozwijają się dużo szybciej.</p>
+      <h4 class="font-type mb-1">Inwestycje w szkółkę</h4>
+      ${ups}
+      <h4 class="font-type mt-4 mb-1">Wyciągnij juniora z Orlika</h4>
+      <p class="text-xs text-ink-700 mb-2">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
+      ${UI.smallBtn('pull-junior', '', pulled ? 'W tej rundzie już wyciągnięty' : '🌱 Wyciągnij juniora', pulled || full)}
+      <h4 class="font-type mt-4 mb-1">Młodzież w kadrze (do 19 lat)</h4>
+      ${juniors ? `<ul class="text-sm space-y-1">${juniors}</ul>` : '<p class="text-sm italic">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
+    `);
+
+    return `
+    <h2 class="font-type text-3xl text-amber-glow crt mb-1">🔭 Skauting i Młodzież</h2>
+    <p class="text-paper-400 text-sm mb-5">Prezes nie wybiera składu – ale wybiera, kto w ogóle wejdzie do szatni.</p>
+    <div class="grid gap-6 xl:grid-cols-2">
+      ${scoutCard}
+      ${youthCard}
+      ${UI.card('C', 'Notatki Szwagra', 'Złote myśli z objazdów', `
+        <ul class="text-sm space-y-2 list-disc pl-5">
+          <li>„Profil zawodnika ważniejszy niż ksywa. Jak trener chce tiki-taki, to drwala mu nie wciskaj.”</li>
+          <li>„Ja zawsze trochę przesadzam. Ale tylko trochę. Plus minus jedna klasa.”</li>
+          <li>„Najlepsi grajkowie są na festynach strażackich. Najgorsi – też.”</li>
+          <li>„W szatni jest 22 haczyki. Więcej ludzi nie wejdzie, bo ławka się złamie.”</li>
+        </ul>`)}
+    </div>`;
+  },
+
+  /* ---------- ZAKŁADKA: WIRTUALNY X ---------- */
+  virtualXTab() {
+    const x = gameState.x;
+    const posted = x.lastPostWeek === gameState.calendar.week;
+    const dna = gameState.club.professionalism;
+    const tones = Object.entries(DATA.xTones).map(([id, t]) => `
+      <button data-action="x-post" data-tone="${id}" ${posted ? 'disabled' : ''}
+        class="btn-press w-full text-left px-3 py-2 border-2 border-ink-900 ${posted ? 'bg-paper-300 text-paper-400 cursor-not-allowed' : 'bg-paper-200 hover:bg-paper-300 shadow-[0_3px_0_#211d18]'}">
+        <span class="font-type block">${t.icon} ${t.label}</span>
+        <span class="text-xs ${posted ? '' : 'text-ink-700'}">${t.desc}</span>
+      </button>`).join('');
+    const feed = gameState.feed.slice(0, 40).map((p) => `
+      <article class="paper text-ink-900 p-4 ${p.official ? 'border-l-8 border-amber-glow' : ''}">
+        <div class="flex gap-3">
+          <div class="w-10 h-10 flex-shrink-0 rounded-full bg-ink-900 flex items-center justify-center text-xl">${p.avatar}</div>
+          <div class="min-w-0">
+            <div class="text-sm"><b>${Utils.escape(p.handle)}</b> <span class="text-ink-700">· Tydzień ${p.week}</span>${p.official ? ' <span class="text-[10px] bg-amber-glow px-1 font-bold">✔ OFICJALNY</span>' : ''}</div>
+            <p class="text-sm mt-1 break-words">${Utils.escape(p.text)}</p>
+            <div class="text-xs text-ink-700 mt-2 flex gap-4"><span>💬 ${p.replies}</span><span>🔁 ${p.shares}</span><span>❤️ ${p.likes}</span></div>
+          </div>
+        </div>
+      </article>`).join('');
+
+    return `
+    <h2 class="font-type text-3xl text-amber-glow crt mb-1">📱 Wirtualny X</h2>
+    <p class="text-paper-400 text-sm mb-5">Dawniej Twitter, w gminie zwany „Fejsem”. Tu się rodzą gównoburze i legendy.</p>
+    <div class="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
+      <div class="grid gap-6 content-start">
+        ${UI.card('✍️', 'Oficjalny profil klubu', Utils.escape(Utils.val(DATA.xAccounts.official.handle)) + ' · jeden post na tydzień', `
+          ${posted ? '<p class="text-sm font-bold text-stamp mb-3">W tym tygodniu już postowaliśmy. Pani Halinka schowała telefon do szuflady.</p>' : '<p class="text-sm mb-3">Wybierz ton oficjalnego komunikatu:</p>'}
+          <div class="grid gap-2">${tones}</div>
+          ${x.hype ? '<p class="text-xs font-bold text-stamp mt-3">📢 Pompka aktywna: więcej widzów na najbliższym meczu… i podwójna kompromitacja przy porażce.</p>' : ''}
+        `)}
+        ${UI.card('🧬', 'DNA klubu', 'Od Prowincjonalnej Patologii do Wiejskiego Profesjonalizmu', `
+          <div class="flex justify-between text-sm"><span><b>„${Utils.escape(Selectors.dnaLabel())}”</b></span><span>${dna > 0 ? '+' : ''}${dna}</span></div>
+          ${UI.bar((dna + 100) / 2, dna >= 25 ? 'bg-grass' : dna > -25 ? 'bg-amber-glow' : 'bg-stamp')}
+          <p class="text-xs text-ink-700 mt-2">Podnoszą: pokorne posty, inwestycje w szkółkę, odmowa „Spółdzielni”. Obniżają: zadymy, zatrucia, kary, reklamówki z Passata. Sponsor „Ostatnia Prosta” patrzy na to bardzo uważnie.</p>
+        `)}
+      </div>
+      <section>
+        <h3 class="font-type text-xl text-amber-glow crt mb-3">Feed</h3>
+        <div class="grid gap-3">${feed || '<div class="paper text-ink-900 p-4 text-sm">Cisza w sieci. Nawet @KibicSukcesu88 jeszcze nic nie napisał.</div>'}</div>
+      </section>
+    </div>`;
   },
 
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
@@ -2433,6 +3098,12 @@ const Actions = {
     }
   },
 
+  'send-scout'()       { Engine.sendScout(); App.commit(); },
+  'sign-candidate'(el) { Engine.signCandidate(el.dataset.id); App.commit(); },
+  'buy-youth'(el)      { Engine.buyYouthUpgrade(el.dataset.id); App.commit(); },
+  'pull-junior'()      { Engine.pullJunior(); App.commit(); },
+  'x-post'(el)         { Engine.officialPost(el.dataset.tone); App.commit(); },
+
   'reset-game'() {
     if (confirm('Na pewno rzucasz papierami? Zapis zostanie skasowany, a klub zostanie bez prezesa (znowu).')) {
       Storage.clear();
@@ -2448,6 +3119,8 @@ document.addEventListener('click', (e) => {
   const handler = Actions[el.dataset.action];
   if (handler) handler(el, e);
 });
+
+window.addEventListener('resize', () => UI.fitActionBar());
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.id === 'club-name') Actions['start-game']();
