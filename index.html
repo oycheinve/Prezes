@@ -483,17 +483,17 @@ const DATA = {
     stand:      { label: 'Trybuna na 500 krzesełek', cost: 15000, licenseLevel: 6, attendance: 1.2, desc: 'Prawdziwa trybuna z krzesełkami w barwach klubu (dwa kolory, bo trzeciego zabrakło). +20% widzów.' },
     monitoring: { label: 'Monitoring i bramki obrotowe', cost: 40000, licenseLevel: 7, attendance: 1.1, desc: 'Kamery, kołowrotki, identyfikatory. Zadym już nie ma – nawet na derbach. +10% widzów (lubią czuć się ważni).' },
     // Rozbudowa klubu na lata (bez wymogów licencyjnych)
-    toilets:    { group: 'dev', label: 'Toi-toi ×4 zamiast krzaków', cost: 500, attendance: 1.03, promo: 2, desc: 'Koniec z biegami w pokrzywy. Rodziny z dziećmi wreszcie przychodzą.' },
-    parking:    { group: 'dev', label: 'Parking z tłucznia', cost: 1200, attendance: 1.05, desc: 'Nikt już nie grzęźnie w błocie pod sklepem. +5% widzów.' },
-    kiosk:      { group: 'dev', label: 'Murowany kiosk gastro dla pana Zenka', cost: 1800, grill: 1.25, promo: 1, desc: 'Prawdziwy grill, lodówka i okienko. Budka sprzedaje o 25% więcej.' },
-    scoreboard: { group: 'dev', label: 'Tablica wyników z wyświetlaczem', cost: 2500, promo: 4, merch: 1.1, desc: 'Koniec z cyframi na kartonach. Wygląda poważnie – sponsorzy to lubią.' },
-    gym:        { group: 'dev', label: 'Siłownia w kontenerze', cost: 3000, lockerBase: 4, desc: 'Sztangi z odzysku i lustro. Szatnia bazowo +4%.' },
-    shop:       { group: 'dev', label: 'Sklep klubowy z witryną', cost: 3500, merch: 1.3, promo: 3, desc: 'Gadżety za szybą zamiast w kartonie. Sklepik sprzedaje o 30% więcej.' },
-    clubhouse:  { group: 'dev', label: 'Świetlica klubowa z telewizorem', cost: 4500, lockerBase: 5, promo: 3, desc: 'Wspólne oglądanie Ligi Mistrzów i kanapa z IKEI. Szatnia bazowo +5%.' },
-    irrigation: { group: 'dev', label: 'Nawadnianie murawy', cost: 5000, pitchRegen: 3, desc: 'Zraszacze na czujniku. Murawa odrasta szybciej co tydzień.' },
-    training:   { group: 'dev', label: 'Boisko treningowe ze sztuczną trawą', cost: 12000, lockerBase: 3, pitchRegen: 2, promo: 2, desc: 'Treningi poza główną płytą – murawa odpoczywa, chłopaki trenują w każdą pogodę.' },
-    academyHall:{ group: 'dev', label: 'Hala dla szkółki', cost: 20000, promo: 6, desc: 'Zimą dzieciaki nie biegają po śniegu. Gmina dumna, sponsorzy zachwyceni.' },
-    vip:        { group: 'dev', label: 'Loża VIP dla sponsorów', cost: 25000, promo: 8, attendance: 1.05, desc: 'Fotele, catering i widok na całe boisko. Najlepsi sponsorzy pytają o nią najpierw.' },
+    toilets:    { group: 'fans', label: 'Toi-toi ×4 zamiast krzaków', cost: 500, attendance: 1.03, promo: 2, desc: 'Koniec z biegami w pokrzywy. Rodziny z dziećmi wreszcie przychodzą.' },
+    parking:    { group: 'fans', label: 'Parking z tłucznia', cost: 1200, attendance: 1.05, desc: 'Nikt już nie grzęźnie w błocie pod sklepem. +5% widzów.' },
+    kiosk:      { group: 'fans', label: 'Murowany kiosk gastro dla pana Zenka', cost: 1800, grill: 1.25, promo: 1, desc: 'Prawdziwy grill, lodówka i okienko. Budka sprzedaje o 25% więcej.' },
+    scoreboard: { group: 'fans', label: 'Tablica wyników z wyświetlaczem', cost: 2500, promo: 4, merch: 1.1, desc: 'Koniec z cyframi na kartonach. Wygląda poważnie – sponsorzy to lubią.' },
+    gym:        { group: 'team', label: 'Siłownia w kontenerze', cost: 3000, lockerBase: 4, desc: 'Sztangi z odzysku i lustro. Szatnia bazowo +4%.' },
+    shop:       { group: 'fans', label: 'Sklep klubowy z witryną', cost: 3500, merch: 1.3, promo: 3, desc: 'Gadżety za szybą zamiast w kartonie. Sklepik sprzedaje o 30% więcej.' },
+    clubhouse:  { group: 'team', label: 'Świetlica klubowa z telewizorem', cost: 4500, lockerBase: 5, promo: 3, desc: 'Wspólne oglądanie Ligi Mistrzów i kanapa z IKEI. Szatnia bazowo +5%.' },
+    irrigation: { group: 'team', label: 'Nawadnianie murawy', cost: 5000, pitchRegen: 3, desc: 'Zraszacze na czujniku. Murawa odrasta szybciej co tydzień.' },
+    training:   { group: 'team', label: 'Boisko treningowe ze sztuczną trawą', cost: 12000, lockerBase: 3, pitchRegen: 2, promo: 2, desc: 'Treningi poza główną płytą – murawa odpoczywa, chłopaki trenują w każdą pogodę.' },
+    academyHall:{ group: 'team', label: 'Hala dla szkółki', cost: 20000, promo: 6, desc: 'Zimą dzieciaki nie biegają po śniegu. Gmina dumna, sponsorzy zachwyceni.' },
+    vip:        { group: 'fans', label: 'Loża VIP dla sponsorów', cost: 25000, promo: 8, attendance: 1.05, desc: 'Fotele, catering i widok na całe boisko. Najlepsi sponsorzy pytają o nią najpierw.' },
   },
 
   // Zwykłe komunikaty tygodniowe. effects opcjonalne.
@@ -3802,6 +3802,7 @@ const Storage = {
     state.ui.startError = '';
     if (!state.weather) state.weather = DATA.weather[1];
     state.pendingDecisions = (state.pendingDecisions || []).filter((id) => DATA.decisions[id]);
+    state.ui.folds = {};   // akordeon: po wczytaniu wszystko zwinięte
     (state.squad || []).concat((state.loansOut || []).map((l) => l.player)).forEach((p) => { if (p.potential == null) Engine.rollPotential(p); });
     delete state.seasonTickets;
     if (!state.club.town) {
@@ -4571,12 +4572,12 @@ const UI = {
   },
 
   // Wiersz listy: tytuł, opis, przycisk po prawej
-  row(title, sub, right = '', extraClass = '') {
+  row(title, sub, right = '', extraClass = '', clamp = false) {
     return `
     <div class="flex items-center gap-2 py-1.5 border-b border-paper-300 last:border-0 ${extraClass}">
       <div class="min-w-0 flex-1">
         <div class="text-[12.5px] font-semibold leading-tight">${title}</div>
-        ${sub ? `<div class="text-[11px] text-ink-700 leading-snug">${sub}</div>` : ''}
+        ${sub ? `<div class="text-[11px] text-ink-700 leading-snug ${clamp ? 'line-clamp-2' : ''}">${sub}</div>` : ''}
       </div>
       ${right ? `<div class="flex-shrink-0">${right}</div>` : ''}
     </div>`;
@@ -4841,29 +4842,40 @@ const UI = {
     }
 
     if (view === 'crew') {
+      const folds = gameState.ui.folds || {};
+      const openSlot = Object.keys(DATA.staffSlots).find((s) => folds['staff-' + s]);
       const staffRows = Object.entries(DATA.staffSlots).map(([slot, def]) => {
         const m = gameState.staff[slot];
         const pool = DATA.staffPool[slot] || [];
         const canHireExt = !m || m.kind === 'volunteer';
         const key = 'staff-' + slot;
+        if (openSlot && openSlot !== slot) {
+          // inna sekcja otwarta – ta tylko jako jedna linijka (stuknięcie ją otwiera)
+          return `
+        <details data-fold="${key}" class="border-b border-paper-300 last:border-0">
+          <summary class="flex items-center justify-between gap-2 h-8 text-[12px] cursor-pointer select-none">
+            <span class="truncate"><span class="text-ink-700">${def.icon} ${def.label}:</span> <b>${m ? Utils.escape(m.name) : 'wakat'}</b></span><span class="fold-chevron text-ink-700">⌄</span>
+          </summary>
+        </details>`;
+        }
         return `
         <div class="py-1.5 border-b border-paper-300 last:border-0">
           <div class="text-[10px] uppercase tracking-wide text-ink-700 font-medium">${def.icon} ${def.label}</div>
           ${m ? UI.row(`${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}`,
             `${Utils.escape(m.desc)} · ${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}`,
-            m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp'), '!py-0.5 !border-0')
+            m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp'), '!py-0.5 !border-0', true)
             : '<div class="text-[12px] italic text-ink-700">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
-          <details data-fold="${key}" class="mt-1" ${(gameState.ui.folds || {})[key] ? 'open' : ''}>
+          <details data-fold="${key}" class="mt-1" ${folds[key] ? 'open' : ''}>
             <summary class="flex items-center justify-between h-7 px-2 rounded-md bg-paper-200 text-[11.5px] font-semibold cursor-pointer select-none">
               <span>${canHireExt ? 'Kandydaci (' + pool.length + ')' : 'Kandydaci – najpierw zwolnij obecnego'}</span><span class="fold-chevron text-ink-700">⌄</span>
             </summary>
             ${pool.map((cand, i) => UI.row(Utils.escape(cand.name),
               `${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}`,
-              UI.smallBtn('hire-staff', `data-slot="${slot}" data-idx="${i}"`, 'Zatrudnij', !canHireExt), 'px-1')).join('')}
+              UI.smallBtn('hire-staff', `data-slot="${slot}" data-idx="${i}"`, 'Zatrudnij', !canHireExt), 'px-1', true)).join('')}
           </details>
         </div>`;
       }).join('');
-      return segs + intro + UI.panel('Sztab Pomocniczy', 'Kogo zatrudnisz, ten pracuje – jedni lepiej, drudzy gorzej. Ile są warci, wyjdzie w praniu (mniej kontuzji, szybszy rozwój młodych, lepsze raporty skautów, mniej nieobecnych).', staffRows + `
+      return segs + (openSlot ? '' : intro) + UI.panel('Sztab Pomocniczy', openSlot ? '' : 'Kogo zatrudnisz, ten pracuje – jedni lepiej, drudzy gorzej. Ile są warci, wyjdzie w praniu (mniej kontuzji, szybszy rozwój młodych, lepsze raporty skautów, mniej nieobecnych).', staffRows + `
         <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę, zgłosi się w podsumowaniu sezonu.</p>`);
     }
 
@@ -5147,11 +5159,13 @@ const UI = {
     const view = UI.sub('finance', 'report');
     const rep = gameState.lastReport;
     const views = { report: UI.reportCard, tickets: UI.ticketsCard, merch: UI.merchCard, sponsor: UI.sponsorCard, loans: UI.loansCard, stadium: UI.stadiumCard };
-    return UI.tiles([
+    // Otwarta grupa inwestycji potrzebuje miejsca – kafelki finansowe wracają po jej zwinięciu
+    const roomy = view === 'stadium' && ['st-lic', 'st-fans', 'st-team'].some((k) => (gameState.ui.folds || {})[k]);
+    return (roomy ? '' : UI.tiles([
       UI.tile('Kasa', Utils.formatMoney(gameState.finance.budget), 'stan konta', gameState.finance.budget < 0 ? 'text-stamp' : ''),
       UI.tile('Wypłaty', Utils.formatMoney(Selectors.weeklyPayroll()), 'na tydzień'),
       UI.tile('Ostatni tydzień', rep ? Utils.signedMoney(rep.total) : '–', rep ? 'Tydzień ' + rep.week : 'brak rozliczenia', rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
-    ]) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety'], ['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']])
+    ])) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety'], ['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']])
       + (views[view] || UI.reportCard)();
   },
 
@@ -5296,10 +5310,10 @@ const UI = {
     const folds = gameState.ui.folds || {};
     const upgradeRow = ([id, u]) => {
       const owned = st.upgrades[id];
-      const lic = u.group !== 'dev' ? ` <i>📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</i>` : '';
+      const lic = !u.group ? ` <i>📋 Licencja: ${id === 'roller' || id === 'boiler' ? 'A-klasa – walec albo bojler; od Klasy Okręgowej – oba' : 'wymagane od ligi ' + DATA.leagueLevels[u.licenseLevel].name}</i>` : '';
       return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(u.label)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.upgradeCost(id))}${Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : ''}</span>`,
         Utils.escape(u.desc) + lic,
-        owned ? '<span class="text-[11px] font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id)));
+        owned ? '<span class="text-[11px] font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id)), '', true);
     };
     const group = (key, title, list, note) => {
       const done = list.filter(([id]) => st.upgrades[id]).length;
@@ -5313,16 +5327,19 @@ const UI = {
       </details>`;
     };
     const all = Object.entries(DATA.upgrades);
-    const licList = all.filter(([, u]) => u.group !== 'dev');
-    const devList = all.filter(([, u]) => u.group === 'dev');
+    const licList = all.filter(([, u]) => !u.group);
+    const fansList = all.filter(([, u]) => u.group === 'fans');
+    const teamList = all.filter(([, u]) => u.group === 'team');
+    const anyOpen = ['st-lic', 'st-fans', 'st-team'].some((k) => folds[k]);
     const missingSoon = Selectors.licenseMissing(Math.min(gameState.club.leagueLevel + 1, DATA.leagueLevels.length - 1)).length;
-    return UI.panel('Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
+    return UI.panel('Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), anyOpen ? '' : 'Obiekt z duszą. I z kretami.', `
       <div class="flex justify-between text-[12px]"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
-      ${UI.bar(st.pitch, pitchColor)}
-      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
-      <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>
+      ${anyOpen ? '' : UI.bar(st.pitch, pitchColor)}
+      ${anyOpen ? '' : `<p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
+      <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
-      ${group('st-dev', '🏗️ Rozbudowa klubu na lata', devList, '')}
+      ${group('st-fans', '🏟️ Rozbudowa: dla kibiców', fansList, '')}
+      ${group('st-team', '🏋️ Rozbudowa: dla drużyny', teamList, '')}
     `);
   },
 
@@ -5572,7 +5589,15 @@ document.addEventListener('toggle', (e) => {
   if (!gameState.ui.folds) gameState.ui.folds = {};
   if (gameState.ui.folds[d.dataset.fold] === d.open) return;
   gameState.ui.folds[d.dataset.fold] = d.open;
+  // Akordeon: otwarta jest zawsze tylko jedna sekcja – reszta w tym widoku się zwija
+  const key = d.dataset.fold;
+  if (d.open) Object.keys(gameState.ui.folds).forEach((k) => { if (k !== key) gameState.ui.folds[k] = false; });
   Storage.save();
+  // Przerysowanie: pozostałe sekcje zwinięte (w Sztabie i Obiektach do jednej linijki), otwarta przewinięta do widoku
+  lastSummaryClick = 0;
+  UI.renderAll();
+  const open = d.open && document.querySelector('details[data-fold="' + key + '"]');
+  if (open) requestAnimationFrame(() => open.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
 }, true);
 
 document.addEventListener('input', (e) => {
