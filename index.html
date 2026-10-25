@@ -56,6 +56,11 @@
     .fold-chevron { transition: transform .15s; }
     /* Rama aplikacji na pełną wysokość ekranu: przewija się tylko obszar roboczy */
     .app-shell { height: 100vh; height: 100dvh; }
+    /* Ekrany na cały ekran: miękkie wejście, ikona cut-scenki lekko „oddycha” */
+    @keyframes ovIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .ov-in { animation: ovIn .35s ease-out; }
+    @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .cut-icon { animation: breathe 3s ease-in-out infinite; }
     .scroll-thin::-webkit-scrollbar { width: 4px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
   </style>
@@ -492,6 +497,192 @@ const DATA = {
           hint: '-200 zł, kibice +10%',
           effects: { budget: -200, fans: +10 },
           log: 'Prezes odmówił Wójtowi i postawił skrzynkę piwa pod sklepem. Lud jest zachwycony. Wójt zapamięta.',
+        },
+      ],
+    },
+
+    seasonPass: {
+      id: 'seasonPass',
+      from: 'Kierownik drużyny – pan Rysiek',
+      title: 'Karnety na cały sezon',
+      body: () =>
+        'Prezesie, przed startem ligi Mariolka z punktu ksero drukuje karnety na CAŁY sezon (18 kolejek, ok. 9 meczów u siebie). ' +
+        'Gotówka wpada od razu – na start jak znalazł. Tylko że karnetowicz przez cały sezon na bramce ani złotówki już nie da. Drukujemy?',
+      options: [
+        {
+          label: 'Karnet sezonowy „Swój Chłop” po 45 zł',
+          hint: () => 'ok. ' + Engine.seasonTicketDemand('basic') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('basic') * 45) + ' teraz',
+          effects: () => ({ budget: Engine.seasonTicketDemand('basic') * 45 }),
+          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('basic') + ' karnetów sezonowych „Swój Chłop”. Mariolka laminowała je do północy.',
+          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('basic'), gameState.season.rounds.length),
+        },
+        {
+          label: 'Karnet sezonowy „VIP” (z kawą z termosu) po 70 zł',
+          hint: () => 'ok. ' + Engine.seasonTicketDemand('vip') + ' chętnych → +' + Utils.formatMoney(Engine.seasonTicketDemand('vip') * 70) + ' teraz',
+          effects: () => ({ budget: Engine.seasonTicketDemand('vip') * 70 }),
+          log: () => 'Sprzedano ' + Engine.seasonTicketDemand('vip') + ' karnetów sezonowych VIP. Kawa z termosu wliczona na cały sezon, cukier nadal nie.',
+          onChoose: () => Engine.setSeasonTickets(Engine.seasonTicketDemand('vip'), gameState.season.rounds.length),
+        },
+        {
+          label: 'Bez karnetów – każdy płaci na bramce',
+          hint: 'Pełne wpływy z biletów w każdym meczu (w przerwie zimowej można jeszcze sprzedać karnety na wiosnę)',
+          effects: {},
+          log: 'Karnetów nie będzie. „Kto chce oglądać, niech płaci” – zarządził Prezes.',
+          onChoose: () => Engine.setSeasonTickets(0),
+        },
+      ],
+    },
+
+    /* ----- Cut-scenki: filmowe sceny z trudną decyzją (pokazywane na cały ekran) ----- */
+    cutWojt: {
+      id: 'cutWojt',
+      cutscene: { icon: '🏛️', place: 'Gabinet prezesa · wtorek, 8:15' },
+      from: 'Wójt gminy (bez pukania)',
+      title: 'Wójt w gabinecie',
+      body: () => 'Drzwi otwierają się bez pukania. Wójt siada na biurku, odsuwa kubek „Najlepszy Dziadek” i mówi cicho: „Gmina ma nadwyżkę na sport. ' +
+        Utils.formatMoney(Math.round(600 * Selectors.econ())) + '. Ale szwagier mój, Zbyszek, od jutra jest kierownikiem do spraw sprzętu. I ma klucze do szatni.”',
+      options: [
+        {
+          label: 'Bierzemy kasę i szwagra',
+          hint: () => '+' + Utils.formatMoney(Math.round(600 * Selectors.econ())) + ', szatnia -6%, DNA w dół',
+          effects: () => ({ budget: Math.round(600 * Selectors.econ()), lockerRoom: -6 }),
+          log: 'Zbyszek dostał klucze do szatni i od razu zamknął w niej trenera. Kasa z gminy jest.',
+          onChoose: () => Engine.shiftDNA(-3),
+        },
+        {
+          label: 'Kasa tak, szwagier nie',
+          hint: 'Ok. 50% szans, że wójt przełknie odmowę',
+          effects: {},
+          log: 'Prezes uśmiecha się: „Pieniądze chętnie, Zbyszka niech Pan Wójt zatrzyma dla siebie”.',
+          onChoose: () => {
+            if (Math.random() < 0.5) { Engine.applyEffects({ budget: Math.round(300 * Selectors.econ()) }, 'Dotacja od wójta'); Engine.addLog('🏛️ Wójt chrząknął, ale przelał połowę: ' + Utils.formatMoney(Math.round(300 * Selectors.econ())) + '.', 'event'); }
+            else { Engine.applyEffects({ fans: -4 }); Engine.addLog('🏛️ Wójt wyszedł, trzaskając drzwiami. Na zebraniu wiejskim mówi, że klub „zadziera nosa”. [kibice -4%]', 'event'); }
+          },
+        },
+        {
+          label: 'Klub nie jest na sprzedaż',
+          hint: 'Kibice +3%, DNA w stronę profesjonalizmu',
+          effects: { fans: +3 },
+          log: 'Prezes odsuwa kopertę: „Panie Wójcie, tu się gra w piłkę, a nie w posady”. Na wsi mówią o tym do dziś.',
+          onChoose: () => Engine.shiftDNA(+3),
+        },
+      ],
+    },
+    cutUltras: {
+      id: 'cutUltras',
+      cutscene: { icon: '🔥', place: 'Pod szatnią · sobota, 18:40' },
+      from: 'Ultras Wieś (pod drzwiami)',
+      title: 'Awantura pod szatnią',
+      body: 'Pod blaszakiem stoi kilkunastu chłopa w kominiarkach z Biedronki. Ktoś odpalił racę od wesela. „Prezes, wyłaź! Albo chłopaki zaczną biegać, albo my zaczniemy!” – krzyczy wódz Ultrasów Wieś, Waldek „Kibol”. Drużyna siedzi w szatni po ciemku.',
+      options: [
+        {
+          label: 'Wyjść do nich z piwem i pogadać',
+          hint: () => Utils.signedMoney(-Math.round(150 * Selectors.econ())) + ', kibice +6%, szatnia -2%',
+          effects: () => ({ budget: -Math.round(150 * Selectors.econ()), fans: +6, lockerRoom: -2 }),
+          log: 'Prezes wyszedł ze zgrzewką. Po godzinie Waldek „Kibol” płakał mu w rękaw i śpiewał hymn klubu.',
+        },
+        {
+          label: 'Wezwać dzielnicowego',
+          hint: 'Kibice -8%, szatnia +4%, DNA w stronę profesjonalizmu',
+          effects: { fans: -8, lockerRoom: +4 },
+          log: 'Dzielnicowy przyjechał rowerem po 40 minutach. Ultrasi rozeszli się obrażeni, piłkarze wdzięczni.',
+          onChoose: () => Engine.shiftDNA(+2),
+        },
+        {
+          label: 'Wypuścić drużynę oknem od zaplecza',
+          hint: 'Szatnia -6%, kibice -2%',
+          effects: { lockerRoom: -6, fans: -2 },
+          log: 'Drużyna uciekła oknem przez pokrzywy. Bramkarz zostawił w szatni jeden but. Ultrasi czekali do północy.',
+        },
+      ],
+    },
+    cutNightCall: {
+      id: 'cutNightCall',
+      cutscene: { icon: '📞', place: 'Telefon · noc, 2:07' },
+      from: () => (Selectors.sponsor() ? 'Sponsor: ' + Selectors.sponsor().name : 'Numer zastrzeżony'),
+      title: 'Telefon o 2 w nocy',
+      body: () => (Selectors.sponsor() ? 'Dzwoni szef firmy „' + Selectors.sponsor().name + '”. W tle disco-polo i brzęk kieliszków – wesele.' : 'Dzwoni ktoś, kto przedstawia się jako „biznesmen z branży paliwowej”.') +
+        ' „Prezesie, mam tu w reklamówce ' + Utils.formatMoney(Math.round(700 * Selectors.econ())) + ' dla klubu. Bez papierów, bez pytań. Tylko mój chrześniak musi zagrać w sobotę od pierwszej minuty.”',
+      options: [
+        {
+          label: 'Biorę reklamówkę',
+          hint: () => '+' + Utils.formatMoney(Math.round(700 * Selectors.econ())) + ', szatnia -5%, ryzyko skandalu',
+          effects: () => ({ budget: Math.round(700 * Selectors.econ()), lockerRoom: -5 }),
+          log: 'Reklamówka czeka rano pod wycieraczką. Chrześniak przyjechał na trening w lakierkach.',
+          onChoose: () => { Engine.shiftDNA(-5); if (Math.random() < 0.4) Engine.addScandal('kasa w reklamówce za miejsce w składzie'); },
+        },
+        {
+          label: 'Tylko na fakturę i bez warunków',
+          hint: 'Ok. 50% szans na połowę kwoty',
+          effects: {},
+          log: 'Prezes ziewa do słuchawki: „Faktura, przelew, a chrześniak niech przyjdzie na trening jak każdy”.',
+          onChoose: () => {
+            if (Math.random() < 0.5) { Engine.applyEffects({ budget: Math.round(350 * Selectors.econ()) }, 'Darowizna na fakturę'); Engine.addLog('🧾 O dziwo przyszedł przelew: ' + Utils.formatMoney(Math.round(350 * Selectors.econ())) + ' z dopiskiem „na piłki”.', 'event'); }
+            else Engine.addLog('📵 Rozmówca się rozłączył. Rano nikt nic nie pamięta.', 'event');
+          },
+        },
+        {
+          label: 'Odłożyć słuchawkę i spać dalej',
+          hint: 'Nic się nie dzieje. Chyba.',
+          effects: {},
+          log: 'Prezes wyłączył telefon i przewrócił się na drugi bok. Śniła mu się Ekstraklasa.',
+        },
+      ],
+    },
+    cutFlood: {
+      id: 'cutFlood',
+      cutscene: { icon: '🌧️', place: 'Blaszak · niedziela, 6:00' },
+      from: 'Pan Heniek, gospodarz obiektu',
+      title: 'Potop w blaszaku',
+      body: 'Telefon od pana Heńka: „Prezesie, w nocy lało jak z cebra. W szatni woda po kostki, korki pływają, a w bojlerze żaba.” Słychać, jak w tle chlupie.',
+      options: [
+        {
+          label: 'Wezwać hydraulika z miasta',
+          hint: () => Utils.signedMoney(-Math.round(400 * Selectors.econ())) + ', szatnia +4%',
+          effects: () => ({ budget: -Math.round(400 * Selectors.econ()), lockerRoom: +4 }),
+          log: 'Hydraulik z miasta wycenił robotę „na oko”. Oko było drogie, ale szatnia sucha.',
+        },
+        {
+          label: 'Czyn społeczny: wiadra dla wszystkich',
+          hint: 'Szatnia -4%, kibice +4%',
+          effects: { lockerRoom: -4, fans: +4 },
+          log: 'Piłkarze i kibice wylewali wodę wiadrami do południa. Koło Gospodyń przyniosło żurek.',
+        },
+        {
+          label: 'Samo wyschnie',
+          hint: 'Szatnia -8%, murawa -10',
+          effects: { lockerRoom: -8 },
+          log: 'Nie wyschło. Przez tydzień w szatni pachnie stawem, a woda zeszła na boisko.',
+          onChoose: () => { gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch - 10, 0, 100); },
+        },
+      ],
+    },
+    cutTv: {
+      id: 'cutTv',
+      cutscene: { icon: '📺', place: 'Parking przy boisku · czwartek' },
+      from: 'Ekipa Telewizji Regionalnej',
+      title: 'Telewizja przyjechała',
+      body: 'Na parking wjeżdża bus z napisem „TV Region”. Reporterka w kaloszach: „Robimy materiał o najgorszym boisku w powiecie. Może Pan coś powiedzieć do kamery? Płacimy za wynajem obiektu.”',
+      options: [
+        {
+          label: 'Zgoda – niech kręcą kretowisko',
+          hint: () => '+' + Utils.formatMoney(Math.round(200 * Selectors.econ())) + ', kibice +5%, DNA w dół',
+          effects: () => ({ budget: Math.round(200 * Selectors.econ()), fans: +5 }),
+          log: 'Materiał „Boisko, na którym krowy mają karnet” obejrzało pół województwa. Kibice dumni, Związek mniej.',
+          onChoose: () => Engine.shiftDNA(-3),
+        },
+        {
+          label: 'Tylko jeśli pokażą naszą szkółkę',
+          hint: 'Kibice +2%, DNA w stronę profesjonalizmu',
+          effects: { fans: +2 },
+          log: 'Zamiast kretów w telewizji pokazali dzieciaki z Orlika. Mamy dzwonią z pytaniem o zapisy.',
+          onChoose: () => Engine.shiftDNA(+4),
+        },
+        {
+          label: 'Przegonić ich z parkingu',
+          hint: 'Kibice -2%',
+          effects: { fans: -2 },
+          log: 'Pan Heniek przegonił ekipę grabiami. Nagranie z tej akcji i tak trafiło do internetu.',
         },
       ],
     },
@@ -1142,7 +1333,10 @@ function createInitialState() {
       ticket: 'standard',
       sausage: 'zapiekanka',
       security: null,           // null | 'hired' | 'none' – tylko na derby u siebie
+      ticketFixKey: '',         // runda, w której wykorzystano korektę ceny biletu
     },
+    lastMatch: null,            // dane ostatniego meczu dla ekranu meczowego
+    cutscenes: { lastWeek: 0, recent: [] },
     seasonTickets: {
       holders: 0,
       roundsLeft: 0,
@@ -1184,6 +1378,7 @@ function createInitialState() {
       deskView: null,           // Biurko na telefonie: decisions | log (null = automatycznie)
       folds: {},                // zapamiętane rozwinięcia wierszy (Kadra)
       sub: {},                  // wybrany podwidok zakładki (np. finance: 'tickets')
+      overlay: null,            // ekran na cały ekran: { type: 'match' } | { type: 'outcome', ... }
     },
   };
 }
@@ -1362,17 +1557,34 @@ const Engine = {
     return kind === 'vip' ? Math.round((4 + fans * 0.15) * mult) : Math.round((8 + fans * 0.3) * mult);
   },
 
-  setSeasonTickets(holders) {
+  setSeasonTickets(holders, rounds = CONFIG.roundsPerRunda) {
     gameState.bonuses.seasonTicketBoost = 1;
     gameState.seasonTickets.holders = holders;
-    gameState.seasonTickets.roundsLeft = holders > 0 ? CONFIG.roundsPerRunda : 0;
+    gameState.seasonTickets.roundsLeft = holders > 0 ? rounds : 0;
   },
 
+  // Przed startem ligi: karnety na cały sezon. W przerwie zimowej – na rundę wiosenną, jeśli nikt nie ma karnetu.
   offerSeasonTickets() {
     const key = 's' + gameState.calendar.season + 'r' + gameState.calendar.round;
     if (gameState.seasonTickets.lastOfferKey === key) return;
     gameState.seasonTickets.lastOfferKey = key;
-    Engine.pushDecision('seasonTickets');
+    if (gameState.calendar.round === 0) Engine.pushDecision('seasonPass');
+    else if (gameState.seasonTickets.roundsLeft <= 0) Engine.pushDecision('seasonTickets');
+  },
+
+  // Cennik biletów: ustalany przed rundą; w trakcie rundy jedna delikatna korekta (o jeden próg)
+  ticketWindowOpen: () => !Selectors.isMatchWeek() || gameState.calendar.round % CONFIG.roundsPerRunda === 0,
+  ticketRundaKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
+  canSetTicket(id) {
+    if (!DATA.tickets[id]) return false;
+    if (id === gameState.matchday.ticket || Engine.ticketWindowOpen()) return true;
+    const order = Object.keys(DATA.tickets);
+    return gameState.matchday.ticketFixKey !== Engine.ticketRundaKey() && Math.abs(order.indexOf(id) - order.indexOf(gameState.matchday.ticket)) === 1;
+  },
+  setTicket(id) {
+    if (!Engine.canSetTicket(id) || id === gameState.matchday.ticket) return;
+    if (!Engine.ticketWindowOpen()) gameState.matchday.ticketFixKey = Engine.ticketRundaKey();
+    gameState.matchday.ticket = id;
   },
 
   /* ----- Kadra: skład, chemia, siła ----- */
@@ -1529,6 +1741,20 @@ const Engine = {
     Engine.addLog('⚽ Kolejka ' + kolejka + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
 
+    // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
+    const goals = [];
+    Object.entries(scorerCount).forEach(([id, n]) => {
+      const p = gameState.squad.find((x) => x.id === id);
+      for (let i = 0; i < n; i++) goals.push({ min: Utils.randInt(1, 90), us: true, name: '„' + p.nick + '” ' + p.last });
+    });
+    for (let i = 0; i < ga; i++) goals.push({ min: Utils.randInt(1, 90), us: false, name: rival.name });
+    goals.sort((a, b) => a.min - b.min);
+    gameState.lastMatch = {
+      week: gameState.calendar.week, kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
+      weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null, holders: 0,
+      sensation: !!extra,
+    };
+
     // --- Noty meczowe (1.0–10.0) dla wyjściowej jedenastki ---
     Engine.rateLineup(lineup, scorerCount, result, gf, ga);
 
@@ -1590,7 +1816,11 @@ const Engine = {
 
     // --- Pieniądze z dnia meczowego ---
     if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
-    else Engine.money('Paliwo do busa (wyjazd)', -Utils.randInt(50, 90));
+    else {
+      const fuel = -Utils.randInt(50, 90);
+      Engine.money('Paliwo do busa (wyjazd)', fuel);
+      if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
+    }
 
     // --- Karnety i kalendarz ligi ---
     if (gameState.seasonTickets.roundsLeft > 0) {
@@ -1618,6 +1848,10 @@ const Engine = {
     const grillProfit = sold * (sausage.price - sausage.cost);
     gameState.stats.sausages += sold;
     Engine.money('Budka u Pana Zenka (' + sold + ' szt.)', grillProfit);
+    if (gameState.lastMatch) {
+      Object.assign(gameState.lastMatch, { attendance: att, holders: holdersIn });
+      gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + ticket.price + ' zł)', amount: gate }, { label: 'Gastro: ' + sold + ' szt. „' + sausage.label + '”', amount: grillProfit });
+    }
 
     Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' + (holdersIn ? ' (w tym ' + holdersIn + ' karnetowiczów)' : '') +
       '. Bilety: ' + Utils.formatMoney(gate) + '. Budka Zenka: ' + sold + ' szt. „' + sausage.label + '” → ' + Utils.formatMoney(grillProfit) + ' zysku.', 'finance');
@@ -1638,6 +1872,7 @@ const Engine = {
         Engine.addLog('🛡️ Byczki z Herkulesa stali przy bramie. Nikt nie odważył się rzucić nawet łupiną od słonecznika.', 'event');
       } else if (Math.random() < (gameState.club.character === 'industrial' ? 0.6 : 0.45)) {
         Engine.money('Kara Związku za zadymę', -Math.round(600 * Selectors.econ()));
+        if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Kara Związku za zadymę', amount: -Math.round(600 * Selectors.econ()) });
         Engine.applyEffects({ fans: +2 });
         Engine.addLog('💥 ZADYMA! Przyjezdni kibice (' + rival.name + ') wtargnęli na murawę, wujek Staszek zgubił latarkę. Związek nalicza karę 600 zł. Miejscowi zachwyceni widowiskiem.', 'event');
         Engine.addScandal('zadyma na derbach');
@@ -1677,6 +1912,7 @@ const Engine = {
     }).sort((a, b) => b.r - a.r);
     hungover.forEach((p) => Engine.addLog('🥴 „' + p.nick + '” grał z wyraźnym kacem po weselu – nota ' + p.lastRating.toFixed(1) + '. Na rozgrzewce pomylił bramki.', 'event'));
     const best = rated[0], worst = rated[rated.length - 1];
+    if (gameState.lastMatch) gameState.lastMatch.best = { name: Selectors.playerName(best.p), r: best.r };
     Engine.addLog('⭐ Gracz meczu: ' + Selectors.playerName(best.p) + ' (' + best.r.toFixed(1) + ') · 🪵 Najsłabszy na boisku: ' + Selectors.playerName(worst.p) + ' (' + worst.r.toFixed(1) + ')', 'match');
   },
 
@@ -2236,13 +2472,22 @@ const Engine = {
   },
 
   /* ----- Telefony z szatni ----- */
+  // Po podwyżkę dzwonią tylko ci, którzy wyraźnie przerastają drużynę albo błyszczą formą – albo gdy klubowi wyraźnie się powodzi.
   maybeLockerCall() {
     const c = gameState.calls;
     const suburban = gameState.club.character === 'suburban';   // letnicy płacą więcej, to i chłopaki wołają częściej
-    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < (suburban ? 3 : 4) || Math.random() > (suburban ? 0.45 : 0.3)) return;
+    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < (suburban ? 7 : 9)) return;
     const lineup = Engine.pickLineup([]);
-    const pool = gameState.squad.filter((p) => p.favorite || (lineup.includes(p) && p.skill >= 5));
-    if (!pool.length) return;
+    if (!lineup.length) return;
+    const avgSkill = lineup.reduce((s, p) => s + p.skill, 0) / lineup.length;
+    const e = Selectors.econ();
+    const rep = gameState.lastReport;
+    const clubBoom = gameState.record.winStreak >= 3 || (rep && rep.total >= 500 * e) || gameState.finance.budget >= 5000 * e
+      || (gameState.calendar.round <= 2 && ['promo', 'title'].includes(gameState.lastSeason.outcome));
+    const shining = (p) => p.skill >= avgSkill + 1.5 || (p.lastRating != null && p.lastRating >= 7.8) || (Selectors.avgRating(p) != null && p.seasonRatingCount >= 3 && Selectors.avgRating(p) >= 7);
+    let pool = gameState.squad.filter((p) => lineup.includes(p) && shining(p));
+    if (!pool.length && clubBoom) pool = gameState.squad.filter((p) => p.favorite || (lineup.includes(p) && p.skill >= avgSkill + 0.5));
+    if (!pool.length || Math.random() > (suburban ? 0.45 : 0.35)) return;
     const p = Utils.rand(pool);
     const partner = Math.random() < 0.4;
     Object.assign(c, {
@@ -2251,6 +2496,19 @@ const Engine = {
       rival: Utils.rand(gameState.league.rivals).name,
     });
     Engine.pushDecision('wageDemand');
+  },
+
+  /* ----- Cut-scenki: losowe filmowe sceny z trudną decyzją ----- */
+  maybeCutscene() {
+    const cs = gameState.cutscenes;
+    if (gameState.calendar.week - cs.lastWeek < 5 || gameState.pendingDecisions.some((id) => DATA.decisions[id].cutscene)) return;
+    if (Math.random() > 0.22) return;
+    const pool = Object.keys(DATA.decisions).filter((id) => DATA.decisions[id].cutscene && !cs.recent.includes(id));
+    if (!pool.length) return;
+    const id = Utils.rand(pool);
+    cs.lastWeek = gameState.calendar.week;
+    cs.recent = [id].concat(cs.recent).slice(0, 3);
+    Engine.pushDecision(id);
   },
 
   /* ----- Ciemna strona: „Spółdzielnia” ----- */
@@ -2510,6 +2768,9 @@ const Engine = {
       Engine.maybePassat();
       Engine.maybeBalance();
     },
+    function cutscenes() {
+      if (gameState.calendar.week > CONFIG.preseasonWeeks) Engine.maybeCutscene();
+    },
   ],
 
   nextWeek() {
@@ -2757,6 +3018,7 @@ const UI = {
       : UI.gameScreen();
     const fresh = document.getElementById('work');
     if (fresh) { fresh.dataset.key = key; fresh.scrollTop = keep; }
+    if (gameState.screen === 'game') UI.animateMatch();
   },
 
   /* ---------- Motyw: barwy klubu jako akcenty interfejsu ---------- */
@@ -2967,7 +3229,138 @@ const UI = {
       ${UI.appHeader()}
       <main id="work" class="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-thin px-2.5 py-2">${UI.activeTabContent()}</main>
       ${UI.appDock()}
+    </div>
+    ${UI.overlay()}`;
+  },
+
+  /* ---------- EKRANY NA CAŁY EKRAN: mecz, cut-scenka, skutki decyzji ---------- */
+  overlay() {
+    const o = gameState.ui.overlay;
+    if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
+    if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
+    const first = DATA.decisions[gameState.pendingDecisions[0]];
+    if (first && first.cutscene) return UI.cutsceneOverlay(first);
+    return '';
+  },
+
+  overlayFrame(inner, extraClass = '') {
+    return `
+    <div class="fixed inset-0 z-[70] flex justify-center bg-black/80">
+      <div class="ov-in w-full max-w-[480px] h-full flex flex-col ${extraClass}" style="padding-bottom: env(safe-area-inset-bottom);">${inner}</div>
     </div>`;
+  },
+
+  matchOverlay(m) {
+    const s = gameState;
+    const live = UI.animatedMatch !== m.week;   // animujemy tylko raz na mecz
+    const name = Selectors.clubDisplayName();
+    const [label, tone] = m.result === 'W' ? ['WYGRANA', 'text-grass'] : m.result === 'L' ? ['PORAŻKA', 'text-stamp'] : ['REMIS', 'text-paper-300'];
+    const total = m.money.reduce((sum, l) => sum + l.amount, 0);
+    const side = (crest, n, align) => `
+      <div class="flex-1 min-w-0 flex flex-col items-center gap-1.5 ${align}">
+        ${crest}
+        <div class="text-[13px] font-bold leading-tight text-center line-clamp-2">${Utils.escape(n)}</div>
+      </div>`;
+    const ourCrest = UI.crest(s.club.colors, s.club.name, 56);
+    const theirCrest = UI.crest(s.club.colors, m.rival, 56, true);
+    // Gol po stronie drużyny, która go strzeliła (gospodarz po lewej)
+    const goals = m.goals.map((g) => `
+      <li data-min="${g.min}" class="mx-goal ${live ? 'hidden' : ''} flex items-center gap-2 text-[13px] ${g.us === m.home ? '' : 'flex-row-reverse text-right'} ${g.us ? '' : 'text-paper-400'}">
+        <span class="w-8 text-[11px] font-bold text-paper-400 ${g.us === m.home ? '' : 'text-right'}">${g.min}'</span>
+        <span class="truncate">⚽ ${Utils.escape(g.name)}</span>
+      </li>`).join('');
+    const scoreAt = (min) => {
+      const us = m.goals.filter((g) => g.us && g.min <= min).length, them = m.goals.filter((g) => !g.us && g.min <= min).length;
+      return m.home ? us + ':' + them : them + ':' + us;
+    };
+    const money = m.money.map((l) => `<div class="flex justify-between gap-2 text-[12.5px]"><span class="text-paper-300 truncate">${Utils.escape(l.label)}</span><b class="whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</b></div>`).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-3 text-paper-100">
+        <div class="text-center text-[11px] uppercase tracking-wider text-paper-400">Kolejka ${m.kolejka} · ${m.home ? 'u siebie' : 'wyjazd'}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
+        <div class="text-center text-[11px] text-paper-400 mt-0.5">${m.weatherIcon} ${Utils.escape(m.weatherLabel)}</div>
+        <div class="flex items-center gap-2 mt-5">
+          ${m.home ? side(ourCrest, name, '') : side(theirCrest, m.rival, '')}
+          <div class="flex-shrink-0 text-center">
+            <div id="mx-score" class="text-[52px] font-extrabold leading-none tracking-tight">${live ? '0:0' : scoreAt(90)}</div>
+            <div id="mx-min" class="mt-1.5 text-[12px] font-bold ${live ? 'text-amber-glow' : 'text-paper-400'}">${live ? "0'" : 'KONIEC'}</div>
+          </div>
+          ${m.home ? side(theirCrest, m.rival, '') : side(ourCrest, name, '')}
+        </div>
+        <div class="h-1 rounded-full bg-desk-700 mt-4 overflow-hidden"><div id="mx-bar" class="h-full bg-amber-glow" style="width:${live ? 0 : 100}%"></div></div>
+        <ul class="space-y-1.5 mt-4">${goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
+        <div id="mx-final" class="${live ? 'hidden' : ''} mt-5 space-y-3">
+          <div class="text-center text-[22px] font-extrabold tracking-wide ${tone}">${label}${m.sensation ? ' · SENSACJA!' : ''}</div>
+          ${m.best ? `<div class="text-center text-[12.5px] text-paper-300">⭐ Gracz meczu: <b class="text-paper-100">${Utils.escape(m.best.name)}</b> (${m.best.r.toFixed(1)})</div>` : ''}
+          <div class="rounded-xl bg-desk-800 px-3 py-2.5 space-y-1">
+            ${m.attendance != null ? `<div class="flex justify-between text-[12.5px]"><span class="text-paper-300">🏟️ Frekwencja</span><b>${m.attendance} widzów${m.holders ? ' <span class="font-normal text-paper-400">(' + m.holders + ' z karnetem)</span>' : ''}</b></div>` : ''}
+            ${money}
+            <div class="flex justify-between pt-1.5 mt-1 border-t border-desk-600 text-[14px]"><span class="font-semibold">Wynik finansowy meczu</span><b class="${total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(total)}</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">KONTYNUUJ</button>
+      </div>`, 'bg-desk-900');
+  },
+
+  // Mecz „na żywo”: zegar 0'–90', gole pojawiają się w swoich minutach, na końcu wynik finansowy
+  animateMatch() {
+    const m = gameState.lastMatch;
+    const o = gameState.ui.overlay;
+    if (!o || o.type !== 'match' || !m || UI.animatedMatch === m.week || !document.getElementById('mx-score')) return;
+    UI.animatedMatch = m.week;
+    clearInterval(UI.matchTimer);
+    let min = 0;
+    UI.matchTimer = setInterval(() => {
+      min += 1;
+      const el = (id) => document.getElementById(id);
+      if (!el('mx-score')) { clearInterval(UI.matchTimer); return; }
+      const us = m.goals.filter((g) => g.us && g.min <= min).length, them = m.goals.filter((g) => !g.us && g.min <= min).length;
+      el('mx-score').textContent = m.home ? us + ':' + them : them + ':' + us;
+      el('mx-min').textContent = min >= 90 ? 'KONIEC' : min + "'";
+      el('mx-bar').style.width = Math.min(100, min / 90 * 100) + '%';
+      document.querySelectorAll('.mx-goal').forEach((g) => { if (Number(g.dataset.min) <= min) g.classList.remove('hidden'); });
+      if (min >= 90) {
+        clearInterval(UI.matchTimer);
+        el('mx-min').className = 'mt-1.5 text-[12px] font-bold text-paper-400';
+        el('mx-final').classList.remove('hidden');
+        el('mx-final').classList.add('ov-in');
+      }
+    }, 45);
+  },
+
+  cutsceneOverlay(d) {
+    const opts = d.options.map((o, i) => `
+      <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
+        class="btn-press w-full text-left px-3.5 py-2.5 rounded-xl bg-desk-800 border border-desk-600 active:bg-desk-700">
+        <span class="block text-[14px] font-semibold text-paper-100 leading-snug">${Utils.escape(Utils.val(o.label))}</span>
+        <span class="block text-[11.5px] text-paper-400 leading-snug">${Utils.escape(Utils.val(o.hint))}</span>
+      </button>`).join('');
+    return UI.overlayFrame(`
+      <div class="h-6 bg-black flex-shrink-0"></div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-paper-100 flex flex-col">
+        <div class="cut-icon text-center text-[64px] leading-none mt-2">${d.cutscene.icon}</div>
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-3">${Utils.escape(d.cutscene.place)}</div>
+        <h2 class="text-center text-[24px] font-extrabold tracking-tight leading-tight mt-1">${Utils.escape(Utils.val(d.title))}</h2>
+        <div class="text-center text-[11px] text-paper-400 mt-0.5">${Utils.escape(Utils.val(d.from))}</div>
+        <p class="text-[14.5px] leading-relaxed text-paper-200 italic mt-4">${Utils.escape(Utils.val(d.body))}</p>
+        <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold mt-5 mb-1.5">Decyzja prezesa</div>
+        <div class="grid gap-2">${opts}</div>
+      </div>
+      <div class="h-6 bg-black flex-shrink-0"></div>`, 'bg-[#0b0f16]');
+  },
+
+  outcomeOverlay(o) {
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-6 text-paper-100 flex flex-col justify-center">
+        <div class="text-center text-[52px] leading-none">${o.icon}</div>
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-3">Skutki decyzji</div>
+        <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">${Utils.escape(o.title)}</h2>
+        <ul class="mt-4 space-y-2">${o.lines.map((l) => `<li class="text-[14px] leading-snug text-paper-200">${Utils.escape(l)}</li>`).join('')}</ul>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">KONTYNUUJ</button>
+      </div>`, 'bg-[#0b0f16]');
   },
 
   // Nagłówek w dwóch linijkach: klub + liczby i najbliższy mecz
@@ -3699,7 +4092,17 @@ const UI = {
     return UI.panel('Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
       <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}<p class="text-[11px] text-ink-700">${ticketsInfo}</p></div>
       ${UI.h4('Cena biletu')}
-      ${UI.choiceRow('set-ticket', Object.entries(DATA.tickets), md.ticket, (t) => t.label, (t) => t.desc)}
+      <div class="grid grid-cols-3 gap-1.5">
+        ${Object.entries(DATA.tickets).map(([id, t]) => {
+          const ok = Engine.canSetTicket(id);
+          return `<button data-action="set-ticket" data-value="${id}" ${ok ? '' : 'disabled'}
+            class="btn-press w-full min-w-0 text-left px-2 py-1.5 border rounded-lg text-[12px] leading-tight ${md.ticket === id ? 'border-amber-glow bg-amber-glow/15 font-bold' : ok ? 'border-paper-300 bg-white font-semibold' : 'border-paper-300 bg-paper-200 text-paper-400 font-semibold cursor-not-allowed'}">${md.ticket === id ? '' : ok ? '' : '🔒 '}${t.label}</button>`;
+        }).join('')}
+      </div>
+      <p class="text-[11px] text-ink-700 leading-snug mt-1">${DATA.tickets[md.ticket].desc}</p>
+      <p class="text-[11px] font-semibold mt-0.5 ${Engine.ticketWindowOpen() ? 'text-grass' : 'text-ink-700'}">${Engine.ticketWindowOpen()
+        ? '🔓 Okno cenowe otwarte: cennik ustalasz teraz na całą rundę.'
+        : md.ticketFixKey === Engine.ticketRundaKey() ? '🔒 Cennik zablokowany do przerwy – korekta w tej rundzie już wykorzystana.' : '🔒 Cennik ustalony na rundę. Zostaje 1 korekta o jeden próg.'}</p>
       ${UI.h4('Menu w budce Pana Zenka')}
       ${UI.choiceRow('set-sausage', Object.entries(DATA.sausages), md.sausage, (s) => s.label + ' – ' + s.price + ' zł', (s) => s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')}
       <p class="text-[10.5px] text-ink-700 mt-1.5 leading-snug">☀️ W słońcu grill sprzedaje o 30% więcej, w ulewie Zenek siedzi pod parasolem i liczy straty. Ofensywny trener przyciąga ~10% więcej widzów, defensywny ~10% mniej.</p>
@@ -3890,12 +4293,25 @@ const Actions = {
   },
 
   'resolve-decision'(el) {
+    const d = DATA.decisions[el.dataset.decision];
+    const before = gameState.ui.lastLogId;
     Engine.resolveDecision(el.dataset.decision, Number(el.dataset.option));
+    // Cut-scenka kończy się planszą ze skutkami decyzji
+    if (d && d.cutscene) {
+      const lines = gameState.log.filter((e) => e.id > before).reverse().map((e) => e.text);
+      gameState.ui.overlay = { type: 'outcome', icon: d.cutscene.icon, title: Utils.val(d.title), lines };
+    }
+    App.commit();
+  },
+  'overlay-close'() {
+    gameState.ui.overlay = null;
     App.commit();
   },
 
   'next-week'() {
+    const week = gameState.calendar.week;
     if (Engine.nextWeek()) {
+      if (gameState.screen === 'game' && gameState.lastMatch && gameState.lastMatch.week === week) gameState.ui.overlay = { type: 'match' };
       gameState.activeTab = 'desk';
       gameState.ui.deskView = null;    // nowy tydzień: Biurko samo wybiera sprawy albo pulpit klubu
       App.commit();
@@ -3903,7 +4319,7 @@ const Actions = {
     }
   },
 
-  'set-ticket'(el)   { if (DATA.tickets[el.dataset.value]) gameState.matchday.ticket = el.dataset.value; App.commit(); },
+  'set-ticket'(el)   { Engine.setTicket(el.dataset.value); App.commit(); },
   'set-sausage'(el)  { if (DATA.sausages[el.dataset.value]) gameState.matchday.sausage = el.dataset.value; App.commit(); },
   'set-markup'(el)   { if (DATA.merchMarkups[el.dataset.value]) gameState.merch.markup = el.dataset.value; App.commit(); },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
