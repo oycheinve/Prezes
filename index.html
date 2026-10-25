@@ -762,8 +762,7 @@ const DATA = {
     },
     cutTransfer: {
       id: 'cutTransfer',
-      cutscene: { icon: '🚐', place: 'Parking pod sklepem · środa wieczorem' },
-      available: () => gameState.squad.length > CONFIG.minSquad,
+      cutscene: { icon: '🚐', place: 'Okno transferowe · parking pod sklepem', scripted: true },   // tylko w oknie transferowym
       prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; },
       player: () => Selectors.cutTarget(),
       from: () => 'Działacz klubu z ligi ' + (DATA.leagueLevels[Math.min(gameState.club.leagueLevel + 2, DATA.leagueLevels.length - 1)] || DATA.leagueLevels[1]).name,
@@ -1068,11 +1067,11 @@ const DATA = {
           onChoose: () => Engine.endStar(true),
         },
         {
-          label: 'Obiecać transfer po sezonie',
-          hint: 'Spokój do końca sezonu – ale jak w oknie transferowym go nie sprzedasz, bunt wybuchnie podwójnie',
+          label: 'Obiecać transfer po tym sezonie',
+          hint: 'Spokój przez cały sezon – ale jak w następnym oknie transferowym go nie sprzedasz, bunt wybuchnie podwójnie',
           effects: { lockerRoom: +1 },
           log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes podał rękę: „Po sezonie pogadamy”. ' + Selectors.playerName(p) + ' zapisał to w telefonie.' : 'Obietnica bez adresata.'; },
-          onChoose: () => { gameState.star.promised = gameState.calendar.season; },
+          onChoose: () => { gameState.star.promised = gameState.calendar.season; const p = Selectors.starPlayer(); if (p) delete p.benched; gameState.star.rebel = false; },
         },
         {
           label: 'Nie ma mowy – zostajesz',
@@ -1095,11 +1094,11 @@ const DATA = {
       },
       options: [
         {
-          label: 'Sprzedać go teraz, nawet taniej',
-          hint: () => { const p = Selectors.starPlayer(); return p ? '+' + Utils.formatMoney(Math.round(Selectors.starFee(p) * 0.6)) + ' (60% ceny), koniec buntu' + (p.favorite ? ', kibice -6%' : '') : ''; },
-          effects: () => { const p = Selectors.starPlayer(); return p ? { budget: Math.round(Selectors.starFee(p) * 0.6), fans: p.favorite ? -6 : 0 } : {}; },
-          log: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' sprzedany w trakcie sezonu za pół darmo. Szatnia oddycha z ulgą.' : 'Sprzedaż bez zawodnika.'; },
-          onChoose: () => Engine.endStar(true),
+          label: 'Odsunąć go od składu do okna transferowego',
+          hint: () => { const p = Selectors.starPlayer(); return 'Koniec szkód w szatni, ale nie zagra do końca sezonu' + (p && p.favorite ? ', kibice -6%' : '') + '; decyzja o sprzedaży w oknie'; },
+          effects: () => { const p = Selectors.starPlayer(); return p && p.favorite ? { fans: -6 } : {}; },
+          log: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' trenuje sam na bocznym boisku. W szatni wreszcie spokój.' : 'Odsunięcie bez zawodnika.'; },
+          onChoose: () => { const p = Selectors.starPlayer(); if (p) p.benched = true; },
         },
         {
           label: 'Uspokoić: premia i podwyżka',
@@ -1159,7 +1158,7 @@ const DATA = {
         },
         {
           label: 'Nie ma kasy. Klub to rodzina.',
-          hint: 'Za darmo. Ryzyko: foch szatni albo odejście zawodnika',
+          hint: 'Za darmo. Ryzyko: foch szatni albo odejście zawodnika po sezonie',
           effects: {},
           log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes odmówił podwyżki: „' + p.first + ', klub to rodzina, a w rodzinie się nie liczy”.' : 'Odmowa.'; },
           onChoose: () => {
@@ -1169,9 +1168,10 @@ const DATA = {
               Engine.applyEffects({ lockerRoom: -10 });
               Engine.addLog('😤 „' + p.nick + '” strzelił focha. W szatni ciche dni, na treningu biega w słuchawkach. [szatnia -10%]', 'event');
             } else if (r < 0.75) {
-              gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
-              if (p.favorite) Engine.applyEffects({ fans: -8 });
-              Engine.addLog('🚪 ' + Selectors.playerName(p) + ' odchodzi do ' + gameState.calls.rival + '. „Tam przynajmniej płacą za paliwo.”' + (p.favorite ? ' Kibice wściekli – odszedł Ulubieniec Trybun! [kibice -8%]' : ''), 'event');
+              // W trakcie ligi składy są zamknięte – odejdzie przy podsumowaniu sezonu
+              p.wantsOut = gameState.calls.rival;
+              Engine.applyEffects({ lockerRoom: -6 });
+              Engine.addLog('🚪 ' + Selectors.playerName(p) + ' zapowiada: „Po sezonie idę do ' + gameState.calls.rival + '. Tam przynajmniej płacą za paliwo.” [szatnia -6%]', 'event');
             } else {
               Engine.addLog('🙄 „' + p.nick + '” burknął „no dobra” i się rozłączył. Tym razem się udało.', 'event');
             }
@@ -1977,7 +1977,7 @@ const Engine = {
   pickLineup(absentIds = []) {
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
-    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id));
+    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched);
     // Obietnica dla „Naszych w Bawarii”: najmłodszy zawodnik musi grać
     const youngest = gameState.dda.youthPromise > 0 ? avail.slice().sort((a, b) => a.age - b.age)[0] : null;
     const score = (p) => {
@@ -2322,7 +2322,7 @@ const Engine = {
     const summary = {
       season: gameState.calendar.season, league: leagueName, pos, w: r.wins, d: r.draws, l: r.losses, gf: r.goalsFor, ga: r.goalsAgainst,
       scorer: topScorer && topScorer.seasonGoals > 0 ? { name: Selectors.playerName(topScorer), goals: topScorer.seasonGoals } : null,
-      retired: [], toStaff: [], newcomers: [], seen: false,
+      retired: [], toStaff: [], newcomers: [], left: [], seen: false,
     };
     Engine.addLog('🏁 KONIEC SEZONU ' + gameState.calendar.season + ' (' + leagueName + ')! Miejsce w tabeli: ' + pos + '/10. Bilans: ' + r.wins + 'W ' + r.draws + 'R ' + r.losses + 'P, bramki ' + r.goalsFor + ':' + r.goalsAgainst + '.', 'system');
 
@@ -2399,6 +2399,13 @@ const Engine = {
         summary.retired.push(Selectors.playerName(p) + ' (' + p.age + ' l.)');
         Engine.addLog('👋 ' + Selectors.playerName(p) + ' (' + p.age + ' l.) kończy karierę. „Kolana mówią dość, żona mówi dość, ja mówię dość.”', 'event');
       }
+    });
+    // Zapowiedziane w sezonie odejścia (odmowa podwyżki) – dopiero teraz, między sezonami
+    gameState.squad.filter((p) => p.wantsOut).forEach((p) => {
+      gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+      summary.left.push(Selectors.playerName(p) + ' → ' + p.wantsOut);
+      if (p.favorite) Engine.applyEffects({ fans: -8 });
+      Engine.addLog('🚪 ' + Selectors.playerName(p) + ' odchodzi do ' + p.wantsOut + ', jak zapowiadał.' + (p.favorite ? ' Kibice wściekli – odszedł Ulubieniec Trybun! [kibice -8%]' : ''), 'event');
     });
     Engine.queueRetirementDecision();
 
@@ -2556,18 +2563,21 @@ const Engine = {
 
   /* ----- Gwiazdy za dobre na ten klub: żądanie transferu i bunt ----- */
   isTooGood(p, avgSkill) {
-    const formStar = p.seasonRatingCount >= 4 && Selectors.avgRating(p) >= 7 && p.skill >= avgSkill + 1;
+    // W oknie transferowym sezon jest już wyzerowany – liczy się forma z zakończonego sezonu
+    const ps = p.prevSeason;
+    const formStar = ps && ps.apps >= 4 && ps.avg != null && ps.avg >= 7 && p.skill >= avgSkill + 1;
     return p.skill >= Math.max(avgSkill + 2, 7 + Selectors.levelSkillBonus()) || formStar;
   },
 
+  // Wywoływane przy otwarciu okna transferowego: znana gwiazda wraca z żądaniem, nowa zgłasza się pierwszy raz
   maybeStarDemand() {
     const st = gameState.star;
-    if (st.playerId || gameState.calendar.week - st.lastWeek < 10) return;
+    if (Selectors.starPlayer()) { Engine.pushDecision('starDemand'); return; }
     const lineup = Engine.pickLineup([]);
     if (!lineup.length) return;
     const avg = lineup.reduce((s, p) => s + p.skill, 0) / lineup.length;
     const pool = gameState.squad.filter((p) => p.starAsked !== gameState.calendar.season && Engine.isTooGood(p, avg));
-    if (!pool.length || Math.random() > 0.5) return;
+    if (!pool.length || Math.random() > 0.7) return;
     const p = pool.sort((a, b) => b.skill - a.skill)[0];
     p.starAsked = gameState.calendar.season;
     Object.assign(st, { playerId: p.id, rebel: false, promised: 0, lastWeek: gameState.calendar.week });
@@ -2588,6 +2598,7 @@ const Engine = {
     const st = gameState.star;
     const p = Selectors.starPlayer();
     if (p && sold) gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+    if (p) delete p.benched;
     Object.assign(st, { playerId: null, rebel: false, promised: 0 });
   },
 
@@ -2601,7 +2612,7 @@ const Engine = {
       Engine.endStar(false);
       return;
     }
-    if (!st.rebel) return;
+    if (!Selectors.rebel()) return;   // odsunięty od składu nie szkodzi
     Engine.applyEffects({ lockerRoom: -3 });
     if (gameState.calendar.week - st.talkWeek >= 4 && !gameState.pendingDecisions.includes('starRebel')) {
       st.talkWeek = gameState.calendar.week;
@@ -2621,6 +2632,12 @@ const Engine = {
       return p;
     });
     gameState.transfer = { open: true, season: gameState.calendar.season, market, bought: 0, sold: 0 };   // sezon już przestawiony na nowy
+    // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
+    Engine.maybeStarDemand();
+    if (!gameState.pendingDecisions.includes('starDemand') && gameState.squad.length > CONFIG.minSquad && Math.random() < 0.4) {
+      DATA.decisions.cutTransfer.prepare();
+      Engine.pushDecision('cutTransfer');
+    }
   },
 
   closeTransferWindow() {
@@ -2629,7 +2646,7 @@ const Engine = {
     t.open = false;
     t.market = [];
     const st = gameState.star;
-    if (st.promised && Selectors.starPlayer()) {
+    if (st.promised && st.promised < t.season && Selectors.starPlayer()) {
       Engine.startRebellion('złamana obietnica transferu');
       Engine.applyEffects({ lockerRoom: -8, fans: -3 });
     }
@@ -2669,7 +2686,7 @@ const Engine = {
 
   releasePlayer(id) {
     const p = gameState.squad.find((x) => x.id === id);
-    if (!p || gameState.squad.length <= CONFIG.minSquad) return;
+    if (!p || !gameState.transfer.open || gameState.squad.length <= CONFIG.minSquad) return;   // tylko w oknie transferowym
     gameState.squad = gameState.squad.filter((x) => x.id !== id);
     let effects = {};
     let text = '✂️ Prezes podziękował za grę: ' + Selectors.playerName(p) + '.';
@@ -2703,7 +2720,7 @@ const Engine = {
     Engine.money('Podpis trenera: ' + coach.name, -Selectors.coachOffer(coach).sign);
     Engine.setCoach(id);
     Engine.addLog('✍️ Nowy trener: ' + coach.name + ' (' + coach.title + '). Styl: ' + DATA.styles[coach.style].label + ' – „' + DATA.styles[coach.style].motto + '”. Pan Mirek z ulgą wraca do kosiarki.', 'decision');
-    if (coach.attracts) Engine.coachBringsPlayer();
+    if (coach.attracts) Engine.addLog('🤝 ' + coach.name + ': „Mam kolegę z dawnych lat – przyprowadzę go w oknie transferowym.”', 'event');
   },
 
   fireCoach(withSeverance) {
@@ -2824,7 +2841,7 @@ const Engine = {
   signCandidate(id) {
     const sc = gameState.scouting;
     const p = sc.candidates.find((x) => x.id === id);
-    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    if (!p || !gameState.transfer.open || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;   // podpis tylko w oknie
     const fee = p.fee;
     Engine.money('Odstępne: ' + Selectors.playerName(p), -fee);
     sc.candidates = sc.candidates.filter((x) => x.id !== id);
@@ -2861,7 +2878,7 @@ const Engine = {
 
   pullJunior() {
     const key = Selectors.youthPullKey();
-    if (gameState.scouting.lastYouthPullKey === key || gameState.squad.length >= CONFIG.maxSquad) return;
+    if (!gameState.transfer.open || gameState.scouting.lastYouthPullKey === key || gameState.squad.length >= CONFIG.maxSquad) return;
     gameState.scouting.lastYouthPullKey = key;
     Engine.youthIntake();
   },
@@ -3282,7 +3299,6 @@ const Engine = {
       const fx = Selectors.currentFixture();
       if (fx.home && Selectors.rival(fx.rival).derby && !gameState.stadium.upgrades.monitoring) Engine.pushDecision('derbySecurity');
       Engine.maybeLockerCall();
-      Engine.maybeStarDemand();
       Engine.maybePassat();
       Engine.maybeBalance();
     },
@@ -3391,10 +3407,10 @@ const Selectors = {
   // Nazwa klubu z formularza: przedrostek (z listy albo własny) + miejscowość
   formClubName: (f) => [(f.prefix === 'custom' ? f.customPrefix : f.prefix).trim(), f.town.trim()].filter(Boolean).join(' '),
   youthLevel: () => (gameState.scouting.youthUpgrades.dresy ? 1 : 0) + (gameState.scouting.youthUpgrades.wfista ? 2 : 0),
-  youthPullKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < CONFIG.roundsPerRunda ? 'j' : 'w'),
+  youthPullKey: () => 's' + gameState.calendar.season,   // raz na okno transferowe
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
   starPlayer: () => gameState.squad.find((p) => p.id === gameState.star.playerId) || null,
-  rebel: () => !!(gameState.star.rebel && Selectors.starPlayer()),
+  rebel: () => { const p = Selectors.starPlayer(); return !!(gameState.star.rebel && p && !p.benched); },
   starFee: (p) => Math.round(p.skill * 220 * Selectors.econ() / 10) * 10,
   calmCost: (p) => Math.round(p.skill * 80 * Selectors.econ() / 10) * 10,
   sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * Selectors.econ() / 10) * 10),
@@ -3931,6 +3947,7 @@ const UI = {
         <div class="space-y-1.5 mt-3">
           ${list('🎖️ Kończą karierę – chcą zostać w sztabie', sm.toStaff, 'Nikt z Ulubieńców ani Legend nie odchodzi.')}
           ${list('👋 Kończą karierę', sm.retired, 'Wszyscy grają dalej. Kolana trzymają.')}
+          ${sm.left && sm.left.length ? list('🚪 Odchodzą (zapowiedzieli w sezonie)', sm.left, '') : ''}
           ${list('🌱 Nowi w kadrze', sm.newcomers, 'Brak nowych – szatnia pełna.')}
         </div>
       </div>
@@ -4423,7 +4440,7 @@ const UI = {
         </div>`;
       }).join('');
       return segs + intro + UI.panel('Sztab Pomocniczy', 'Miejsce dla weteranów po taniości. Zewnętrzni są drodzy – emerytowane Legendy pracują za dychę.', staffRows + `
-        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę po sezonie, sam zgłosi się na Biurko.</p>`);
+        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę, zgłosi się w podsumowaniu sezonu.</p>`);
     }
 
     return segs + intro + UI.tiles([
@@ -4483,10 +4500,12 @@ const UI = {
               <div class="font-semibold">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)} · ${DATA.positions[p.pos].label} · ${inXI ? '<span class="text-grass font-bold">W SKŁADZIE</span>' : 'ŁAWKA'}</div>
               <div class="italic text-ink-700">„${Utils.escape(p.trait)}”</div>
             </div>
-            ${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj', !canRelease, 'stamp')}
+            ${gameState.transfer.open ? UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj', !canRelease, 'stamp') : '<span class="text-[10.5px] text-ink-700 whitespace-nowrap">🔒 do okna</span>'}
           </div>
           <div class="mt-1">Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b> · Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
           <div>Sezon: <b>${p.seasonApps} m · ${p.seasonGoals} g</b> · Kariera w klubie: <b>${p.apps} m · ${p.goals} g</b>${p.lastRating != null ? ' · ostatni mecz: ' + UI.ratingBadge(p.lastRating) : ''}${Selectors.careerRating(p) != null ? ' · w karierze: <b>' + Selectors.ratingText(Selectors.careerRating(p)) + '</b>' : ''}</div>
+          ${p.benched ? '<div class="mt-0.5 text-stamp font-semibold">🚫 Odsunięty od składu do okna transferowego</div>' : ''}
+          ${p.wantsOut ? '<div class="mt-0.5 text-stamp font-semibold">🚪 Po sezonie odchodzi do ' + Utils.escape(p.wantsOut) + '</div>' : ''}
           ${p.favorite || p.legend || p.talent ? `<div class="mt-0.5">${[p.favorite ? '⭐ Ulubieniec trybun' : '', p.legend ? '🏆 Legenda klubu' : '', p.talent ? '💎 Perełka powiatu' : ''].filter(Boolean).join(' · ')}</div>` : ''}
         </div>
       </details>`;
@@ -4506,7 +4525,7 @@ const UI = {
         </div>
         ${rows}
       </section>
-      <p class="text-[10.5px] text-paper-400 leading-snug">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun. Zielony pasek = jedenastka trenera; stuknij wiersz po szczegóły.</p>`;
+      <p class="text-[10.5px] text-paper-400 leading-snug">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun. Zielony pasek = jedenastka trenera; stuknij wiersz po szczegóły.${gameState.transfer.open ? '' : ' 🔒 Skład zamknięty do okna transferowego.'}</p>`;
   },
 
   // Ostrzeżenia w nagłówku: długi, komornik, walne zebranie, prokuratura
@@ -4595,8 +4614,8 @@ const UI = {
         ${ups}
         ${UI.h4('Wyciągnij juniora z Orlika')}
         <div class="flex items-center gap-2">
-          <p class="flex-1 text-[11px] text-ink-700 leading-snug">Raz na rundę możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
-          ${UI.smallBtn('pull-junior', '', pulled ? 'Już w tej rundzie' : '🌱 Wyciągnij', pulled || full)}
+          <p class="flex-1 text-[11px] text-ink-700 leading-snug">W oknie transferowym możesz ściągnąć jednego chłopaka do pierwszej drużyny (oprócz 2 juniorów na koniec sezonu).</p>
+          ${UI.smallBtn('pull-junior', '', pulled ? 'Już w tym oknie' : gameState.transfer.open ? '🌱 Wyciągnij' : '🔒 w oknie', pulled || full || !gameState.transfer.open)}
         </div>
         ${UI.h4('Młodzież w kadrze (do 19 lat)')}
         ${juniors ? `<ul class="text-[12px] space-y-0.5">${juniors}</ul>` : '<p class="text-[12px] italic">Brak. Sami starzy wyjadacze i kolana na taśmach.</p>'}
@@ -4626,7 +4645,7 @@ const UI = {
             <div class="text-[10px] uppercase tracking-wide text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. ${UI.profileBadge(p.profile)}</div>
             <div class="text-[13px] font-bold leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
           </div>
-          ${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, 'Podpisz (' + Utils.formatMoney(p.fee) + ')', full || budget < p.fee)}
+          ${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, gameState.transfer.open ? 'Podpisz (' + Utils.formatMoney(p.fee) + ')' : '🔒 w oknie · ' + Utils.formatMoney(p.fee), !gameState.transfer.open || full || budget < p.fee)}
         </div>
         <p class="text-[11.5px] italic leading-snug">Szwagier: „${Utils.escape(p.trait)}”</p>
         <div class="text-[11px] leading-snug">
@@ -4643,7 +4662,7 @@ const UI = {
         : `<div class="mb-1.5">${UI.smallBtn('send-scout', '', '🚗 Wyślij na zwiady: ' + tier.who + ' (' + Utils.formatMoney(Selectors.scoutTier().cost) + ')', budget < Selectors.scoutTier().cost)}</div>`}
       ${nextTier ? UI.row(`Ulepszenie: ${Utils.escape(nextTier.name)} – ${Utils.formatMoney(nextTier.upgradeCost)}`, `${Utils.escape(nextTier.desc)} Dostępne od ligi: ${DATA.leagueLevels[nextTier.minLevel].name}.`,
         UI.smallBtn('upgrade-scout', '', 'Ulepsz', gameState.club.leagueLevel < nextTier.minLevel || budget < nextTier.upgradeCost || !!sc.missionReturnWeek), 'bg-paper-200 rounded-md px-2 !border-0') : ''}
-      <div class="text-[11px] text-ink-700 mt-1.5">Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
+      <div class="text-[11px] text-ink-700 mt-1.5">${gameState.transfer.open ? '<b class="text-grass">🔓 Okno transferowe otwarte – można podpisywać.</b> ' : '🔒 Podpisy tylko w oknie transferowym po sezonie (kandydaci poczekają). '}Kadra: <b>${gameState.squad.length}/${CONFIG.maxSquad}</b>${full ? ' – <span class="text-stamp font-bold">pełna! Najpierw komuś podziękuj w Kadrze.</span>' : ''} · Trener gra stylem: <b>${DATA.styles[coach.style].label}</b></div>
     `) + UI.panel('Notes Szwagra', '', cands || '<p class="text-[12px] italic">Notes Szwagra pusty. Ostatnio zapisał tylko numer do pani z loterii fantowej.</p>');
   },
 
