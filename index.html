@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>B-Klasa: Prezes z Łapanki</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -56,6 +56,13 @@
     /* Nowe wpisy dziennika: tylko podświetlenie tła, tekst zawsze w pełni czytelny */
     @keyframes logFlash { from { background-color: rgb(var(--glow-rgb) / 0.35); } to { background-color: transparent; } }
     .log-new { animation: logFlash 1.6s ease-out; }
+    /* Mobile: zero poziomego przewijania, zwijane sekcje bez systemowego trójkącika */
+    html, body { overflow-x: hidden; max-width: 100%; }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] > summary .fold-chevron { transform: rotate(180deg); }
+    .fold-chevron { transition: transform .15s; }
+    .tap { min-height: 48px; }
     .scroll-thin::-webkit-scrollbar { width: 8px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
   </style>
@@ -1181,6 +1188,9 @@ function createInitialState() {
       seenFeedId: 0,            // licznik nowych postów na zakładce Wirtualny X
       seenScoutKey: '',         // raport Szwagra już obejrzany
       squadSort: 'pos',         // sortowanie kadry: pos | goals | rating
+      deskView: null,           // Biurko na telefonie: decisions | log (null = automatycznie)
+      logWeeks: 3,              // ile tygodni dziennika pokazać od razu
+      folds: {},                // zapamiętane rozwinięcia sekcji (Finanse, Kadra)
     },
   };
 }
@@ -2754,9 +2764,34 @@ const UI = {
 
   // Treść nigdy nie chowa się pod stałym paskiem: dolny margines = realna wysokość paska.
   fitActionBar() {
-    const bar = document.getElementById('action-bar');
     const page = document.getElementById('game-root');
-    if (bar && page) page.style.paddingBottom = (bar.offsetHeight + 24) + 'px';
+    if (!page) return;
+    // Na komputerze widoczny jest pasek akcji, na telefonie dok z przyciskiem i nawigacją (drugi ma wtedy wysokość 0).
+    const h = Math.max(...['action-bar', 'mobile-dock'].map((id) => (document.getElementById(id) || {}).offsetHeight || 0));
+    page.style.paddingBottom = (h + 20) + 'px';
+  },
+
+  isMobile: () => window.matchMedia('(max-width: 1023px)').matches,
+
+  // Zwijana sekcja: na telefonie domyślnie zwinięta (chyba że mobileOpen), na komputerze rozwinięta; wybór gracza jest zapamiętany.
+  fold(key, letter, title, subtitle, info, body, extraClass = '', mobileOpen = false) {
+    const stored = (gameState.ui.folds || {})[key];
+    const open = stored != null ? stored : (UI.isMobile() ? mobileOpen : true);
+    return `
+    <details data-fold="${key}" class="paper ${extraClass}" ${open ? 'open' : ''}>
+      <summary class="tap flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 cursor-pointer select-none">
+        <span class="font-type text-2xl font-bold text-ink-700 w-7 text-center flex-shrink-0">${letter}</span>
+        <div class="min-w-0 flex-1">
+          <h3 class="font-type text-lg sm:text-xl font-semibold leading-tight">${title}</h3>
+          ${info ? `<p class="text-xs text-ink-700 truncate">${info}</p>` : ''}
+        </div>
+        <span class="fold-chevron text-ink-700 text-xl flex-shrink-0">⌄</span>
+      </summary>
+      <div class="px-4 sm:px-5 pb-5 pt-4 border-t border-paper-300">
+        ${subtitle ? `<p class="text-xs text-ink-700 mb-3">${subtitle}</p>` : ''}
+        ${body}
+      </div>
+    </details>`;
   },
 
   /* ---------- Motyw: barwy klubu jako akcenty interfejsu ---------- */
@@ -2962,13 +2997,15 @@ const UI = {
   /* ---------- GŁÓWNY EKRAN GRY ---------- */
   gameScreen() {
     return `
-    <div id="game-root" class="min-h-screen flex flex-col pb-44 sm:pb-28">
-      ${UI.statusBar()}
+    <div id="game-root" class="min-h-screen flex flex-col pb-44 sm:pb-28 overflow-x-hidden">
+      ${UI.mobileHeader()}
+      <div class="hidden lg:block">${UI.statusBar()}</div>
       <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
         ${UI.navigation()}
-        <main class="flex-1 min-w-0 p-4 sm:p-6">${UI.activeTabContent()}</main>
+        <main class="flex-1 min-w-0 p-3 sm:p-6">${UI.activeTabContent()}</main>
       </div>
       ${UI.actionBar()}
+      ${UI.mobileDock()}
     </div>`;
   },
 
@@ -2980,7 +3017,7 @@ const UI = {
       ? (Selectors.isMatchWeek() ? '⚽ W ten weekend gramy! Kliknij, żeby rozegrać mecz i rozliczyć tydzień.' : 'Przedsezon. Biurko czyste – można iść dalej.')
       : '🔔 Na Biurku czeka ' + pending + ' ' + (pending === 1 ? 'pilna sprawa' : 'pilne sprawy') + '! Nikt nie lubi czekać.';
     return `
-    <div id="action-bar" class="fixed bottom-0 left-0 right-0 z-50 bg-desk-800 border-t-4 border-desk-600" style="position:fixed;bottom:0;left:0;right:0;z-index:50;">
+    <div id="action-bar" class="hidden lg:block fixed bottom-0 left-0 right-0 z-50 bg-desk-800 border-t-4 border-desk-600" style="bottom:0;left:0;right:0;z-index:50;">
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
         <p class="flex-1 text-sm text-center sm:text-left ${canAdvance ? 'text-paper-300' : 'text-amber-glow font-bold'}">
           ${msg}
@@ -2994,6 +3031,95 @@ const UI = {
           NASTĘPNY TYDZIEŃ &gt;&gt;
         </button>
       </div>
+    </div>`;
+  },
+
+  // Telefon: zwarty nagłówek – herb, nazwa, 3 kafelki i jedna linia meczu
+  mobileHeader() {
+    const s = gameState;
+    const fx = Selectors.currentFixture();
+    const rival = Selectors.rival(fx.rival);
+    const w = s.weather;
+    const played = s.season.table[US] && s.season.table[US].p;
+    const inPre = !Selectors.isMatchWeek();
+    const tile = (label, value, extra = '') => `
+      <div class="rounded-lg bg-desk-900 border border-desk-600 px-2 py-1.5 min-w-0">
+        <div class="text-[10px] uppercase tracking-wide text-paper-400 truncate">${label}</div>
+        ${value}${extra}
+      </div>`;
+    const mood = (v) => `<div class="font-type font-bold text-base leading-tight">${v}%</div><div class="h-1.5 rounded-full bg-desk-700 mt-1 overflow-hidden"><div class="h-full ${Selectors.moodColor(v)}" style="width:${v}%"></div></div>`;
+    const form = s.record.form.map((r) => `<span class="w-4 h-4 rounded-sm text-[9px] font-bold flex items-center justify-center ${{ W: 'bg-grass text-white', D: 'bg-amber-400 text-ink-900', L: 'bg-stamp text-white' }[r]}">${{ W: 'W', D: 'R', L: 'P' }[r]}</span>`).join('');
+    return `
+    <header class="lg:hidden bg-desk-800 border-b border-desk-600">
+      <div class="px-3 pt-3 pb-2 flex items-center gap-2">
+        ${UI.crest(s.club.colors, s.club.name, 30)}
+        <div class="min-w-0 flex-1">
+          <div class="font-type font-bold text-lg leading-tight truncate">${Utils.escape(Selectors.clubDisplayName())}</div>
+          <div class="text-[11px] text-paper-400 truncate">${Selectors.leagueName()} · ${played ? Selectors.ourPosition() + '. miejsce' : 'przed 1. kolejką'} · Sezon ${s.calendar.season}, tydz. ${s.calendar.week}</div>
+        </div>
+        <button data-action="exit-menu" title="Wyjdź do menu (zapis zostaje)" class="btn-press w-10 h-10 rounded-lg bg-desk-700 text-paper-300 flex-shrink-0">⏏</button>
+        <button data-action="reset-game" title="Rzuć papierami (nowa gra)" class="btn-press w-10 h-10 rounded-lg bg-desk-700 text-paper-300 flex-shrink-0">🗑</button>
+      </div>
+      <div class="px-3 pb-2 grid grid-cols-3 gap-2">
+        ${tile('💰 Budżet', `<div class="font-type font-bold text-base leading-tight truncate ${s.finance.budget < 0 ? 'text-stamp' : 'text-amber-glow'}">${Utils.formatMoney(s.finance.budget)}</div>`)}
+        ${tile('🧦 Szatnia', mood(s.morale.lockerRoom))}
+        ${tile('📣 Kibice', mood(s.morale.fans))}
+      </div>
+      <div class="px-3 pb-3">
+        <div class="rounded-lg bg-desk-900 border border-desk-600 px-3 py-2 flex items-center gap-2">
+          <span class="text-2xl flex-shrink-0">${w.icon}</span>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm truncate"><b>${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)}:</b> ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${fx.home ? 'U siebie' : 'Na wyjeździe'}${!inPre && fx.home ? ' · szac. ' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(w.label)}</div>
+          </div>
+          ${form ? `<div class="flex gap-0.5 flex-shrink-0">${form}</div>` : ''}
+        </div>
+        ${UI.threats()}
+      </div>
+    </header>`;
+  },
+
+  tabBadge(id) {
+    if (id === 'desk') return gameState.pendingDecisions.length;
+    if (id === 'finance') return gameState.finance.budget < 0 ? '!' : 0;
+    if (id === 'scouting') {
+      const key = gameState.scouting.candidates.map((p) => p.id).join(',');
+      return key && key !== gameState.ui.seenScoutKey ? gameState.scouting.candidates.length : 0;
+    }
+    if (id === 'virtualx') {
+      const n = gameState.feed.filter((p) => p.id > (gameState.ui.seenFeedId || 0)).length;
+      return n > 9 ? '9+' : n;
+    }
+    return 0;
+  },
+
+  // Telefon: przypięty dok – duży przycisk tygodnia nad dolną nawigacją
+  mobileDock() {
+    const canAdvance = Engine.canAdvanceWeek();
+    const pending = gameState.pendingDecisions.length;
+    const short = { desk: 'Biurko', table: 'Tabela', finance: 'Finanse', staff: 'Sztab', squad: 'Kadra', scouting: 'Skauting', virtualx: 'X' };
+    const tabs = DATA.tabs.map((t) => {
+      const active = t.id === gameState.activeTab;
+      const badge = UI.tabBadge(t.id);
+      return `
+      <button data-action="switch-tab" data-tab="${t.id}" aria-label="${t.label}"
+        class="tap relative flex flex-col items-center justify-center min-w-0 px-0.5 ${active ? 'text-amber-glow' : 'text-paper-400'}">
+        ${active ? '<span class="absolute top-0 inset-x-2 h-0.5 rounded-full bg-amber-glow"></span>' : ''}
+        <span class="text-lg leading-none">${t.icon}</span>
+        <span class="text-[10px] mt-1 font-semibold truncate max-w-full">${short[t.id] || t.label}</span>
+        ${badge ? `<span class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${t.id === 'finance' ? 'bg-stamp text-white' : 'bg-amber-glow text-ink-900'}">${badge}</span>` : ''}
+      </button>`;
+    }).join('');
+    return `
+    <div id="mobile-dock" class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-desk-800/95 backdrop-blur border-t border-desk-600 shadow-2xl" style="padding-bottom: env(safe-area-inset-bottom);">
+      <div class="px-3 pt-2">
+        ${!canAdvance ? `<button data-action="switch-tab" data-tab="desk" class="w-full text-xs text-amber-glow font-semibold mb-1.5 truncate">🔔 ${pending} ${pending === 1 ? 'sprawa czeka' : 'sprawy czekają'} na Biurku – tydzień ruszy po decyzji</button>` : ''}
+        <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
+          class="btn-press tap w-full rounded-xl font-type font-bold text-lg tracking-wide ${canAdvance ? 'bg-amber-glow text-ink-900 shadow-lg' : 'bg-desk-700 text-paper-400 cursor-not-allowed'}">
+          ${canAdvance ? 'NASTĘPNY TYDZIEŃ »' : '🔒 NASTĘPNY TYDZIEŃ'}
+        </button>
+      </div>
+      <nav class="grid grid-cols-7 mt-1">${tabs}</nav>
     </div>`;
   },
 
@@ -3082,7 +3208,7 @@ const UI = {
     }).join('');
 
     return `
-    <nav class="lg:w-60 bg-desk-900 lg:border-r border-b lg:border-b-0 border-desk-600 lg:py-4">
+    <nav class="hidden lg:block lg:w-60 bg-desk-900 lg:border-r border-desk-600 lg:py-4">
       <div class="hidden lg:block px-4 pb-3 text-xs text-paper-400 uppercase tracking-[0.3em]">Pokoje klubowe</div>
       <div class="flex lg:flex-col overflow-x-auto">${items}</div>
       <div class="flex lg:flex-col gap-3 px-4 py-3 lg:pt-6 text-xs">
@@ -3161,15 +3287,23 @@ const UI = {
 
   /* ---------- ZAKŁADKA: BIURKO ---------- */
   deskTab() {
+    const pending = gameState.pendingDecisions.length;
+    // Na telefonie jedna sekcja naraz: sprawy, gdy coś czeka, inaczej dziennik (chyba że gracz wybrał sam).
+    const view = gameState.ui.deskView || (pending ? 'decisions' : 'log');
+    const seg = (v, label) => `<button data-action="desk-view" data-value="${v}"
+      class="btn-press tap flex-1 rounded-lg text-sm font-semibold ${view === v ? 'bg-amber-glow text-ink-900' : 'text-paper-300'}">${label}</button>`;
     return `
+    <div class="lg:hidden flex gap-1 p-1 mb-3 rounded-xl bg-desk-800 border border-desk-600">
+      ${seg('decisions', '❗ Pilne sprawy' + (pending ? ' (' + pending + ')' : ''))}${seg('log', '📖 Dziennik')}
+    </div>
     <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
-      <section>
-        <h2 class="font-type text-2xl font-bold text-amber-glow mb-3">Pilne Sprawy / Decyzje</h2>
+      <section class="${view === 'log' ? 'hidden lg:block' : ''}">
+        <h2 class="hidden lg:block font-type text-2xl font-bold text-amber-glow mb-3">Pilne Sprawy / Decyzje</h2>
         ${UI.decisions()}
       </section>
 
-      <section>
-        <h2 class="font-type text-2xl font-bold text-amber-glow mb-3">📒 Dziennik Zdarzeń</h2>
+      <section class="${view === 'decisions' ? 'hidden lg:block' : ''}">
+        <h2 class="hidden lg:block font-type text-2xl font-bold text-amber-glow mb-3">📒 Dziennik Zdarzeń</h2>
         ${UI.logPanel()}
       </section>
     </div>`;
@@ -3181,6 +3315,7 @@ const UI = {
       <div class="paper p-6 text-center">
         <p class="font-type text-xl">Biurko puste.</p>
         <p class="text-sm text-ink-700 mt-1">Tylko kubek z napisem „Najlepszy Dziadek” i pieczątka klubowa bez tuszu.</p>
+        <button data-action="desk-view" data-value="log" class="lg:hidden btn-press tap mt-4 w-full rounded-lg bg-ink-900 text-paper-100 font-semibold">📖 Otwórz Dziennik Zdarzeń</button>
       </div>`;
     }
     return gameState.pendingDecisions.map((id) => {
@@ -3188,17 +3323,17 @@ const UI = {
       const cols = d.options.length >= 3 ? 'grid-cols-1' : 'sm:grid-cols-2';   // 3 opcje: pełna szerokość, żeby długie słowa się mieściły
       const opts = d.options.map((o, i) => `
         <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
-          class="btn-press w-full min-w-0 text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 border border-paper-400 rounded-lg [overflow-wrap:anywhere]">
-          <span class="font-type text-lg block">▸ ${Utils.escape(Utils.val(o.label))}</span>
+          class="btn-press tap w-full min-w-0 text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 active:bg-paper-300 border border-paper-400 rounded-xl [overflow-wrap:anywhere]">
+          <span class="font-type text-base sm:text-lg font-semibold block leading-snug">▸ ${Utils.escape(Utils.val(o.label))}</span>
           <span class="text-xs text-ink-700">${Utils.escape(Utils.val(o.hint))}</span>
         </button>`).join('');
       return `
-      <article class="paper p-6 relative mb-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Od: ${Utils.escape(Utils.val(d.from))}</div>
-        <div class="text-xs uppercase tracking-widest text-ink-700 pr-24">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
-        <h3 class="font-type text-2xl mt-1 mb-3 pr-16">${Utils.escape(Utils.val(d.title))}</h3>
-        <p class="leading-relaxed mb-5">${Utils.escape(Utils.val(d.body))}</p>
-        <div class="grid gap-3 ${cols}">${opts}</div>
+      <article class="paper p-4 sm:p-6 relative mb-4">
+        <div class="text-[11px] sm:text-xs uppercase tracking-wider text-ink-700">Od: ${Utils.escape(Utils.val(d.from))}</div>
+        <div class="text-[11px] sm:text-xs uppercase tracking-wider text-ink-700">Do: ${Utils.escape(Selectors.presName())}, ${Utils.escape(Selectors.clubDisplayName())}</div>
+        <h3 class="font-type text-xl sm:text-2xl font-bold mt-1 mb-2 sm:mb-3">${Utils.escape(Utils.val(d.title))}</h3>
+        <p class="text-sm sm:text-base leading-relaxed mb-4 sm:mb-5">${Utils.escape(Utils.val(d.body))}</p>
+        <div class="grid gap-2 sm:gap-3 ${cols}">${opts}</div>
       </article>`;
     }).join('');
   },
@@ -3225,7 +3360,8 @@ const UI = {
     const seenId = UI.lastSeenLogId;
     UI.lastSeenLogId = gameState.ui.lastLogId;
 
-    const html = groups.map((g) => `
+    const shown = groups.slice(0, gameState.ui.logWeeks || 3);
+    const html = shown.map((g) => `
       <div class="mb-4">
         <div class="font-type text-sm text-ink-900 border-b border-paper-300 mb-2">— Tydzień ${g.week} —</div>
         <ul class="space-y-2">
@@ -3235,7 +3371,9 @@ const UI = {
         </ul>
       </div>`).join('');
 
-    return `<div class="paper p-5 max-h-[36rem] overflow-y-auto scroll-thin">${html || '<p class="text-sm">Pusto. Nawet plotek brak.</p>'}</div>`;
+    const more = groups.length > shown.length
+      ? `<button data-action="log-more" class="btn-press tap w-full rounded-lg border border-paper-400 bg-paper-200 text-sm font-semibold">Pokaż starsze tygodnie (${groups.length - shown.length})</button>` : '';
+    return `<div class="paper p-4 sm:p-5 lg:max-h-[36rem] lg:overflow-y-auto scroll-thin">${html || '<p class="text-sm">Pusto. Nawet plotek brak.</p>'}${more}</div>`;
   },
 
   /* ---------- ZAKŁADKA: TABELA ---------- */
@@ -3246,8 +3384,8 @@ const UI = {
       return `
       <tr class="border-b border-paper-300 ${us ? 'bg-amber-glow/40 font-bold' : ''} ${i < CONFIG.promotionSpots && gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'border-l-4 border-l-grass' : ''} ${i === 9 ? 'border-l-4 border-l-stamp' : ''}">
         <td class="py-1.5 pr-2 text-right font-type">${i + 1}.</td>
-        <td class="py-1.5 pr-2">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp text-xs">🔥</span>' : ''}</td>
-        <td class="text-center">${r.p}</td><td class="text-center">${r.w}</td><td class="text-center">${r.d}</td><td class="text-center">${r.l}</td>
+        <td class="py-1.5 pr-2 max-w-[140px] sm:max-w-none truncate">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp text-xs">🔥</span>' : ''}</td>
+        <td class="text-center">${r.p}</td><td class="text-center hidden sm:table-cell">${r.w}</td><td class="text-center hidden sm:table-cell">${r.d}</td><td class="text-center hidden sm:table-cell">${r.l}</td>
         <td class="text-center whitespace-nowrap">${r.gf}:${r.ga}</td>
         <td class="text-center font-type text-lg">${r.pts}</td>
       </tr>`;
@@ -3262,12 +3400,12 @@ const UI = {
       upcoming.push(`<li>Kolejka ${i + 1}: ${f.home ? 'u siebie vs' : 'wyjazd do'} <b>${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
     }
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
+    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">📊 ${Selectors.leagueName()} · Sezon ${gameState.calendar.season}</h2>
     <p class="text-paper-400 text-sm mb-5">Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.</p>
     <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
       ${UI.card('§', 'Tabela', 'M – mecze, W – wygrane, R – remisy, P – porażki', `
         <div class="overflow-x-auto"><table class="w-full text-sm">
-          <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Bramki</th><th>Pkt</th></tr>
+          <tr class="text-xs uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th class="hidden sm:table-cell">W</th><th class="hidden sm:table-cell">R</th><th class="hidden sm:table-cell">P</th><th>Bramki</th><th>Pkt</th></tr>
           ${rows}
         </table></div>
         <p class="text-xs text-ink-700 mt-3"><span class="inline-block w-3 h-3 bg-grass align-middle"></span> ${gameState.club.leagueLevel < DATA.leagueLevels.length - 1 ? 'Miejsca 1–' + CONFIG.promotionSpots + ': awans do ligi ' + DATA.leagueLevels[gameState.club.leagueLevel + 1].name : 'Miejsce 1: Mistrz Polski'}
@@ -3415,65 +3553,72 @@ const UI = {
     const count = (pr) => gameState.squad.filter((p) => p.profile === pr).length;
     const canRelease = gameState.squad.length > CONFIG.minSquad;
     const sortBtn = (value, label) => `<button data-action="squad-sort" data-value="${value}"
-      class="btn-press px-3 py-1.5 rounded-lg text-sm font-semibold border ${sort === value ? 'bg-amber-glow text-ink-900 border-transparent' : 'border-desk-600 text-paper-300 hover:bg-desk-800'}">${label}</button>`;
+      class="btn-press tap sm:min-h-0 px-3 py-1.5 rounded-lg text-sm font-semibold border ${sort === value ? 'bg-amber-glow text-ink-900 border-transparent' : 'border-desk-600 text-paper-300 hover:bg-desk-800'}">${label}</button>`;
 
     const cards = squad.map((p) => {
       const inXI = lineup.includes(p);
+      const chips = [
+        inXI ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-grass text-white">W SKŁADZIE</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-paper-300 text-ink-700">ŁAWKA</span>',
+        p.favorite ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-ink-900">⭐ ULUBIENIEC</span>' : '',
+        p.legend ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-ink-900 text-paper-100">🏆 LEGENDA</span>' : '',
+        p.talent ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-600 text-white">💎 PEREŁKA</span>' : '',
+      ].join('');
+      const key = 'pl-' + p.id;
+      const stored = (gameState.ui.folds || {})[key];
+      const open = stored != null ? stored : !UI.isMobile();
       return `
-      <article class="paper p-4 flex flex-col ${inXI ? 'border-l-8 border-l-grass' : 'border-l-8 border-l-paper-400'}">
-        <div class="flex justify-between items-start gap-2">
-          <div class="min-w-0">
-            <div class="text-xs uppercase tracking-widest text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l.</div>
-            <div class="font-type text-lg font-bold leading-tight">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
+      <details data-fold="${key}" class="paper ${inXI ? 'border-l-8 border-l-grass' : 'border-l-8 border-l-paper-400'}" ${open ? 'open' : ''}>
+        <summary class="tap flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 cursor-pointer select-none">
+          <div class="min-w-0 flex-1">
+            <div class="text-[11px] uppercase tracking-wider text-ink-700 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · sezon: ${p.seasonApps} m / ${p.seasonGoals} g</div>
+            <div class="font-type text-base sm:text-lg font-bold leading-tight truncate">${Utils.escape(p.first)} „${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</div>
+            <div class="flex flex-wrap gap-1 mt-1">${chips}</div>
           </div>
-          <div class="flex flex-col items-end gap-1 flex-shrink-0">${UI.ratingBadge(Selectors.avgRating(p), 'Śr. nota: ')}${UI.profileBadge(p.profile)}</div>
+          <div class="flex flex-col items-end gap-1 flex-shrink-0">${UI.ratingBadge(Selectors.avgRating(p), 'Śr. ')}${UI.profileBadge(p.profile)}</div>
+          <span class="fold-chevron text-ink-700 text-lg flex-shrink-0">⌄</span>
+        </summary>
+        <div class="px-3 sm:px-4 pb-4 pt-3 border-t border-paper-300">
+          <p class="text-sm italic mb-2">„${Utils.escape(p.trait)}”</p>
+          <div class="text-xs space-y-0.5">
+            <div>Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b></div>
+            <div>Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
+            <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Sezon</div><b>${p.seasonApps} meczów · ${p.seasonGoals} goli</b></div>
+            <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Kariera w klubie</div><b>${p.apps} meczów · ${p.goals} goli</b></div>
+          </div>
+          <div class="text-xs text-ink-700 mt-2">Śr. nota w sezonie: ${UI.ratingBadge(Selectors.avgRating(p))}${p.lastRating != null ? ' · ostatni mecz: ' + UI.ratingBadge(p.lastRating) : ''}${Selectors.careerRating(p) != null ? ' · w karierze: <b>' + Selectors.ratingText(Selectors.careerRating(p)) + '</b>' : ''}</div>
+          <div class="pt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
         </div>
-        <p class="text-sm italic my-2">„${Utils.escape(p.trait)}”</p>
-        <div class="text-xs space-y-0.5">
-          <div>Klasa: <b>${Selectors.skillLabel(p.skill)}</b> · Pasuje do: <b>${DATA.profiles[p.profile].label}</b></div>
-          <div>Utrzymanie: <b>${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)})</div>
-        </div>
-        <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
-          <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Sezon</div><b>${p.seasonApps} meczów · ${p.seasonGoals} goli</b></div>
-          <div class="rounded-lg bg-paper-200 border border-paper-300 px-2 py-1.5"><div class="text-ink-700">Kariera w klubie</div><b>${p.apps} meczów · ${p.goals} goli</b></div>
-        </div>
-        ${p.lastRating != null ? `<div class="text-xs text-ink-700 mt-2">Ostatni mecz: ${UI.ratingBadge(p.lastRating)}${Selectors.careerRating(p) != null ? ' · średnia w karierze: <b>' + Selectors.ratingText(Selectors.careerRating(p)) + '</b>' : ''}</div>` : ''}
-        <div class="flex flex-wrap gap-1 mt-3">
-          ${inXI ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-grass text-white">W SKŁADZIE TRENERA</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-paper-300 text-ink-700">ŁAWKA</span>'}
-          ${p.favorite ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-ink-900">⭐ ULUBIENIEC TRYBUN</span>' : ''}
-          ${p.legend ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-ink-900 text-paper-100">🏆 LEGENDA KLUBU</span>' : ''}
-          ${p.talent ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-600 text-white">💎 PEREŁKA POWIATU</span>' : ''}
-        </div>
-        <div class="mt-auto pt-3 text-right">${UI.smallBtn('release-player', `data-id="${p.id}"`, 'Podziękuj za grę', !canRelease, 'stamp')}</div>
-      </article>`;
+      </details>`;
     }).join('');
 
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">👟 Kadra i Szatnia</h2>
-    <p class="text-paper-400 text-sm mb-5">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
-    <div class="grid gap-4 md:grid-cols-3 mb-5">
-      <div class="paper p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Chemia z trenerem (${DATA.styles[coach.style].label.toLowerCase()})</div>
-        <div class="font-type text-2xl font-bold">${chem}% – ${Selectors.chemLabel(chem)}</div>
+    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">👟 Kadra i Szatnia</h2>
+    <p class="text-paper-400 text-sm mb-4 sm:mb-5">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun.</p>
+    <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-5">
+      <div class="paper p-2.5 sm:p-4 min-w-0">
+        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Chemia<span class="hidden sm:inline"> z trenerem (${DATA.styles[coach.style].label.toLowerCase()})</span></div>
+        <div class="font-type text-lg sm:text-2xl font-bold">${chem}%<span class="hidden sm:inline"> – ${Selectors.chemLabel(chem)}</span></div>
         ${UI.bar(chem, chem >= 65 ? 'bg-grass' : chem >= 45 ? 'bg-amber-400' : 'bg-stamp')}
       </div>
-      <div class="paper p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Profil kadry (${gameState.squad.length}/${CONFIG.maxSquad} ludzi)</div>
-        <div class="text-sm mt-1">${UI.profileBadge('off')} Ofensywni: <b>${count('off')}</b></div>
-        <div class="text-sm">${UI.profileBadge('def')} Defensywni: <b>${count('def')}</b></div>
-        <div class="text-sm">${UI.profileBadge('uni')} Uniwersalni: <b>${count('uni')}</b></div>
+      <div class="paper p-2.5 sm:p-4 min-w-0">
+        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Kadra</div>
+        <div class="font-type text-lg sm:text-2xl font-bold">${gameState.squad.length}/${CONFIG.maxSquad}</div>
+        <div class="flex flex-wrap gap-1 mt-1">${UI.profileBadge('off')}<span class="text-xs">${count('off')}</span>${UI.profileBadge('def')}<span class="text-xs">${count('def')}</span>${UI.profileBadge('uni')}<span class="text-xs">${count('uni')}</span></div>
       </div>
-      <div class="paper p-4">
-        <div class="text-xs uppercase tracking-widest text-ink-700">Koszt utrzymania kadry</div>
-        <div class="font-type text-2xl font-bold">${Utils.formatMoney(Selectors.squadWages())}/tydz.</div>
-        <div class="text-xs text-ink-700">Bazowy nastrój szatni: <b>${Selectors.lockerBaseline()}%</b> (Legendy, liderzy, sztab i bojler go podnoszą).</div>
+      <div class="paper p-2.5 sm:p-4 min-w-0">
+        <div class="text-[10px] sm:text-xs uppercase tracking-wide text-ink-700 truncate">Koszt kadry</div>
+        <div class="font-type text-lg sm:text-2xl font-bold truncate">${Utils.formatMoney(Selectors.squadWages())}<span class="text-xs sm:text-base">/tydz.</span></div>
+        <div class="text-[11px] sm:text-xs text-ink-700">Baza szatni: <b>${Selectors.lockerBaseline()}%</b><span class="hidden sm:inline"> (Legendy, liderzy, sztab i bojler ją podnoszą)</span></div>
       </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      <span class="text-sm text-paper-400 mr-1">Sortuj:</span>
-      ${sortBtn('pos', 'Domyślnie / Pozycja')}${sortBtn('goals', 'Wg goli')}${sortBtn('rating', 'Wg średniej noty')}
+    <div class="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 mb-3 sm:mb-4">
+      <span class="hidden sm:inline text-sm text-paper-400 mr-1">Sortuj:</span>
+      ${sortBtn('pos', '<span class="sm:hidden">Pozycja</span><span class="hidden sm:inline">Domyślnie / Pozycja</span>')}${sortBtn('goals', 'Wg goli')}${sortBtn('rating', 'Wg noty')}
     </div>
-    <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">${cards}</div>`;
+    <p class="lg:hidden text-xs text-paper-400 mb-2">Stuknij zawodnika, żeby zobaczyć szczegóły.</p>
+    <div class="grid gap-2 sm:gap-4 md:grid-cols-2 2xl:grid-cols-3 items-start">${cards}</div>`;
   },
 
   // Ostrzeżenia w pasku: długi, komornik, walne zebranie, prokuratura
@@ -3670,9 +3815,9 @@ const UI = {
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
   financeTab() {
     return `
-    <h2 class="font-type text-3xl font-bold text-amber-glow mb-1">💰 Finanse i Stadion</h2>
-    <p class="text-paper-400 text-sm mb-5">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
-    <div class="grid gap-6 xl:grid-cols-2">
+    <h2 class="font-type text-2xl sm:text-3xl font-bold text-amber-glow mb-1">💰 Finanse i Stadion</h2>
+    <p class="text-paper-400 text-sm mb-4 sm:mb-5">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”. Wypłaty: <b class="text-paper-200">${Utils.formatMoney(Selectors.weeklyPayroll())}/tydz.</b></p>
+    <div class="grid gap-3 sm:gap-6 xl:grid-cols-2 items-start">
       ${UI.reportCard()}
       ${UI.ticketsCard()}
       ${UI.merchCard()}
@@ -3687,10 +3832,11 @@ const UI = {
     const body = !rep
       ? '<p class="text-sm">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
       : `<table class="w-full text-sm">
-          ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
-          <tr><td class="pt-2 font-type text-lg">RAZEM</td><td class="pt-2 text-right font-type text-lg ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
+          ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
+          <tr><td class="pt-2 font-type text-lg">RAZEM</td><td class="pt-2 text-right font-type text-lg whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
-    return UI.card('§', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body);
+    return UI.fold('fin-report', '§', 'Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.',
+      rep ? 'Razem: ' + Utils.signedMoney(rep.total) + ' · stan konta ' + Utils.formatMoney(gameState.finance.budget) : 'Jeszcze nic nie rozliczono', body, '', true);
   },
 
   ticketsCard() {
@@ -3712,7 +3858,8 @@ const UI = {
       ? `Karnety: ${st.holders} posiadaczy, ważne jeszcze ${st.roundsLeft} kolejek.`
       : 'Karnety: brak aktywnych.';
 
-    return UI.card('A', 'Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.', `
+    return UI.fold('fin-tickets', 'A', 'Bilety i Budka z Kiełbaskami', 'Catering u Pana Zenka. Kasa fiskalna: zeszyt w kratkę.',
+      'Bilet ' + DATA.tickets[md.ticket].price + ' zł · ' + DATA.sausages[md.sausage].label, `
       <div class="bg-paper-200 border border-paper-400 p-3 mb-4">${preview}<p class="text-xs text-ink-700 mt-1">${ticketsInfo}</p></div>
       <h4 class="font-type mb-2">Cena biletu</h4>
       <div class="grid gap-2 mb-5">${ticketBtns}</div>
@@ -3736,7 +3883,8 @@ const UI = {
     }).join('');
     const frozen = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id] * DATA.merch[id].unitCost, 0);
     const markupBtns = Object.entries(DATA.merchMarkups).map(([id, mk]) => UI.choice('set-markup', id, m.markup === id, mk.label, '')).join('');
-    return UI.card('B', 'Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
+    return UI.fold('fin-merch', 'B', 'Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.',
+      'Magazyn: ' + Object.keys(DATA.merch).map((id) => m.stock[id]).join(' / ') + ' szt. · narzut ' + DATA.merchMarkups[m.markup].label.split(' –')[0].toLowerCase(), `
       <table class="w-full text-sm mb-3">
         <tr class="text-xs uppercase text-ink-700"><th class="text-left">Towar</th><th>Magazyn</th><th></th></tr>
         ${rows}
@@ -3776,7 +3924,8 @@ const UI = {
         </div>
       </div>`;
     }).join('');
-    return UI.card('C', 'Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.', `
+    return UI.fold('fin-sponsor', 'C', 'Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.',
+      active ? active.name + ' · ' + Utils.formatMoney(Selectors.sponsorWeekly(active)) + '/tydz.' : 'Brak sponsora', `
       ${body}
       ${offers}
       <p class="text-xs text-ink-700 mt-3">Skandale w kartotece klubu: <b>${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca.</p>
@@ -3809,7 +3958,8 @@ const UI = {
         <div class="flex-shrink-0">${UI.smallBtn('lend-money', `data-id="${id}"`, 'Daj', !!active || gameState.finance.budget < b.amount)}</div>
       </div>`;
     }).join('');
-    return UI.card('D', 'Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.', `
+    return UI.fold('fin-loans', 'D', 'Pożyczki Międzyklubowe', 'Chwilówki u prezesów. Umowa ustna, świadek: barman.',
+      (L.taken.length ? 'Spłacamy: ' + L.taken.length : 'Brak długów u prezesów') + (L.given.length ? ' · pożyczyliśmy: ' + L.given.length : ''), `
       <h4 class="font-type mb-1">Pożycz od innego prezesa</h4>
       ${takenRows}
       <h4 class="font-type mt-4 mb-1">Pożycz komuś nasze nadwyżki</h4>
@@ -3833,7 +3983,8 @@ const UI = {
         <div class="flex-shrink-0">${owned ? '<span class="text-xs font-bold text-grass">ZROBIONE</span>' : UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))}</div>
       </div>`;
     }).join('');
-    return UI.card('E', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.', `
+    return UI.fold('fin-stadium', 'E', 'Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), 'Obiekt z duszą. I z kretami.',
+      'Murawa: ' + Selectors.pitchLabel(st.pitch) + ' (' + st.pitch + '%) · inwestycje: ' + Object.values(st.upgrades).filter(Boolean).length + '/' + Object.keys(DATA.upgrades).length, `
       <div class="mb-3">
         <div class="flex justify-between text-sm"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
         ${UI.bar(st.pitch, pitchColor)}
@@ -3933,6 +4084,8 @@ const Actions = {
   'next-week'() {
     if (Engine.nextWeek()) {
       gameState.activeTab = 'desk';
+      gameState.ui.deskView = null;    // nowy tydzień: Biurko samo wybiera sprawy albo dziennik
+      gameState.ui.logWeeks = 3;
       App.commit();
       window.scrollTo(0, 0);
     }
@@ -3968,6 +4121,14 @@ const Actions = {
   'fire-staff'(el) {
     const m = gameState.staff[el.dataset.slot];
     if (m && confirm('Zwolnić ze sztabu: ' + m.name + '?')) { Engine.fireStaff(el.dataset.slot); App.commit(); }
+  },
+  'desk-view'(el) {
+    if (['decisions', 'log'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
+    App.commit();
+  },
+  'log-more'() {
+    gameState.ui.logWeeks = (gameState.ui.logWeeks || 3) + 5;
+    App.commit();
   },
   'squad-sort'(el) {
     if (['pos', 'goals', 'rating'].includes(el.dataset.value)) gameState.ui.squadSort = el.dataset.value;
@@ -4013,6 +4174,19 @@ document.addEventListener('click', (e) => {
 });
 
 window.addEventListener('resize', () => UI.fitActionBar());
+
+// Zapamiętujemy, które sekcje gracz zwinął/rozwinął (przetrwa odświeżenie widoku i zapis).
+// (zdarzenie „toggle” leci też przy wstawianiu otwartych sekcji – liczymy tylko kliknięcia gracza)
+let lastSummaryClick = 0;
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('summary')) lastSummaryClick = Date.now(); }, true);
+document.addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (!d || !d.dataset || !d.dataset.fold || gameState.screen !== 'game' || Date.now() - lastSummaryClick > 1000) return;
+  if (!gameState.ui.folds) gameState.ui.folds = {};
+  if (gameState.ui.folds[d.dataset.fold] === d.open) return;
+  gameState.ui.folds[d.dataset.fold] = d.open;
+  Storage.save();
+}, true);
 
 document.addEventListener('input', (e) => {
   const field = e.target.dataset && e.target.dataset.field;
