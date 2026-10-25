@@ -48,9 +48,6 @@
     .btn-press:active:not(:disabled) { transform: translateY(1px); }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
     .shake { animation: shake 0.25s 2; }
-    /* Nowe wpisy dziennika: tylko podświetlenie tła, tekst zawsze w pełni czytelny */
-    @keyframes logFlash { from { background-color: rgb(var(--glow-rgb) / 0.35); } to { background-color: transparent; } }
-    .log-new { animation: logFlash 1.6s ease-out; }
     /* Mobile: zero poziomego przewijania, zwijane sekcje bez systemowego trójkącika */
     html, body { overflow-x: hidden; max-width: 100%; }
     summary { list-style: none; }
@@ -1185,7 +1182,6 @@ function createInitialState() {
       seenScoutKey: '',         // raport Szwagra już obejrzany
       squadSort: 'pos',         // sortowanie kadry: pos | goals | rating
       deskView: null,           // Biurko na telefonie: decisions | log (null = automatycznie)
-      logWeeks: 3,              // ile tygodni dziennika pokazać od razu
       folds: {},                // zapamiętane rozwinięcia wierszy (Kadra)
       sub: {},                  // wybrany podwidok zakładki (np. finance: 'tickets')
     },
@@ -2745,7 +2741,6 @@ const Storage = {
    --------------------------------------------------------------------- */
 const UI = {
   _uid: 0,                   // unikalne id dla clipPath w herbach SVG
-  lastSeenLogId: Infinity,   // podświetlamy tylko wpisy dodane od ostatniego renderu dziennika
 
   root: () => document.getElementById('app'),
 
@@ -3182,9 +3177,9 @@ const UI = {
   deskTab() {
     const pending = gameState.pendingDecisions.length;
     // Jeden widok naraz: sprawy, gdy coś czeka, inaczej pulpit klubu (chyba że gracz wybrał sam).
-    const view = gameState.ui.deskView || (pending ? 'decisions' : 'club');
-    return UI.segs('desk-view', view, [['decisions', '❗ Sprawy' + (pending ? ' (' + pending + ')' : '')], ['club', '🏠 Klub'], ['log', '📖 Dziennik']])
-      + (view === 'decisions' ? UI.decisions() : view === 'log' ? UI.logPanel() : UI.clubDashboard());
+    const view = gameState.ui.deskView === 'club' || (gameState.ui.deskView !== 'decisions' && !pending) ? 'club' : 'decisions';
+    return UI.segs('desk-view', view, [['decisions', '❗ Sprawy' + (pending ? ' (' + pending + ')' : '')], ['club', '🏠 Klub']])
+      + (view === 'decisions' ? UI.decisions() : UI.clubDashboard());
   },
 
   // Jedna sprawa naraz – mieści się na ekranie razem z odpowiedziami
@@ -3214,7 +3209,8 @@ const UI = {
         <div class="grid gap-1.5">${opts}</div>
       </article>
       ${rest ? `<p class="text-[11px] text-paper-400 mt-1.5 truncate">Dalej czeka: ${rest}</p>` : ''}
-      <div class="mt-2">${UI.tiles(UI.clubTiles().slice(0, 3))}</div>`;
+      <div class="mt-2">${UI.tiles(UI.clubTiles().slice(0, 3))}</div>
+      ${UI.recentEvents()}`;
   },
 
   // Kafelki pulpitu: cały klub na jeden rzut oka (pierwsze trzy także pod sprawą na Biurku)
@@ -3247,51 +3243,38 @@ const UI = {
     const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
       `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>`);
 
-    // Ostatni rozliczony tydzień z dziennika
-    const lastWeek = s.log.length ? s.log[0].week : null;
-    const entries = s.log.filter((e) => e.week === lastWeek).reverse();
-    const week = entries.length ? UI.panel('Tydzień ' + lastWeek + ' w skrócie', '', `
-      <ul class="space-y-1">${entries.map((e) => `<li class="text-[12px] leading-snug ${e.type === 'match' || e.type === 'summary' ? 'font-semibold' : ''}">${Utils.escape(e.text)}</li>`).join('')}</ul>`,
-      `<button data-action="desk-view" data-value="log" class="text-[11px] font-semibold text-ink-700 underline underline-offset-2 whitespace-nowrap">Dziennik</button>`) : '';
-    return tiles + match + week + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
+    return tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
-  logPanel() {
-    // Tygodnie od najnowszego, wpisy w tygodniu chronologicznie (czyta się jak raport).
-    const groups = [];
-    gameState.log.forEach((entry) => {
-      let g = groups.find((x) => x.week === entry.week);
-      if (!g) { g = { week: entry.week, entries: [] }; groups.push(g); }
-      g.entries.unshift(entry);
-    });
+  // Ostatnie wydarzenia: jedna linijka na tydzień – wynik meczu i bilans kasy (z wpisów, które zapisuje silnik)
+  weekDigest(week) {
+    const entries = gameState.log.filter((e) => e.week === week);
+    const match = entries.find((e) => e.type === 'match' && e.text.startsWith('⚽'));
+    const summary = entries.find((e) => e.type === 'summary' && e.text.includes('Bilans tygodnia'));
+    let result = '<span class="text-ink-700">Bez meczu</span>';
+    const m = match && match.text.match(/^⚽ Kolejka \d+(?: \(🔥 KOSA\))?: (.+) (\d+):(\d+) (.+?) \((u siebie|wyjazd)/);
+    if (m) {
+      const home = m[5] === 'u siebie';
+      const gf = +(home ? m[2] : m[3]), ga = +(home ? m[3] : m[2]);
+      const rival = home ? m[4] : m[1];
+      const [label, tone] = gf > ga ? ['Wygrana', 'text-grass'] : gf < ga ? ['Porażka', 'text-stamp'] : ['Remis', 'text-ink-700'];
+      result = `<b class="${tone}">${label} ${gf}:${ga}</b> ${home ? 'z' : '@'} ${Utils.escape(rival)}`;
+    }
+    const cash = summary && summary.text.match(/Bilans tygodnia: (.+?) zł/);
+    const money = cash ? `<span class="whitespace-nowrap font-semibold ${cash[1].startsWith('-') ? 'text-stamp' : 'text-grass'}">${Utils.escape(cash[1])} zł</span>` : '<span class="text-ink-700">–</span>';
+    return `
+      <li class="flex items-center gap-2 h-7 border-b border-paper-300 last:border-0 text-[12px]">
+        <span class="w-8 flex-shrink-0 text-[11px] font-bold text-ink-700">T${week}</span>
+        <span class="flex-1 min-w-0 truncate">${result}</span>
+        <span class="text-[10.5px] text-ink-700">Kasa</span>${money}
+      </li>`;
+  },
 
-    const typeStyle = {
-      system:   'border-paper-300',
-      decision: 'border-paper-400',
-      event:    'border-paper-300',
-      match:    'border-amber-glow font-semibold',
-      coach:    'border-paper-300 italic text-ink-700',
-      finance:  'border-paper-300 text-ink-700',
-      summary:  'border-paper-400 font-semibold',
-      flavor:   'border-paper-300',
-    };
-    const seenId = UI.lastSeenLogId;
-    UI.lastSeenLogId = gameState.ui.lastLogId;
-
-    const shown = groups.slice(0, gameState.ui.logWeeks || 3);
-    const html = shown.map((g) => `
-      <div class="mb-3">
-        <div class="text-[10.5px] uppercase tracking-wider font-semibold text-ink-700 mb-1">Tydzień ${g.week}</div>
-        <ul class="space-y-1">
-          ${g.entries.map((e) => `
-            <li class="border-l-2 ${typeStyle[e.type] || typeStyle.flavor} pl-2 text-[12.5px] leading-snug ${e.id > seenId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
-          `).join('')}
-        </ul>
-      </div>`).join('');
-
-    const more = groups.length > shown.length
-      ? `<button data-action="log-more" class="btn-press w-full h-9 rounded-md border border-paper-400 bg-paper-200 text-[12px] font-semibold">Pokaż starsze tygodnie (${groups.length - shown.length})</button>` : '';
-    return `<div class="paper px-2.5 py-2">${html || '<p class="text-[13px]">Pusto. Nawet plotek brak.</p>'}${more}</div>`;
+  recentEvents() {
+    const weeks = [...new Set(gameState.log.map((e) => e.week))]
+      .filter((w) => w < gameState.calendar.week).slice(0, 3);
+    if (!weeks.length) return '';
+    return UI.panel('Ostatnie wydarzenia', '', `<ul>${weeks.map((w) => UI.weekDigest(w)).join('')}</ul>`);
   },
 
   /* ---------- ZAKŁADKA: TABELA ---------- */
@@ -3914,8 +3897,7 @@ const Actions = {
   'next-week'() {
     if (Engine.nextWeek()) {
       gameState.activeTab = 'desk';
-      gameState.ui.deskView = null;    // nowy tydzień: Biurko samo wybiera sprawy albo dziennik
-      gameState.ui.logWeeks = 3;
+      gameState.ui.deskView = null;    // nowy tydzień: Biurko samo wybiera sprawy albo pulpit klubu
       App.commit();
       window.scrollTo(0, 0);
     }
@@ -3953,17 +3935,13 @@ const Actions = {
     if (m && confirm('Zwolnić ze sztabu: ' + m.name + '?')) { Engine.fireStaff(el.dataset.slot); App.commit(); }
   },
   'desk-view'(el) {
-    if (['decisions', 'club', 'log'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
+    if (['decisions', 'club'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
     App.commit();
   },
   'sub-view'(el) {
     if (!DATA.tabs.some((t) => t.id === el.dataset.tab)) return;
     if (!gameState.ui.sub) gameState.ui.sub = {};
     gameState.ui.sub[el.dataset.tab] = el.dataset.value;
-    App.commit();
-  },
-  'log-more'() {
-    gameState.ui.logWeeks = (gameState.ui.logWeeks || 3) + 5;
     App.commit();
   },
   'squad-sort'(el) {
