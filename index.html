@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B-Klasa: Prezes z Łapanki</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    if (window.tailwind) tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            type: ['"Special Elite"', 'Courier New', 'monospace'],
+            mono: ['"Courier Prime"', 'Courier New', 'monospace'],
+          },
+          colors: {
+            desk:   { 900: '#14120f', 800: '#1d1a15', 700: '#2a251d', 600: '#3a3328' },
+            paper:  { 100: '#f4ecd6', 200: '#e9dfc2', 300: '#d8cba6', 400: '#b9a97f' },
+            ink:    { 900: '#211d18', 700: '#3d362c' },
+            amber:  { glow: '#f5b942' },
+            stamp:  '#b3261e',
+            grass:  '#5d7c3a',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #14120f;
+      background-image:
+        radial-gradient(ellipse at top, rgba(245,185,66,0.06), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 4px);
+    }
+    .paper {
+      background-color: #f4ecd6;
+      background-image:
+        linear-gradient(rgba(33,29,24,0.04) 1px, transparent 1px);
+      background-size: 100% 1.6rem;
+      box-shadow: 0 2px 0 #b9a97f, 0 10px 25px rgba(0,0,0,0.55);
+    }
+    .paper-rough { clip-path: polygon(0 0, 100% 0, 100% 98%, 97% 100%, 60% 98.5%, 30% 100%, 0 98.6%); }
+    .stamp {
+      border: 3px double #b3261e;
+      color: #b3261e;
+      transform: rotate(-6deg);
+      letter-spacing: 0.15em;
+      opacity: 0.85;
+    }
+    .crt { text-shadow: 0 0 6px rgba(245,185,66,0.45); }
+    .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+    .bar-stripes {
+      background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 6px, transparent 6px 12px);
+    }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    .shake { animation: shake 0.25s 2; }
+    @keyframes typeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .log-new { animation: typeIn 0.4s ease-out; }
+    .scroll-thin::-webkit-scrollbar { width: 8px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: #b9a97f; }
+  </style>
+</head>
+<body class="min-h-screen text-paper-100 font-mono">
+
+  <!-- Cała aplikacja renderuje się tutaj -->
+  <div id="app"></div>
+
+<script>
+/* =====================================================================
+   B-KLASA: PREZES Z ŁAPANKI
+   Architektura:
+     1. DANE STAŁE        – teksty, pule zdarzeń, konfiguracja (CONFIG, DATA)
+     2. STAN GRY          – jedyne źródło prawdy (gameState)
+     3. SILNIK / LOGIKA   – funkcje zmieniające stan (Engine)
+     4. RENDEROWANIE      – funkcje stan -> HTML (UI)
+     5. ZDARZENIA         – delegacja kliknięć po data-action (Actions)
+   Nowe moduły (pogoda, kiełbaski, giełda trenerów, Wirtualny X...)
+   dopinamy przez: nowe pole w gameState, hook w Engine.weeklyHooks,
+   nową zakładkę w DATA.tabs + renderer w UI.tabRenderers.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. DANE STAŁE
+   --------------------------------------------------------------------- */
+const CONFIG = {
+  startBudget: 2500,
+  startLockerRoom: 50,
+  startFans: 50,
+  preseasonWeeks: 3,
+};
+
+const DATA = {
+  presetClubs: [
+    'LZS Chrząstawa',
+    'Coco Jambo Warszawa',
+    'LKS Naprzód Świbie',
+    'Sokół Pniewo Dolne',
+    'Błękitni Kozia Wólka',
+    'GKS Zryw Psary',
+  ],
+
+  leagues: {
+    1: 'B-klasa',
+    2: 'A-klasa',
+    3: 'Klasa Okręgowa',
+  },
+
+  dnaLevels: [
+    'Prowincjonalny Rozpierdol',
+  ],
+
+  rivals: [
+    'Orzeł Kamionka',
+    'Pogoń Zabłocie',
+    'Iskra Wierzbica',
+    'Huragan Kurzętnik',
+    'Grom Psie Pole Dolne',
+    'Tęcza Kąkolewnica',
+    'Victoria Bździszewo',
+    'Rolnik Głogówko',
+  ],
+
+  weather: [
+    { icon: '☀️', label: 'Słońce, boisko jak beton' },
+    { icon: '🌧️', label: 'Leje. Pole karne to staw' },
+    { icon: '🌫️', label: 'Mgła, nie widać bramki' },
+    { icon: '💨', label: 'Wichura, piłka wraca do wykonawcy' },
+    { icon: '⛅', label: 'Pochmurno, klasyka gatunku' },
+    { icon: '❄️', label: 'Przymrozek, bramkarz w rękawiczkach z Biedronki' },
+  ],
+
+  // Zwykłe komunikaty tygodniowe. effects opcjonalne.
+  weeklyFlavor: [
+    { text: 'Pan Heniek skosił boisko kosiarką od szwagra. Wyszło w paski, ale tylko z jednej strony.' },
+    { text: 'Ktoś ukradł siatki z bramek. Podejrzenia padają na sąsiednią wieś i ich staw rybny.', effects: { budget: -80 } },
+    { text: 'Kapitan drużyny przyszedł na trening prosto z wesela. Dalej w krawacie.', effects: { lockerRoom: +3 } },
+    { text: 'Na fanpage\'u klubu 14 lajków. 9 od mamy bramkarza z różnych kont.' },
+    { text: 'Krowy pana Zdzicha znowu weszły na murawę. Środek pola wymaga „nawożenia" mniej niż zwykle.' },
+    { text: 'Sklep „U Grażynki" wywiesił plakat klubu. Obok promocji na mortadelę.', effects: { fans: +2 } },
+    { text: 'Prysznic w szatni dalej leci tylko zimną wodą. Zawodnicy twierdzą, że to „hartuje", ale patrzą krzywo.', effects: { lockerRoom: -3 } },
+    { text: 'Lokalny ksiądz z ambony pomodlił się za utrzymanie. Sezon się jeszcze nie zaczął.', effects: { fans: +1 } },
+    { text: 'Zepsuła się kosiarka. Szwagier mówi, że „to tylko pasek", od trzech dni.', effects: { budget: -40 } },
+    { text: 'W gablocie klubowej znaleziono puchar z 1987 roku. Za turniej halowy. Halę rozebrano w 1991.' },
+    { text: 'Prawy obrońca wyjechał na saksy do Holandii. Obiecał wrócić „na rundę wiosenną".', effects: { lockerRoom: -2 } },
+    { text: 'Kibice z „Młyna" (3 osoby i pies) namalowali nowy transparent. Z błędem ortograficznym.', effects: { fans: +3 } },
+  ],
+
+  // Pilne sprawy – interaktywne dylematy. Struktura gotowa pod kolejne moduły.
+  decisions: {
+    welcomeWojt: {
+      id: 'welcomeWojt',
+      from: 'Urząd Gminy – Wójt Zdzisław Kapusta',
+      title: 'Powitanie nowego prezesa',
+      body:
+        'Panie Prezesie, w imieniu Rady Gminy gratuluję objęcia funkcji (nikt inny się nie zgłosił). ' +
+        'Gmina może dorzucić 500 zł z funduszu sołeckiego. Warunek: zawodnicy grają w koszulkach ' +
+        '„GMINA Z PERSPEKTYWAMI" i cała drużyna pojawi się na dożynkach nieść wieniec. ' +
+        'Kibice mogą to różnie odebrać. Liczę na zrozumienie. Wybory za półtora roku.',
+      options: [
+        {
+          label: 'Bierzemy kasę, wieniec poniesiemy',
+          hint: '+500 zł, kibice -5%',
+          effects: { budget: +500, fans: -5 },
+          log: 'Przyjęto 500 zł od Wójta. Na trybunach ktoś krzyknął „SPRZEDAWCZYKI!". Ale prąd zapłacony.',
+        },
+        {
+          label: 'Klub nie jest na sprzedaż! Stawiam piwo kibicom',
+          hint: '-200 zł, kibice +10%',
+          effects: { budget: -200, fans: +10 },
+          log: 'Prezes odmówił Wójtowi i postawił skrzynkę piwa pod sklepem. Lud jest zachwycony. Wójt zapamięta.',
+        },
+      ],
+    },
+  },
+
+  tabs: [
+    { id: 'desk',     label: 'Biurko',            icon: '🗄️' },
+    { id: 'finance',  label: 'Finanse i Stadion', icon: '💰' },
+    { id: 'staff',    label: 'Sztab i Trener',    icon: '📋' },
+    { id: 'squad',    label: 'Kadra i Szatnia',   icon: '👟' },
+    { id: 'scouting', label: 'Skauting i Młodzież', icon: '🔭' },
+    { id: 'virtualx', label: 'Wirtualny X',       icon: '📱' },
+  ],
+
+  underConstruction: [
+    'W budowie – prezes szuka kluczy do pokoju. Ostatnio widziane u gospodarza obiektu, który jest na rybach.',
+    'W budowie – drzwi zamknięte na kłódkę. Klucz ma kierownik drużyny, a kierownik ma wyłączony telefon.',
+    'W budowie – w środku stoi tylko zepsuty stół do ping-ponga i worek wapna do linii.',
+  ],
+
+  quotes: [
+    { text: 'Tu się nie gra w piłkę. Tu się przeżywa w błocie.', author: 'Pan Heniek, gospodarz obiektu od 1979' },
+    { text: 'Budżet mamy, tylko jeszcze nie wiemy, gdzie on jest.', author: 'Poprzedni prezes, przed wyjazdem do Niemiec' },
+    { text: 'Trawa rośnie, piłkarze piją, a w kasie jak zwykle zero.', author: 'Księga protokołów zarządu, 2009' },
+  ],
+};
+
+/* ---------------------------------------------------------------------
+   2. STAN GRY – jedyne źródło prawdy
+   --------------------------------------------------------------------- */
+function createInitialState() {
+  return {
+    screen: 'start',            // 'start' | 'game'
+    activeTab: 'desk',
+    club: {
+      name: '',
+      leagueLevel: 1,
+      dna: DATA.dnaLevels[0],
+      professionalism: 0,       // pod przyszłą mechanikę DNA klubu
+    },
+    calendar: {
+      week: 1,
+    },
+    finance: {
+      budget: CONFIG.startBudget,
+    },
+    morale: {
+      lockerRoom: CONFIG.startLockerRoom,   // 0-100
+      fans: CONFIG.startFans,               // 0-100
+    },
+    nextMatch: {
+      opponent: '',
+      home: true,
+      weather: null,
+    },
+    pendingDecisions: [],       // tablica id z DATA.decisions
+    log: [],                    // { week, text, type, id }
+    ui: {
+      startError: '',
+      startQuote: null,
+      lastLogId: 0,
+    },
+  };
+}
+
+let gameState = createInitialState();
+
+/* ---------------------------------------------------------------------
+   3. SILNIK / LOGIKA GRY
+   --------------------------------------------------------------------- */
+const Utils = {
+  rand: (arr) => arr[Math.floor(Math.random() * arr.length)],
+  clamp: (v, min, max) => Math.max(min, Math.min(max, v)),
+  formatMoney: (n) => n.toLocaleString('pl-PL').replace(/,/g, ' ') + ' zł',
+  escape: (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
+};
+
+const Engine = {
+  startGame(clubName) {
+    const fresh = createInitialState();
+    fresh.screen = 'game';
+    fresh.club.name = clubName;
+    gameState = fresh;
+
+    Engine.rollNextMatch();
+    Engine.addLog('Objąłeś funkcję Prezesa klubu ' + clubName + '. W kasie ' + Utils.formatMoney(CONFIG.startBudget) + ' i karton po bananach z dokumentami.', 'system');
+    Engine.addLog('Poprzedni prezes zostawił na biurku klucze (nie wiadomo do czego) i niedopitą kawę z 2019.', 'flavor');
+    Engine.pushDecision('welcomeWojt');
+  },
+
+  addLog(text, type = 'flavor') {
+    gameState.ui.lastLogId += 1;
+    gameState.log.unshift({ id: gameState.ui.lastLogId, week: gameState.calendar.week, text, type });
+  },
+
+  // Jedyne miejsce, gdzie modyfikujemy liczby – łatwo rozszerzyć o nowe statystyki.
+  applyEffects(effects = {}) {
+    if (effects.budget)     gameState.finance.budget += effects.budget;
+    if (effects.lockerRoom) gameState.morale.lockerRoom = Utils.clamp(gameState.morale.lockerRoom + effects.lockerRoom, 0, 100);
+    if (effects.fans)       gameState.morale.fans = Utils.clamp(gameState.morale.fans + effects.fans, 0, 100);
+  },
+
+  describeEffects(effects = {}) {
+    const parts = [];
+    if (effects.budget)     parts.push((effects.budget > 0 ? '+' : '') + Utils.formatMoney(effects.budget));
+    if (effects.lockerRoom) parts.push('szatnia ' + (effects.lockerRoom > 0 ? '+' : '') + effects.lockerRoom + '%');
+    if (effects.fans)       parts.push('kibice ' + (effects.fans > 0 ? '+' : '') + effects.fans + '%');
+    return parts.length ? ' [' + parts.join(', ') + ']' : '';
+  },
+
+  pushDecision(decisionId) {
+    if (DATA.decisions[decisionId] && !gameState.pendingDecisions.includes(decisionId)) {
+      gameState.pendingDecisions.push(decisionId);
+    }
+  },
+
+  resolveDecision(decisionId, optionIndex) {
+    const decision = DATA.decisions[decisionId];
+    const option = decision && decision.options[optionIndex];
+    if (!option) return;
+    Engine.applyEffects(option.effects);
+    Engine.addLog(option.log + Engine.describeEffects(option.effects), 'decision');
+    gameState.pendingDecisions = gameState.pendingDecisions.filter((id) => id !== decisionId);
+  },
+
+  canAdvanceWeek() {
+    return gameState.pendingDecisions.length === 0;
+  },
+
+  rollNextMatch() {
+    gameState.nextMatch.opponent = Utils.rand(DATA.rivals);
+    gameState.nextMatch.home = Math.random() < 0.5;
+    gameState.nextMatch.weather = Utils.rand(DATA.weather);
+  },
+
+  // Hooki wykonywane co tydzień, po kolei. Nowe moduły dopisują się tutaj.
+  weeklyHooks: [
+    function advanceCalendar() {
+      gameState.calendar.week += 1;
+    },
+    function rollFlavor() {
+      const entry = Utils.rand(DATA.weeklyFlavor);
+      Engine.applyEffects(entry.effects);
+      Engine.addLog(entry.text + Engine.describeEffects(entry.effects), entry.effects ? 'event' : 'flavor');
+    },
+    function rollMatch() {
+      Engine.rollNextMatch();
+    },
+  ],
+
+  nextWeek() {
+    if (!Engine.canAdvanceWeek()) return false;
+    Engine.weeklyHooks.forEach((hook) => hook());
+    return true;
+  },
+};
+
+/* Selektory – obliczenia pochodne od stanu (bez modyfikacji) */
+const Selectors = {
+  leagueName: () => DATA.leagues[gameState.club.leagueLevel] || '???',
+  weekLabel: () => {
+    const w = gameState.calendar.week;
+    return w <= CONFIG.preseasonWeeks
+      ? 'Tydzień ' + w + ' – Przedsezon'
+      : 'Tydzień ' + w + ' – Kolejka ' + (w - CONFIG.preseasonWeeks);
+  },
+  moodLabel: (v) => {
+    if (v >= 80) return 'Euforia';
+    if (v >= 60) return 'Dobrze';
+    if (v >= 40) return 'Tak se';
+    if (v >= 20) return 'Ferment';
+    return 'Bunt';
+  },
+  moodColor: (v) => {
+    if (v >= 60) return 'bg-grass';
+    if (v >= 40) return 'bg-amber-glow';
+    return 'bg-stamp';
+  },
+};
+
+/* ---------------------------------------------------------------------
+   4. RENDEROWANIE UI
+   --------------------------------------------------------------------- */
+const UI = {
+  root: () => document.getElementById('app'),
+
+  renderAll() {
+    const root = UI.root();
+    root.innerHTML = gameState.screen === 'start' ? UI.startScreen() : UI.gameScreen();
+  },
+
+  /* ---------- EKRAN STARTOWY ---------- */
+  startScreen() {
+    if (!gameState.ui.startQuote) gameState.ui.startQuote = Utils.rand(DATA.quotes);
+    const q = gameState.ui.startQuote;
+    const chips = DATA.presetClubs.map((name) => `
+      <button data-action="pick-club" data-name="${Utils.escape(name)}"
+        class="btn-press px-3 py-1.5 border border-ink-700 bg-paper-200 hover:bg-paper-300 text-ink-900 text-sm font-mono shadow-[0_2px_0_#3d362c]">
+        ${Utils.escape(name)}
+      </button>`).join('');
+
+    return `
+    <main class="min-h-screen flex items-center justify-center px-4 py-10">
+      <div class="w-full max-w-2xl">
+        <header class="text-center mb-8">
+          <p class="text-paper-400 text-xs tracking-[0.4em] uppercase mb-3">Okręgowy Związek Piłki Nożnej · Wydział Gier · Pismo L.dz. 666/B</p>
+          <h1 class="font-type text-4xl sm:text-6xl text-amber-glow crt leading-tight">B-KLASA:<br>PREZES Z ŁAPANKI</h1>
+          <p class="mt-4 text-paper-300 text-base sm:text-lg">Symulator zarządzania klubem, w którym boisko dzielisz z krowami, a budżet z tajemniczym „funduszem socjalnym" kierownika drużyny.</p>
+        </header>
+
+        <section class="paper paper-rough text-ink-900 p-6 sm:p-8 relative">
+          <div class="stamp absolute -top-3 right-4 sm:right-8 px-3 py-1 font-type text-sm bg-paper-100">PILNE</div>
+
+          <blockquote class="font-type text-lg sm:text-xl border-l-4 border-stamp pl-4 mb-6">
+            „${Utils.escape(q.text)}"
+            <footer class="font-mono text-sm text-ink-700 mt-1">— ${Utils.escape(q.author)}</footer>
+          </blockquote>
+
+          <label for="club-name" class="block font-type text-lg mb-2">Nazwa klubu, który bierzesz na klatę:</label>
+          <input id="club-name" type="text" maxlength="40" autocomplete="off"
+            placeholder="np. LZS Chrząstawa"
+            class="w-full px-4 py-3 bg-paper-100 border-2 border-ink-900 font-type text-xl text-ink-900 placeholder:text-paper-400 focus:outline-none focus:ring-4 focus:ring-amber-glow/50" />
+          <p id="start-error" class="text-stamp font-bold text-sm mt-2 min-h-[1.25rem]">${Utils.escape(gameState.ui.startError)}</p>
+
+          <p class="text-sm text-ink-700 mt-2 mb-2">…albo przejmij jeden z legendarnych klubów:</p>
+          <div class="flex flex-wrap gap-2 mb-8">${chips}</div>
+
+          <button data-action="start-game"
+            class="btn-press w-full py-5 bg-stamp hover:bg-red-700 text-paper-100 font-type text-2xl sm:text-3xl tracking-wider border-4 border-ink-900 shadow-[0_6px_0_#211d18]">
+            [ ROZPOCZNIJ PREZESURĘ ]
+          </button>
+          <p class="text-xs text-ink-700 text-center mt-4">Podpisując, prezes zobowiązuje się do pokrycia długów za piłki, wapno i ostatni wyjazd do Bździszewa.</p>
+        </section>
+      </div>
+    </main>`;
+  },
+
+  /* ---------- GŁÓWNY EKRAN GRY ---------- */
+  gameScreen() {
+    return `
+    <div class="min-h-screen flex flex-col">
+      ${UI.statusBar()}
+      <div class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
+        ${UI.navigation()}
+        <main class="flex-1 p-4 sm:p-6">${UI.activeTabContent()}</main>
+      </div>
+    </div>`;
+  },
+
+  statusBar() {
+    const s = gameState;
+    const m = s.nextMatch;
+    const budgetClass = s.finance.budget < 0 ? 'text-stamp' : 'text-amber-glow';
+    return `
+    <header class="bg-desk-800 border-b-4 border-desk-600 shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 py-4 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1.3fr] items-stretch">
+
+        <div class="flex flex-col justify-center">
+          <div class="text-xs text-paper-400 uppercase tracking-widest">Klub</div>
+          <div class="font-type text-2xl text-paper-100 leading-tight break-words">${Utils.escape(s.club.name)}</div>
+          <div class="text-sm text-paper-300">Poziom ${s.club.leagueLevel}: <span class="text-amber-glow">${Selectors.leagueName()}</span></div>
+          <div class="text-sm text-paper-300 mt-1">📅 ${Selectors.weekLabel()}</div>
+        </div>
+
+        <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
+          <div class="text-xs text-paper-400 uppercase tracking-widest">Budżet klubu</div>
+          <div class="font-type text-3xl ${budgetClass} crt">${Utils.formatMoney(s.finance.budget)}</div>
+          <div class="text-xs text-paper-400 mt-1">DNA: <span class="text-paper-200 italic">„${Utils.escape(s.club.dna)}"</span></div>
+        </div>
+
+        ${UI.meter('Szatnia', '🧦', s.morale.lockerRoom)}
+        ${UI.meter('Kibice', '📣', s.morale.fans)}
+
+        <div class="bg-desk-900 border border-desk-600 p-3 flex items-center gap-3 md:col-span-2 xl:col-span-1">
+          <div class="text-4xl" title="${Utils.escape(m.weather ? m.weather.label : '')}">${m.weather ? m.weather.icon : '❔'}</div>
+          <div class="min-w-0">
+            <div class="text-xs text-paper-400 uppercase tracking-widest">Najbliższy mecz</div>
+            <div class="text-paper-100 font-bold truncate">${m.home ? 'vs' : '@'} ${Utils.escape(m.opponent)}</div>
+            <div class="text-xs text-paper-300">${m.home ? 'U siebie' : 'Na wyjeździe'} · ${Utils.escape(m.weather ? m.weather.label : '')}</div>
+          </div>
+        </div>
+      </div>
+    </header>`;
+  },
+
+  meter(label, icon, value) {
+    return `
+    <div class="bg-desk-900 border border-desk-600 p-3 flex flex-col justify-center">
+      <div class="flex justify-between text-xs uppercase tracking-widest text-paper-400">
+        <span>${icon} ${label}</span><span class="text-paper-200">${value}%</span>
+      </div>
+      <div class="mt-2 h-4 bg-desk-700 border border-desk-600">
+        <div class="h-full ${Selectors.moodColor(value)} bar-stripes transition-all duration-500" style="width:${value}%"></div>
+      </div>
+      <div class="text-xs text-paper-300 mt-1">${Selectors.moodLabel(value)}</div>
+    </div>`;
+  },
+
+  navigation() {
+    const items = DATA.tabs.map((t) => {
+      const active = t.id === gameState.activeTab;
+      return `
+      <button data-action="switch-tab" data-tab="${t.id}"
+        class="flex-shrink-0 lg:w-full text-left px-4 py-3 border-l-4 font-mono text-sm transition-colors
+        ${active ? 'border-amber-glow bg-desk-700 text-amber-glow' : 'border-transparent text-paper-300 hover:bg-desk-800 hover:text-paper-100'}">
+        <span class="mr-2">${t.icon}</span>${t.label}
+      </button>`;
+    }).join('');
+
+    return `
+    <nav class="lg:w-60 bg-desk-900 lg:border-r border-b lg:border-b-0 border-desk-600 lg:py-4">
+      <div class="hidden lg:block px-4 pb-3 text-xs text-paper-400 uppercase tracking-[0.3em]">Pokoje klubowe</div>
+      <div class="flex lg:flex-col overflow-x-auto">${items}</div>
+      <div class="hidden lg:block px-4 pt-6">
+        <button data-action="reset-game" class="text-xs text-paper-400 hover:text-stamp underline underline-offset-4">Rzuć papierami i wyjdź</button>
+      </div>
+    </nav>`;
+  },
+
+  activeTabContent() {
+    const renderer = UI.tabRenderers[gameState.activeTab] || UI.underConstruction;
+    return renderer();
+  },
+
+  // Rejestr zakładek – kolejne moduły dodają tu swój renderer.
+  tabRenderers: {
+    desk: () => UI.deskTab(),
+  },
+
+  underConstruction() {
+    const tab = DATA.tabs.find((t) => t.id === gameState.activeTab);
+    const idx = DATA.tabs.indexOf(tab) % DATA.underConstruction.length;
+    return `
+    <section class="paper text-ink-900 p-8 max-w-2xl mx-auto mt-6 relative">
+      <div class="stamp absolute top-4 right-4 px-3 py-1 font-type text-sm">ZAMKNIĘTE</div>
+      <h2 class="font-type text-3xl mb-4">${tab.icon} ${tab.label}</h2>
+      <p class="text-lg">${DATA.underConstruction[idx]}</p>
+      <p class="text-sm text-ink-700 mt-6">Na drzwiach kartka: „Wracam za 5 min" — data: lipiec 2017.</p>
+    </section>`;
+  },
+
+  /* ---------- ZAKŁADKA: BIURKO ---------- */
+  deskTab() {
+    const canAdvance = Engine.canAdvanceWeek();
+    return `
+    <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+      <section>
+        <h2 class="font-type text-2xl text-amber-glow crt mb-3">📌 Pilne Sprawy / Decyzje</h2>
+        ${UI.decisions()}
+      </section>
+
+      <section>
+        <h2 class="font-type text-2xl text-amber-glow crt mb-3">📒 Dziennik Zdarzeń</h2>
+        ${UI.logPanel()}
+      </section>
+    </div>
+
+    <div class="mt-8 flex flex-col items-center gap-2">
+      <button data-action="next-week" ${canAdvance ? '' : 'disabled'}
+        class="btn-press px-10 py-5 font-type text-2xl sm:text-3xl tracking-wider border-4 border-ink-900
+        ${canAdvance
+          ? 'bg-amber-glow text-ink-900 hover:bg-yellow-400 shadow-[0_6px_0_#000]'
+          : 'bg-desk-700 text-paper-400 cursor-not-allowed opacity-70 shadow-none'}">
+        NASTĘPNY TYDZIEŃ &gt;&gt;
+      </button>
+      <p class="text-sm ${canAdvance ? 'text-paper-400' : 'text-stamp font-bold'}">
+        ${canAdvance ? 'Biurko czyste. Można iść do domu… znaczy do następnego tygodnia.' : 'Najpierw załatw papiery na biurku, Prezesie! Wójt nie lubi czekać.'}
+      </p>
+    </div>`;
+  },
+
+  decisions() {
+    if (gameState.pendingDecisions.length === 0) {
+      return `
+      <div class="paper text-ink-900 p-6 text-center">
+        <p class="font-type text-xl">Biurko puste.</p>
+        <p class="text-sm text-ink-700 mt-1">Tylko kubek z napisem „Najlepszy Dziadek" i pieczątka klubowa bez tuszu.</p>
+      </div>`;
+    }
+    return gameState.pendingDecisions.map((id) => {
+      const d = DATA.decisions[id];
+      const opts = d.options.map((o, i) => `
+        <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
+          class="btn-press w-full text-left px-4 py-3 bg-paper-200 hover:bg-paper-300 border-2 border-ink-900 shadow-[0_3px_0_#211d18]">
+          <span class="font-type text-lg block">▸ ${Utils.escape(o.label)}</span>
+          <span class="text-xs text-ink-700">${Utils.escape(o.hint)}</span>
+        </button>`).join('');
+      return `
+      <article class="paper text-ink-900 p-6 relative mb-4">
+        <div class="stamp absolute top-3 right-3 px-2 py-0.5 font-type text-xs">PILNE</div>
+        <div class="text-xs uppercase tracking-widest text-ink-700">Od: ${Utils.escape(d.from)}</div>
+        <h3 class="font-type text-2xl mt-1 mb-3 pr-16">${Utils.escape(d.title)}</h3>
+        <p class="leading-relaxed mb-5">${Utils.escape(d.body)}</p>
+        <div class="grid gap-3 sm:grid-cols-2">${opts}</div>
+      </article>`;
+    }).join('');
+  },
+
+  logPanel() {
+    // Grupowanie po tygodniach (log jest już od najnowszych)
+    const groups = [];
+    gameState.log.forEach((entry) => {
+      let g = groups.find((x) => x.week === entry.week);
+      if (!g) { g = { week: entry.week, entries: [] }; groups.push(g); }
+      g.entries.push(entry);
+    });
+
+    const typeStyle = {
+      system:   'border-ink-900',
+      decision: 'border-stamp',
+      event:    'border-amber-glow',
+      flavor:   'border-paper-400',
+    };
+    const newestId = gameState.ui.lastLogId;
+
+    const html = groups.map((g) => `
+      <div class="mb-4">
+        <div class="font-type text-sm text-ink-700 border-b border-dashed border-ink-700 mb-2">— Tydzień ${g.week} —</div>
+        <ul class="space-y-2">
+          ${g.entries.map((e) => `
+            <li class="border-l-4 ${typeStyle[e.type] || typeStyle.flavor} pl-3 text-sm leading-snug ${e.id === newestId ? 'log-new' : ''}">${Utils.escape(e.text)}</li>
+          `).join('')}
+        </ul>
+      </div>`).join('');
+
+    return `<div class="paper text-ink-900 p-5 max-h-[32rem] overflow-y-auto scroll-thin">${html || '<p class="text-sm">Pusto. Nawet plotek brak.</p>'}</div>`;
+  },
+};
+
+/* ---------------------------------------------------------------------
+   5. OBSŁUGA ZDARZEŃ – delegacja po data-action
+   --------------------------------------------------------------------- */
+const Actions = {
+  'pick-club'(el) {
+    const input = document.getElementById('club-name');
+    if (input) { input.value = el.dataset.name; input.focus(); }
+  },
+
+  'start-game'() {
+    const input = document.getElementById('club-name');
+    const name = (input ? input.value : '').trim();
+    if (!name) {
+      gameState.ui.startError = 'Klub bez nazwy to jak bramka bez siatki. Wpisz coś, Prezesie!';
+      const err = document.getElementById('start-error');
+      if (err) err.textContent = gameState.ui.startError;
+      if (input) { input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake'); }
+      return;
+    }
+    Engine.startGame(name);
+    UI.renderAll();
+    window.scrollTo(0, 0);
+  },
+
+  'switch-tab'(el) {
+    gameState.activeTab = el.dataset.tab;
+    UI.renderAll();
+  },
+
+  'resolve-decision'(el) {
+    Engine.resolveDecision(el.dataset.decision, Number(el.dataset.option));
+    UI.renderAll();
+  },
+
+  'next-week'() {
+    if (Engine.nextWeek()) UI.renderAll();
+  },
+
+  'reset-game'() {
+    if (confirm('Na pewno rzucasz papierami? Klub zostanie bez prezesa (znowu).')) {
+      gameState = createInitialState();
+      UI.renderAll();
+    }
+  },
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el || el.disabled) return;
+  const handler = Actions[el.dataset.action];
+  if (handler) handler(el, e);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'club-name') Actions['start-game']();
+});
+
+/* START */
+UI.renderAll();
+</script>
+</body>
+</html>
