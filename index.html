@@ -613,9 +613,9 @@ const DATA = {
     cutNightCall: {
       id: 'cutNightCall',
       cutscene: { icon: '📞', place: 'Telefon · noc, 2:07' },
-      from: () => (Selectors.sponsor() ? 'Sponsor: ' + Selectors.sponsor().name : 'Numer zastrzeżony'),
+      from: () => (Selectors.hasRealSponsor() ? 'Sponsor: ' + Selectors.sponsor().name : 'Numer zastrzeżony'),
       title: 'Telefon o 2 w nocy',
-      body: () => (Selectors.sponsor() ? 'Dzwoni szef firmy „' + Selectors.sponsor().name + '”. W tle disco-polo i brzęk kieliszków – wesele.' : 'Dzwoni ktoś, kto przedstawia się jako „biznesmen z branży paliwowej”.') +
+      body: () => (Selectors.hasRealSponsor() ? 'Dzwoni szef firmy „' + Selectors.sponsor().name + '”. W tle disco-polo i brzęk kieliszków – wesele.' : 'Dzwoni ktoś, kto przedstawia się jako „biznesmen z branży paliwowej”.') +
         ' „Prezesie, mam tu w reklamówce ' + Utils.formatMoney(Math.round(700 * Selectors.econ())) + ' dla klubu. Bez papierów, bez pytań. Tylko mój chrześniak musi zagrać w sobotę od pierwszej minuty.”',
       options: [
         {
@@ -1618,6 +1618,14 @@ const DATA = {
     },
   },
 
+  // Sponsor „na zawsze”: gdy klub nie ma żadnej umowy, wspiera go symbolicznie lokalny przedsiębiorca
+  localSponsor: {
+    id: 'local', fallback: true, name: 'Sklep spożywczy „U Grażynki”',
+    pitch: 'Pani Grażynka zawsze coś dorzuci: skrzynkę wody na mecz, parę złotych na piłki. Nie zrywa, nie wymaga, nie znika.',
+    requirement: 'Bez warunków – zostaje, dopóki klub nie podpisze większej umowy.',
+    signEffects: {}, breaks: () => false, breakLog: '',
+  },
+
   // Szablony nowych sponsorów (pojawiają się, gdy spaleni znikną z rynku)
   sponsorPool: [
     { name: 'Hurtownia Pasz „Złoty Kłos”', base: 150, kind: 'fans', threshold: 25, stadiumName: 'Złoty Kłos Arena', pitch: 'Worki z paszą jako bandy reklamowe. Prezes hurtowni chce tylko, żeby ludzie przychodzili.' },
@@ -1868,6 +1876,7 @@ const Engine = {
     Engine.addLog('Liga (10 drużyn, 18 kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
     Engine.pushDecision('welcomeWojt');
     Engine.offerTicketPolicy();
+    Engine.ensureSponsor();
   },
 
   addLog(text, type = 'flavor') {
@@ -3200,7 +3209,7 @@ const Engine = {
       gameState.season.table[US].pts -= points;
       Engine.xPost('portal', 'AFERA W ' + Selectors.leagueName().toUpperCase() + '! Nagranie z dyktafonu: „reklamówka z Biedronki”, „nikt się nie dowie”. Związek odejmuje ' + Selectors.clubDisplayName() + ' ' + points + ' pkt i nakłada ' + Utils.formatMoney(fine) + ' kary! 🎙️');
       Engine.addLog('🎙️ AFERA! Ktoś nagrał rozmowę z panem z Passata dyktafonem z Pepco. Związek: -' + points + ' pkt i ' + Utils.formatMoney(fine) + ' kary. Kibice wściekli. [kibice -20%, szatnia -10%]', 'event');
-      if (gameState.sponsor.active) Engine.endSponsor('💨 Sponsor ' + Selectors.sponsor().name + ' ucieka po aferze: „Nie będziemy się tłumaczyć prokuratorowi z waszych reklamówek”.');
+      if (Selectors.hasRealSponsor()) Engine.endSponsor('💨 Sponsor ' + Selectors.sponsor().name + ' ucieka po aferze: „Nie będziemy się tłumaczyć prokuratorowi z waszych reklamówek”.');
       if (c.corruptionCaught >= 3) {
         Engine.gameOver('Trzecia afera korupcyjna. Wydział Dyscypliny zawiesił cały zarząd, a prokuratura zabezpieczyła czarnego Passata i reklamówkę z Biedronki jako dowody.');
       } else if (c.corruptionCaught === 2) {
@@ -3247,7 +3256,7 @@ const Engine = {
     const s = gameState.sponsor;
     const week = gameState.calendar.week;
     Object.keys(s.custom).forEach((id) => { if (s.custom[id].expires && week >= s.custom[id].expires && s.active !== id) delete s.custom[id]; });
-    const available = Selectors.sponsorOffers().filter((id) => !s.burned.includes(id) && id !== s.active);
+    const available = Selectors.sponsorOffers().filter((id) => !s.burned.includes(id) && id !== s.active && id !== 'local');
     if (!force && available.length >= 2) return;
     const used = Object.values(s.custom).map((c) => c.name).concat(Object.values(DATA.sponsors).map((x) => x.name));
     const pool = DATA.sponsorPool.filter((t) => !used.includes(t.name));
@@ -3262,10 +3271,21 @@ const Engine = {
     }
   },
 
+  // W klubie zawsze jest przynajmniej jeden sponsor – w razie potrzeby lokalny, symboliczny
+  ensureSponsor() {
+    const s = gameState.sponsor;
+    if (s.active) return;
+    s.active = 'local';
+    s.signedWeek = gameState.calendar.week;
+    s.scandalsAtSign = gameState.club.scandals;
+    Engine.addLog('🛒 Pani Grażynka ze sklepu „U Grażynki” zostaje sponsorem klubu: „Bez umowy, ale coś zawsze dorzucę”.', 'finance');
+  },
+
   signSponsor(id) {
     const sp = Selectors.sponsorDef(id);
     const s = gameState.sponsor;
-    if (!sp || s.active || s.burned.includes(id)) return;
+    if (!sp || sp.fallback || Selectors.hasRealSponsor() || s.burned.includes(id)) return;
+    if (s.active === 'local') Engine.addLog('🛒 Pani Grażynka ustępuje miejsca większemu sponsorowi. „Jakby co – jestem w sklepie.”', 'finance');
     s.active = id;
     s.signedWeek = gameState.calendar.week;
     s.scandalsAtSign = gameState.club.scandals;
@@ -3275,11 +3295,12 @@ const Engine = {
 
   endSponsor(logText) {
     const s = gameState.sponsor;
-    if (!s.active) return;
+    if (!Selectors.hasRealSponsor()) return;   // lokalnego sponsora nie da się zerwać
     s.burned.push(s.active);
     s.burnedAt[s.active] = gameState.calendar.week;
     s.active = null;
     Engine.addLog(logText, 'event');
+    Engine.ensureSponsor();
   },
 
   /* ----- Pożyczki ----- */
@@ -3377,11 +3398,12 @@ const Engine = {
       // Gmina dokłada do sportu zawsze – mało, ale regularnie (wyżej: miasto, województwo)
       Engine.money('Dotacja gminna na sport', Math.round(CONFIG.municipalGrant * Selectors.econ()));
       const s = gameState.sponsor;
-      if (!s.active) return;
+      Engine.ensureSponsor();
       Engine.refreshSponsors();
-      if (!s.active) return;
       const sp = Selectors.sponsorDef(s.active);
-      if (sp.breaks(gameState)) { Engine.endSponsor('❌ ' + sp.breakLog); return; }
+      if (sp.breaks(gameState)) Engine.endSponsor('❌ ' + sp.breakLog);   // zerwał – od razu wchodzi lokalny sponsor
+      const payer = Selectors.sponsor();
+      if (payer !== sp) { Engine.money('Sponsor: ' + payer.name, Selectors.sponsorWeekly(payer)); return; }
       Engine.money('Sponsor: ' + sp.name, Selectors.sponsorWeekly(sp));
       Engine.addLog('💼 Sponsor „' + sp.name + '”: ' + Utils.formatMoney(Selectors.sponsorWeekly(sp)) + ' wpłynęło na konto (a raczej przyszło w kopercie).', 'finance');
     },
@@ -3499,7 +3521,9 @@ const Selectors = {
   leagueName: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).name,
   econ: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).econ,
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
-  sponsorWeekly: (sp) => Math.round(sp.weekly * Selectors.econ() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1)),
+  sponsorWeekly: (sp) => (sp.fallback
+    ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.econ())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
+    : Math.round(sp.weekly * Selectors.econ() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1))),
   mediaStrategy: () => gameState.x.strategy || 'neutral',
   strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
@@ -3610,7 +3634,8 @@ const Selectors = {
     return Math.round(Utils.clamp(gameState.morale.fans * 0.3 + posScore + gameState.club.leagueLevel * 5 + gameState.club.professionalism * 0.15
       + Selectors.upgradeSum('promo') + media + form - gameState.club.scandals * 2, 0, 100));
   },
-  sponsorDef: (id) => DATA.sponsors[id] || Engine.customSponsor(id),
+  sponsorDef: (id) => (id === 'local' ? DATA.localSponsor : DATA.sponsors[id] || Engine.customSponsor(id)),
+  hasRealSponsor: () => !!gameState.sponsor.active && gameState.sponsor.active !== 'local',
   // Oferty widoczne na rynku: bazowi i nowi sponsorzy; spaleni znikają po 8 tygodniach
   sponsorOffers: () => {
     const s = gameState.sponsor;
@@ -5110,21 +5135,32 @@ const UI = {
               <div class="text-[10px] uppercase tracking-wide text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
               <div class="text-[14px] font-bold">${Utils.escape(active.name)}</div>
             </div>
-            ${UI.smallBtn('end-sponsor', '', 'Wypowiedz', false, 'stamp')}
+            ${active.fallback ? '<span class="text-[10.5px] font-semibold text-grass whitespace-nowrap">stały sponsor</span>' : UI.smallBtn('end-sponsor', '', 'Wypowiedz', false, 'stamp')}
           </div>
-          <p class="text-[12px]">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
-          <p class="text-[11px] text-stamp">⚠️ ${Utils.escape(active.requirement)}</p>
+          <p class="text-[12px]">Wpływ: <b>${Utils.formatMoney(Selectors.sponsorWeekly(active))}/tydz.</b> · ${active.fallback ? Utils.escape(active.pitch) : active.clubPrefix ? 'Nazwa klubu: <b>' + Utils.escape(Selectors.clubDisplayName()) + '</b>' : 'Stadion: <b>' + Utils.escape(active.stadiumName) + '</b>'}</p>
+          <p class="text-[11px] ${active.fallback ? 'text-ink-700' : 'text-stamp'}">${active.fallback ? '🤝 ' + Utils.escape(active.requirement) + ' Podpisanie sponsora tytularnego zastąpi Panią Grażynkę.' : '⚠️ ' + Utils.escape(active.requirement)}</p>
         </div>`;
     }
-    const offers = Selectors.sponsorOffers().filter((id) => id !== s.active).map((id) => [id, Selectors.sponsorDef(id)]).map(([id, sp]) => {
-      const burned = s.burned.includes(id);
-      return UI.row(`${Utils.escape(sp.name)} <span class="font-normal">· <b>${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</b></span>`,
-        `${sp.clubPrefix ? 'Dopisek do nazwy: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName)}${Engine.describeEffects(sp.signEffects)}<br>${Utils.escape(sp.pitch)}<br><span class="text-stamp">${Utils.escape(sp.requirement)}</span>`,
-        burned ? '<span class="text-[11px] font-bold text-stamp text-right">SPALONY<br><span class="font-normal">znika z rynku</span></span>' : UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', !!s.active), burned ? 'opacity-50' : '');
+    const burnedNow = Selectors.sponsorOffers().filter((id) => s.burned.includes(id)).map((id) => Selectors.sponsorDef(id).name);
+    // Oferty zwinięte: na wierzchu stawka i warunek, po stuknięciu opis i nazwa stadionu/dopisek
+    const offers = Selectors.sponsorOffers().filter((id) => id !== s.active && !s.burned.includes(id)).map((id) => [id, Selectors.sponsorDef(id)]).map(([id, sp]) => {
+      const key = 'sp-' + id;
+      return `
+      <details data-fold="${key}" class="border-b border-paper-300 last:border-0" ${(gameState.ui.folds || {})[key] ? 'open' : ''}>
+        <summary class="flex items-center gap-2 py-1.5 cursor-pointer select-none">
+          <div class="min-w-0 flex-1">
+            <div class="text-[12.5px] font-semibold leading-tight truncate">${Utils.escape(sp.name)} <span class="font-normal">· <b>${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</b></span></div>
+            <div class="text-[10.5px] text-stamp leading-snug truncate">${Utils.escape(sp.requirement)}</div>
+          </div>
+          ${UI.smallBtn('sign-sponsor', `data-id="${id}"`, 'Podpisz', Selectors.hasRealSponsor())}
+        </summary>
+        <div class="text-[11px] text-ink-700 leading-snug pb-1.5">${sp.clubPrefix ? 'Dopisek do nazwy: „' + Utils.escape(sp.clubPrefix) + '”' : 'Stadion: ' + Utils.escape(sp.stadiumName)}${Engine.describeEffects(sp.signEffects)} · ${Utils.escape(sp.pitch)}</div>
+      </details>`;
     }).join('');
     return UI.panel('Sponsor Tytularny', 'Lokalny biznes chętny, by jego logo oglądało 80 osób i dwie krowy. Jeden naraz.', `
       ${body}
       ${offers}
+      ${burnedNow.length ? `<p class="text-[11px] text-stamp mt-1">🔥 Spaleni (znikają z rynku): ${burnedNow.map((n) => Utils.escape(n)).join(', ')}</p>` : ''}
       <p class="text-[11px] text-ink-700 mt-1">Skandale w kartotece klubu: <b>${gameState.club.scandals}</b>. Kto raz zerwie umowę, ten nie wraca – ale na jego miejsce przychodzą nowi. Ile zaproponują, zależy od tego, jak klub się „sprzedaje”.</p>
     `);
   },
@@ -5339,7 +5375,7 @@ const Actions = {
   'sign-sponsor'(el) { Engine.signSponsor(el.dataset.id); App.commit(); },
   'end-sponsor'() {
     const sp = Selectors.sponsor();
-    if (sp && confirm('Wypowiedzieć umowę z: ' + sp.name + '? Ten sponsor już nie wróci.')) {
+    if (sp && !sp.fallback && confirm('Wypowiedzieć umowę z: ' + sp.name + '? Ten sponsor już nie wróci.')) {
       Engine.endSponsor('📝 Prezes wypowiedział umowę sponsorską z: ' + sp.name + '. Trzasnęły drzwi.');
       App.commit();
     }
