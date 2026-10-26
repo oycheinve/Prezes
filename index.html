@@ -2484,7 +2484,10 @@ function createInitialState() {
     feed: [],                   // posty na Wirtualnym X (najnowsze na początku)
     league: {
       rivals: DATA.rivals.map((r) => ({ ...r })),   // rywale na obecnym poziomie
+      fireSale: [],             // kluby po niewypłacalności – wyprzedają zawodników na giełdzie
     },
+    alerts: [],                 // powiadomienia na ekranie (długi w lidze): { id, week, icon, title, text, tone }
+    debtNews: [],               // kronika długów ligi w bieżącym sezonie (do podsumowania)
     lastSeason: { pos: 0, outcome: '', league: '' },
     bonuses: { fetaMatches: 0 },   // feta: +10% widzów na kilku meczach u siebie
     debt: { strike: false, deepWeeks: 0 },
@@ -2724,6 +2727,7 @@ const Engine = {
     [US].concat(gameState.league.rivals.map((r) => r.name)).forEach((t) => { s.table[t] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }; });
     s.lastResults = [];
     s.preview = null;
+    gameState.debtNews = [];
     s.promotionBan = false;
     s.forcedRelegation = false;
     gameState.league.rivals.forEach((r) => {
@@ -3300,6 +3304,7 @@ const Engine = {
     const euroNext = level === maxLevel && newLevel === maxLevel && outcome !== 'forced' ? Selectors.euroQualFor(pos) : null;
     if (euroNext) summary.euroQual = Selectors.euroQualLabel(euroNext);
 
+    summary.debtNews = (gameState.debtNews || []).filter((d) => !['late', 'caught'].includes(d.kind)).map((d) => d.text).slice(-5);
     gameState.calendar.season++;
     gameState.calendar.round = 0;
     gameState.dark.offersThisSeason = 0;
@@ -3867,6 +3872,8 @@ const Engine = {
       return Engine.fakeHistory(p, club);
     });
     gameState.transfer = { open: true, season: gameState.calendar.season, market, loanMarket, bought: 0, sold: 0, shown: false, news: [] };   // sezon już przestawiony na nowy
+    (gameState.league.fireSale || []).forEach((name) => Engine.addFireSale(name));
+    gameState.league.fireSale = [];
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
     if (!gameState.pendingDecisions.includes('starDemand') && gameState.squad.length > CONFIG.minSquad && Math.random() < 0.4) {
@@ -4475,12 +4482,9 @@ const Engine = {
       }
       delta -= Math.round(ec.cash * 0.04);   // bogaci wydają więcej, zadłużeni tną koszty
       ec.cash += delta;
-      if (ec.loan) {
-        ec.cash -= ec.loan.rate;
-        if (--ec.loan.remaining <= 0) ec.loan = null;
-      }
+      if (ec.loan) Engine.rivalInstallment(r.name, ec);
       const credit = Selectors.clubCredit(r.name);
-      if (!ec.loan && ec.cash < 200 * e && credit >= 0.1) {
+      if (!ec.loan && ec.cash < 200 * e && credit >= 0.1 && !((ec.blockedUntil || 0) > gameState.calendar.week)) {
         const amount = Math.round(1500 * e * Utils.clamp(credit, 0.25, 2.5) / 50) * 50;
         ec.loan = { amount, remaining: 10, rate: Math.ceil(amount * (1.2 + Math.max(0, 1 - credit) * 0.15) / 10 / 5) * 5 };
         ec.cash += amount;
@@ -4498,6 +4502,93 @@ const Engine = {
       if (crisis && !ec.crisis) Engine.xPost('portal', 'Kryzys w ' + r.name + '! Zawodnicy bez wypłat, prezes nie odbiera telefonu. 📉');
       ec.crisis = crisis;
     });
+  },
+
+  // Rata pożyczki klubu z ligi: płaci, spóźnia się albo – po 3 zaległych ratach – ogłasza niewypłacalność
+  rivalInstallment(name, ec) {
+    const loan = ec.loan;
+    const e = Selectors.econ();
+    const canPay = ec.cash >= loan.rate || (ec.cash > -800 * e && Math.random() < 0.75) || Math.random() < 0.15;   // mały debet zwykle jeszcze się udźwignie
+    if (canPay) {
+      ec.cash -= loan.rate;
+      if (loan.missed >= 2) Engine.debtEvent(name, 'caught', '✅', name + ' nadrabia zaległości', 'Klub zapłacił zaległą ratę. Banki wracają do rozmów, wiarygodność rośnie.', 'good');
+      loan.missed = 0;
+      if (--loan.remaining <= 0) {
+        ec.loan = null;
+        ec.paidOff = (ec.paidOff || 0) + 1;
+        ec.trust = Math.min(1, (ec.trust || 0) + 0.2);
+        Engine.debtEvent(name, 'paid', '💰', name + ' spłaca dług', 'Ostatnia rata pożyczki ' + Utils.formatMoney(loan.amount) + ' zapłacona. Wiarygodność klubu w lidze w górę – łatwiej o kolejne pożyczki i transfery.', 'good');
+      }
+      return;
+    }
+    loan.missed = (loan.missed || 0) + 1;
+    loan.rate = Math.ceil(loan.rate * 1.05 / 5) * 5;         // odsetki karne
+    ec.trust = Math.max(-1, (ec.trust || 0) - 0.1);
+    if (loan.missed === 1) Engine.debtEvent(name, 'late', '⚠️', name + ' nie płaci raty', 'Pierwsza zaległa rata (' + Utils.formatMoney(loan.rate) + '). Odsetki karne, bank dzwoni do prezesa. Wiarygodność w dół.', 'warn');
+    if (loan.missed >= 3) {
+      // upadłość tylko przy naprawdę pustej kasie – inaczej bank rozkłada dług na dłużej
+      if (ec.cash < -2000 * e) Engine.clubDefault(name, ec);
+      else {
+        loan.missed = 0;
+        loan.remaining += 3;
+        Engine.debtEvent(name, 'restructure', '🏦', name + ' restrukturyzuje dług', 'Bank rozłożył zaległości na 3 dodatkowe raty. Klub uniknął upadłości, ale wiarygodność mocno w dół.', 'warn');
+      }
+    }
+  },
+  clubDefault(name, ec) {
+    const e = Selectors.econ();
+    const lost = ec.loan ? ec.loan.remaining * ec.loan.rate : 0;
+    ec.loan = null;
+    ec.defaults = (ec.defaults || 0) + 1;
+    ec.trust = -1;
+    ec.blockedUntil = gameState.calendar.week + 20;           // nikt im nie pożyczy przez 20 tygodni
+    const s = gameState.season;
+    s.strength[name] = Math.max(0.8, (s.strength[name] || Selectors.rival(name).strength) - 0.2);   // zawodnicy bez wypłat odchodzą
+    const row = s.table[name];
+    if (row) row.pts = Math.max(0, row.pts - 3);              // Związek odbiera punkty za zaległości
+    if (!gameState.league.fireSale.includes(name)) gameState.league.fireSale.push(name);
+    if (gameState.transfer.open) Engine.addFireSale(name);
+    Engine.debtEvent(name, 'default', '🚨', name + ' NIEWYPŁACALNY!', 'Trzy niezapłacone raty, bank umarza ' + Utils.formatMoney(lost) + ' i wpisuje klub na czarną listę. Związek odbiera 3 punkty, zawodnicy bez wypłat – wyprzedaż na giełdzie.', 'bad');
+    Engine.xPost('portal', name + ' NIEWYPŁACALNY! Komornik zajął busa i kosiarkę. Związek odbiera 3 punkty. 📉⚖️');
+    // nasza pożyczka dla tego klubu: odzyskujemy tylko część
+    gameState.loans.given = gameState.loans.given.filter((loan) => {
+      const b = DATA.borrowers[loan.id];
+      if (!b || b.club !== name) return true;
+      const part = Math.round(loan.returns * 0.25);
+      Engine.money('Odzysk długu (upadłość): ' + b.name, part);
+      Engine.alert('🧾', 'Nasza pożyczka w ' + name, 'Klub niewypłacalny – syndyk oddał tylko ' + Utils.formatMoney(part) + ' z ' + Utils.formatMoney(loan.returns) + '.', 'bad');
+      return false;
+    });
+  },
+  // Zawodnicy klubu w upadłości trafiają na giełdę taniej
+  addFireSale(name) {
+    const t = gameState.transfer;
+    if (!t.open || t.market.some((p) => p.fromClub === name && p.fireSale) || t.market.filter((p) => p.fireSale).length >= 4) return;
+    const bonus = Selectors.levelSkillBonus(), e = Selectors.econ();
+    for (let i = 0; i < 2; i++) {
+      const p = Engine.makePlayer({ ageMin: 20, ageMax: 30, skillMin: 5 + bonus, skillMax: 8 + bonus, pos: Utils.rand(['DEF', 'MID', 'FWD']) });
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      p.fee = Math.max(20, Math.round((50 + p.skill * 28) * e * 0.55 / 10) * 10);   // 45% taniej – klub musi sprzedać
+      p.fireSale = true;
+      t.market.push(Engine.fakeHistory(p, name));
+    }
+  },
+  debtEvent(club, kind, icon, title, text, tone) {
+    gameState.debtNews.push({ club, kind, week: gameState.calendar.week, text: icon + ' ' + title });
+    // ostrzeżenia o tym samym klubie najwyżej raz na 12 tygodni – ważne wieści (spłata, upadłość) zawsze
+    const ec = Engine.clubEco(club);
+    if (tone === 'warn') {
+      if (gameState.calendar.week - (ec.warnWeek || -99) < 12 || gameState.calendar.week - (gameState.ui.warnWeek || -99) < 4) return;
+      ec.warnWeek = gameState.ui.warnWeek = gameState.calendar.week;
+    }
+    Engine.alert(icon, title, text, tone);
+  },
+  // Powiadomienie na ekranie (znika po tygodniu albo po kliknięciu)
+  alert(icon, title, text, tone = 'info') {
+    gameState.ui.alertSeq = (gameState.ui.alertSeq || 0) + 1;
+    gameState.alerts.unshift({ id: gameState.ui.alertSeq, week: gameState.calendar.week, icon, title, text, tone });
+    gameState.alerts = gameState.alerts.slice(0, 4);
+    Engine.addLog(icon + ' ' + title + ': ' + text, 'finance');
   },
 
   takeLoan(id) {
@@ -4573,6 +4664,9 @@ const Engine = {
           Engine.addLog('⚖️ Wydział Dyscypliny OZPN ukarał klub za „zadziorny” wpis na X: ' + Utils.formatMoney(fine) + '.', 'event');
         }
       }
+    },
+    function expireAlerts() {
+      gameState.alerts = (gameState.alerts || []).filter((a) => gameState.calendar.week - a.week < 1);
     },
     function leagueEconomy() {
       Engine.leagueEconomyTick();
@@ -4650,7 +4744,9 @@ const Engine = {
         if (!broke && Math.random() >= loan.risk) {
           ec.cash -= loan.returns;
           Engine.money('Zwrot pożyczki: ' + b.name, loan.returns);
-          Engine.addLog('💰 ' + b.name + ' oddał ' + Utils.formatMoney(loan.returns) + '. Z procentem! Cuda się zdarzają.', 'finance');
+          Engine.alert('💰', b.club + ' oddaje nam dług', b.name + ' oddał ' + Utils.formatMoney(loan.returns) + ' z procentem. Cuda się zdarzają.', 'good');
+          gameState.debtNews.push({ club: b.club, kind: 'paidUs', week: gameState.calendar.week, text: '💰 ' + b.club + ' oddaje nam ' + Utils.formatMoney(loan.returns) });
+          Engine.clubEco(b.club).trust = Math.min(1, (Engine.clubEco(b.club).trust || 0) + 0.15);
           return false;
         }
         loan.delays++;
@@ -4658,12 +4754,14 @@ const Engine = {
           const half = Math.round((loan.amount || DATA.borrowers[loan.id].amount) / 2);
           ec.cash -= half;
           Engine.money('Odzysk długu: ' + b.name, half);
-          Engine.addLog('🥔 ' + b.name + ' w końcu „rozliczył się”: ' + Utils.formatMoney(half) + ' i worek ziemniaków. Reszta przepadła.', 'finance');
+          Engine.alert('🥔', b.club + ' nie oddaje całości', b.name + ' „rozliczył się”: ' + Utils.formatMoney(half) + ' i worek ziemniaków. Reszta przepadła.', 'bad');
+          gameState.debtNews.push({ club: b.club, kind: 'stiffedUs', week: gameState.calendar.week, text: '🥔 ' + b.club + ' oddaje nam tylko połowę' });
+          Engine.clubEco(b.club).trust = Math.max(-1, (Engine.clubEco(b.club).trust || 0) - 0.4);
           return false;
         }
         loan.dueWeek += 2;
         loan.risk = Math.min(0.9, loan.risk + 0.15);
-        Engine.addLog('🙄 ' + b.name + ' ' + Utils.rand(DATA.debtorExcuses) + ' Nowy termin: Tydzień ' + loan.dueWeek + '.', 'event');
+        Engine.alert('🙄', b.club + ' nie oddaje w terminie', b.name + ' ' + Utils.rand(DATA.debtorExcuses) + ' Nowy termin: tydzień ' + loan.dueWeek + '.', 'warn');
         return true;
       });
     },
@@ -4898,7 +4996,12 @@ const Selectors = {
     const e = Selectors.econ();
     return Utils.clamp(0.2 + Math.max(0, cash) / (5000 * e) + income / (2000 * e) - owed / (3000 * e) - Math.max(0, -cash) / (1500 * e), 0, 3);
   },
-  clubCredit: (name) => { const ec = Engine.clubEco(name); return Math.round(Selectors.creditFrom({ cash: ec.cash, income: ec.income, owed: ec.loan ? ec.loan.remaining * ec.loan.rate : 0 }) * 100) / 100; },
+  // Wiarygodność klubu: finanse + historia spłat (spłacone długi w górę, zaległości i upadłość w dół)
+  clubCredit: (name) => {
+    const ec = Engine.clubEco(name);
+    const base = Selectors.creditFrom({ cash: ec.cash, income: ec.income, owed: ec.loan ? ec.loan.remaining * ec.loan.rate : 0 });
+    return Math.round(Utils.clamp(base + (ec.trust || 0) * 0.3 - (ec.loan && ec.loan.missed ? 0.15 * ec.loan.missed : 0), 0, 3) * 100) / 100;
+  },
   creditScore: () => {
     const e = Selectors.econ();
     const b = gameState.finance.budget;
@@ -4940,7 +5043,7 @@ const Selectors = {
     const need = Utils.clamp(1 + Math.max(0, -ec.cash) / (3000 * e), 1, 2.5);
     const amount = Math.round(b.amount * e * need / 50) * 50;
     const returns = Math.round(amount * (b.returns / b.amount) / 10) * 10;
-    const risk = Utils.clamp(b.risk + (ec.cash < 0 ? 0.15 : 0) + (ec.loan ? 0.1 : 0) - (ec.cash > 3000 * e ? 0.05 : 0), 0.02, 0.9);
+    const risk = Utils.clamp(b.risk + (ec.cash < 0 ? 0.15 : 0) + (ec.loan ? 0.1 : 0) - (ec.cash > 3000 * e ? 0.05 : 0) - (ec.trust || 0) * 0.1 + (ec.defaults ? 0.2 : 0), 0.02, 0.9);
     return { amount, returns, risk, weeks: b.weeks, cash: ec.cash };
   },
   // Mocne i słabe strony zawodnika – wyliczone z jego danych, do świadomych zakupów
@@ -4959,6 +5062,7 @@ const Selectors = {
     if (ps && ps.apps >= 5 && ps.avg != null && ps.avg >= 7) pros.push('Świetny zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
     if (ps && ps.apps >= 5 && ps.avg != null && ps.avg < 5.6) cons.push('Słaby zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
     if (ps && ps.apps < 5) cons.push('Mało grał w zeszłym sezonie');
+    if (p.fireSale) pros.push('Wyprzedaż – klub ' + (p.fromClub || '') + ' niewypłacalny, cena ok. 45% niższa');
     if (ps && (p.pos === 'FWD' || p.pos === 'MID') && ps.apps && ps.goals / ps.apps >= 0.35) pros.push('Skuteczny pod bramką (' + ps.goals + ' goli)');
     if (p.wage >= avgWage * 1.6) cons.push('Wysoka pensja (' + p.wage + ' zł/tydz.)');
     else if (p.wage <= avgWage * 0.7) pros.push('Tani w utrzymaniu');
@@ -5414,6 +5518,7 @@ const UI = {
   /* ---------- GŁÓWNY EKRAN GRY ---------- */
   /* ---------- RAMA APLIKACJI (telefon; na komputerze ta sama kolumna na środku) ---------- */
   gameScreen() {
+    const overlay = UI.overlay();
     return `
     <div id="game-root" class="app-shell mx-auto w-full max-w-[480px] flex flex-col bg-desk-900 sm:border-x border-desk-700">
       ${UI.appHeader()}
@@ -5421,7 +5526,32 @@ const UI = {
       ${UI.appDock()}
     </div>
     ${UI.playerSheet()}
-    ${UI.overlay()}`;
+    ${overlay || gameState.ui.playerSheet ? '' : UI.alertsBar()}
+    ${overlay}`;
+  },
+
+  // Powiadomienia o długach w lidze: wyskakują u góry ekranu, klik = finanse ligi, ✕ = zamknij
+  alertsBar() {
+    const list = (gameState.alerts || []).slice(0, 2);
+    if (!list.length) return '';
+    const edge = { good: 'border-l-grass', warn: 'border-l-amber-400', bad: 'border-l-stamp', info: 'border-l-sky-500' };
+    return `
+    <div class="fixed inset-x-0 top-2 z-[60] flex justify-center pointer-events-none px-2">
+      <div class="w-full max-w-[464px] space-y-1.5">
+        ${list.map((a) => `
+        <div class="ov-in pointer-events-auto flex items-start gap-2 rounded-xl bg-desk-800/95 backdrop-blur border border-desk-600 border-l-4 ${edge[a.tone] || edge.info} shadow-lg px-2.5 py-2">
+          <button data-action="open-alert" data-id="${a.id}" class="flex-1 min-w-0 text-left flex items-start gap-2">
+            <span class="text-[20px] leading-none mt-0.5">${a.icon}</span>
+            <span class="min-w-0">
+              <span class="block text-[12.5px] font-bold text-paper-100 truncate">${Utils.escape(a.title)}</span>
+              <span class="block text-[11px] text-paper-300 leading-snug line-clamp-2">${Utils.escape(a.text)}</span>
+            </span>
+          </button>
+          <button data-action="dismiss-alert" data-id="${a.id}" class="flex-shrink-0 w-7 h-7 -mr-1 rounded-md text-paper-400 active:bg-desk-700" aria-label="Zamknij">✕</button>
+        </div>`).join('')}
+        ${gameState.alerts.length > 2 ? `<button data-action="dismiss-alert" data-id="all" class="pointer-events-auto block mx-auto text-[11px] text-paper-300 bg-desk-800/90 rounded-full px-3 py-1">+${gameState.alerts.length - 2} · zamknij wszystkie</button>` : ''}
+      </div>
+    </div>`;
   },
 
   /* ---------- EKRANY NA CAŁY EKRAN: mecz, cut-scenka, skutki decyzji ---------- */
@@ -5747,6 +5877,7 @@ const UI = {
           ${sm.loanEnd && sm.loanEnd.length ? list('🔁 Koniec wypożyczeń – wracają do siebie', sm.loanEnd, '') : ''}
           ${sm.loanBack && sm.loanBack.length ? list('📥 Wracają z wypożyczeń', sm.loanBack, '') : ''}
           ${sm.growth && sm.growth.length ? list('📈 Rozwój młodych', sm.growth, '') : ''}
+          ${sm.debtNews && sm.debtNews.length ? list('💸 Długi w lidze – kto spłacił, kto padł', sm.debtNews, '') : ''}
           ${list('🌱 Nowi w kadrze', sm.newcomers, 'Brak nowych – szatnia pełna.')}
         </div>
       </div>
@@ -5776,7 +5907,7 @@ const UI = {
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -6271,15 +6402,20 @@ const UI = {
         return { name: Selectors.clubDisplayName(), us: true, cash: gameState.finance.budget, credit: Selectors.creditScore(), owed };
       }
       const ec = Engine.clubEco(name);
-      return { name, cash: ec.cash, credit: Selectors.clubCredit(name), owed: ec.loan ? ec.loan.remaining * ec.loan.rate : 0, crisis: ec.crisis };
+      // status spłat: 💀 niewypłacalny niedawno, ⚠️ zalega z ratami, ✅ spłacił dług, 📉 kryzys
+      const status = (ec.blockedUntil || 0) > gameState.calendar.week ? '💀 ' : ec.loan && ec.loan.missed ? '⚠️ ' : ec.paidOff && !ec.loan ? '✅ ' : ec.crisis ? '📉 ' : '';
+      return { name, cash: ec.cash, credit: Selectors.clubCredit(name), owed: ec.loan ? ec.loan.remaining * ec.loan.rate : 0, status };
     }).sort((a, b) => b.cash - a.cash);
-    return `<p class="text-[11px] text-paper-400 mb-1.5">Kasa klubów według plotek z powiatu. Bogaci inwestują w skład, zadłużeni słabną; w dołku każdy bierze pożyczkę – ile dostanie, zależy od kondycji.</p>
-      <section class="paper py-1 mb-2 overflow-hidden">
-        <table class="w-full text-[12px]">
+    const big = rows.length > 12;
+    const news = (gameState.debtNews || []).slice(-2).reverse().map((d) => Utils.escape(d.text)).join(' · ');
+    return `<p class="text-[11px] text-paper-400 mb-1 leading-snug">${big ? 'Kasa i wiarygodność klubów.' : 'Kasa klubów według plotek z powiatu. Bogaci inwestują w skład, zadłużeni słabną; w dołku każdy bierze pożyczkę – ile dostanie, zależy od kondycji i historii spłat.'} ✅ spłacił · ⚠️ zalega · 💀 niewypłacalny</p>
+      ${news ? `<p class="text-[11px] text-paper-200 mb-1 truncate">📰 ${news}</p>` : ''}
+      <section class="paper py-0.5 mb-2 overflow-hidden">
+        <table class="w-full ${big ? 'text-[11px]' : 'text-[12px]'}">
           <tr class="text-[10px] uppercase text-ink-700"><th class="text-left pl-2">Klub</th><th class="text-right">Kasa</th><th class="text-center">Zdolność</th><th class="text-right pr-2">Dług</th></tr>
           ${rows.map((r) => { const c = Selectors.creditLabel(r.credit); return `
           <tr class="border-b border-paper-300 last:border-0 ${r.us ? 'bg-amber-glow/25 font-bold' : ''}">
-            <td class="py-[5px] pl-2 pr-1 max-w-0 w-full truncate">${r.crisis ? '📉 ' : ''}${Utils.escape(r.name)}</td>
+            <td class="${big ? 'py-[1.5px]' : 'py-[5px]'} pl-2 pr-1 max-w-0 w-full truncate">${r.status || ''}${Utils.escape(r.name)}</td>
             <td class="text-right whitespace-nowrap px-1 ${r.cash < 0 ? 'text-stamp' : ''}">${Utils.formatMoney(r.cash)}</td>
             <td class="text-center px-1 whitespace-nowrap" title="${c[1]}">${c[0]}</td>
             <td class="text-right pr-2 whitespace-nowrap text-ink-700">${r.owed ? Utils.formatMoney(r.owed) : '–'}</td>
@@ -6975,6 +7111,17 @@ const Actions = {
       if (inWindow) gameState.transfer.news = lines.concat(gameState.transfer.news || []).slice(0, 4);
       gameState.ui.overlay = { type: 'outcome', icon: d.cutscene.icon, title: Utils.val(d.title), choice: chosen ? Utils.val(chosen.label) : '', lines, deltas: Selectors.clubDeltas(was, Selectors.clubSnapshot()), back: inWindow ? 'transfer' : null };
     }
+    App.commit();
+  },
+  'dismiss-alert'(el) {
+    gameState.alerts = el.dataset.id === 'all' ? [] : gameState.alerts.filter((a) => String(a.id) !== el.dataset.id);
+    App.commit();
+  },
+  'open-alert'(el) {
+    gameState.alerts = gameState.alerts.filter((a) => String(a.id) !== el.dataset.id);
+    gameState.activeTab = 'table';
+    if (!gameState.ui.sub) gameState.ui.sub = {};
+    gameState.ui.sub.table = 'money';
     App.commit();
   },
   'overlay-close'() {
