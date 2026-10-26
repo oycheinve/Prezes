@@ -3094,7 +3094,8 @@ function createInitialState() {
       ticket: 'standard',
       sausage: 'zapiekanka',
       security: null,           // null | 'hired' | 'none' – tylko na derby u siebie
-      ticketFixKey: '',         // runda, w której wykorzystano korektę ceny biletu
+      ticketFixKey: '',         // (stare zapisy) dawna blokada korekty w rundzie
+      ticketNext: null,         // nowy cennik biletów – wchodzi od następnego miesiąca
       policySeason: 0,          // sezon, w którym zapytano już o cennik biletów
       pass: { policy: 'brak', holders: 0, season: 0, revenue: 0 },   // karnety na bieżący sezon
     },
@@ -3104,6 +3105,7 @@ function createInitialState() {
     economy: {},                // kasa i pożyczki pozostałych klubów: { [nazwa]: { cash, income, loan, crisis } }
     loansOut: [],               // nasi zawodnicy na wypożyczeniu: { player, club, until }
     euro: null,                 // kampania w europejskich pucharach (sezon, rozgrywki, etap, wyniki)
+    monthly: { fans: 0, tickets: 0, merch: 0, gastro: 0 },   // miesięczne rozliczenie skutków cen (co 4 tygodnie)
     star: { playerId: null, rebel: false, promised: 0, lastWeek: 0, talkWeek: 0 },   // gwiazda „za dobra na ten klub”   // okno transferowe po sezonie (do 1. kolejki)
     cutscenes: { lastWeek: 0, recent: [], targetId: null },
     merch: {
@@ -3378,16 +3380,32 @@ const Engine = {
   // Cennik biletów: ustalany przed rundą; w trakcie rundy jedna delikatna korekta (o jeden próg)
   ticketWindowOpen: () => !Selectors.isMatchWeek() || gameState.calendar.round % Selectors.rundaLen() === 0,
   ticketRundaKey: () => 's' + gameState.calendar.season + (gameState.calendar.round < Selectors.rundaLen() ? 'j' : 'w'),
+  // Cennik biletów: zmiana działa od następnego miesiąca – bez cotygodniowego chaosu w kasie
   canSetTicket(id) {
-    if (!DATA.tickets[id]) return false;
-    if (id === gameState.matchday.ticket || Engine.ticketWindowOpen()) return true;
-    const order = Object.keys(DATA.tickets);
-    return gameState.matchday.ticketFixKey !== Engine.ticketRundaKey() && Math.abs(order.indexOf(id) - order.indexOf(gameState.matchday.ticket)) === 1;
+    return !!DATA.tickets[id];
   },
   setTicket(id) {
-    if (!Engine.canSetTicket(id) || id === gameState.matchday.ticket) return;
-    if (!Engine.ticketWindowOpen()) gameState.matchday.ticketFixKey = Engine.ticketRundaKey();
-    gameState.matchday.ticket = id;
+    const md = gameState.matchday;
+    if (!DATA.tickets[id]) return;
+    if (!Selectors.isMatchWeek()) { md.ticket = id; md.ticketNext = null; return; }   // przed startem ligi – od razu
+    md.ticketNext = id === md.ticket ? null : id;
+  },
+  // Rozliczenie miesiąca: nowe cenniki wchodzą w życie, skutki cen dla kibiców liczone hurtem i łagodniej
+  monthlySettlement() {
+    const m = gameState.monthly;
+    const md = gameState.matchday, shop = gameState.merch;
+    const changes = [];
+    if (md.ticketNext && DATA.tickets[md.ticketNext]) { md.ticket = md.ticketNext; changes.push('bilety: ' + DATA.tickets[md.ticket].policy); }
+    md.ticketNext = null;
+    if (shop.markupNext && DATA.merchMarkups[shop.markupNext]) { shop.markup = shop.markupNext; changes.push('sklep: ' + DATA.merchMarkups[shop.markup].label.split(' – ')[0]); }
+    shop.markupNext = null;
+    const fans = Math.round(m.fans * 0.7);   // miesięczna stabilizacja – wahania wygładzone
+    if (fans) Engine.applyEffects({ fans });
+    const sum = m.tickets + m.merch + m.gastro;
+    if (sum || fans || changes.length) {
+      Engine.alert('📅', 'Rozliczenie miesiąca', 'Bilety ' + Utils.formatMoney(m.tickets) + ', sklep ' + Utils.formatMoney(m.merch) + ', gastro ' + Utils.formatMoney(m.gastro) + (fans ? ' · nastroje po cenach: kibice ' + (fans > 0 ? '+' : '') + fans + '%' : '') + (changes.length ? ' · nowy cennik: ' + changes.join(', ') : ''), fans < 0 ? 'warn' : 'info');
+    }
+    gameState.monthly = { fans: 0, tickets: 0, merch: 0, gastro: 0 };
   },
 
   /* ----- Kadra: skład, chemia, siła ----- */
@@ -3696,7 +3714,9 @@ const Engine = {
       '. Bilety: ' + Utils.formatMoney(gate) + '. Budka Zenka: ' + sold + ' szt. „' + sausage.label + '” → ' + Utils.formatMoney(grillProfit) + ' zysku.', 'finance');
 
     const ticketFans = gameState.club.character === 'suburban' && ticket.fans < 0 ? Math.round(ticket.fans / 3) : ticket.fans;
-    Engine.applyEffects({ fans: ticketFans + sausage.fans + (pp.fansMatch || 0) });
+    gameState.monthly.fans += ticketFans + sausage.fans + (pp.fansMatch || 0);   // skutki cen dla kibiców – raz w miesiącu
+    gameState.monthly.tickets += gate;
+    gameState.monthly.gastro += grillProfit;
     // Konsekwencje polityki karnetowej
     if (pp.pyro && Math.random() < pp.pyro) {
       const fine = Math.round(250 * Selectors.econ());
@@ -5492,9 +5512,10 @@ const Engine = {
         parts.push(item.label + ' ×' + sold);
       });
       // Konsekwencje cennika: nastroje kibiców co tydzień, strata przy dumpingu, burza przy zdzierstwie
-      if (markup.fans) Engine.applyEffects({ fans: markup.fans });
+      if (markup.fans) gameState.monthly.fans += markup.fans;   // nastroje po cenach – rozliczane raz w miesiącu
       if (m.markup === 'lux' && Math.random() < 0.15) Engine.xPost('ultras', 'Szalik za ' + Engine.merchPrice('scarf') + ' zł?! Prezes chyba myśli, że to Real Madryt. BOJKOT SKLEPIKU! 😡');
       if (income > 0) {
+        gameState.monthly.merch += income;
         Engine.money('Sklepik fanowski', income);
         const lm = gameState.lastMatch;
         if (lm && lm.week === gameState.calendar.week) lm.money.push({ label: 'Sklepik: ' + parts.join(', '), amount: income });   // bilans meczu z koszulkami i szalikami
@@ -5564,6 +5585,9 @@ const Engine = {
         p.injured -= fizjo >= 3 && p.injured > 1 && Math.random() < fizjo * 0.08 ? 2 : 1;
         if (p.injured <= 0) { p.injured = 0; delete p.injuryLabel; }
       });
+    },
+    function monthlyPrices() {
+      if (gameState.calendar.week % 4 === 0) Engine.monthlySettlement();
     },
     function disciplinaryCase() {
       const d = gameState.dark;
@@ -5897,6 +5921,7 @@ const Selectors = {
     return Utils.clamp(f, 0.65, 1.4);
   },
   formLabel: () => { const f = Selectors.formFactor(); const pct = Math.round((f - 1) * 100); return (pct > 0 ? '+' : '') + pct + '%' + (pct >= 15 ? ' 🔥 passa' : pct <= -15 ? ' 🧊 kryzys' : ''); },
+  weeksToMonth: () => 4 - (gameState.calendar.week % 4),
   passPolicy: () => DATA.passPolicies[(gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season && gameState.matchday.pass.policy) || 'brak'] || DATA.passPolicies.brak,
   passHolders: () => (gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season ? gameState.matchday.pass.holders : 0),
   // Prognoza karnetów: ilu kupi i ile wpłynie z góry (cena skaluje się z liczbą meczów u siebie)
@@ -7684,7 +7709,7 @@ const UI = {
       : '<p class="text-[12px]">W tym sezonie u siebie już nie gramy.</p>';
     const policies = Object.entries(DATA.tickets).map(([id, t]) => {
       const ok = Engine.canSetTicket(id);
-      const active = md.ticket === id;
+      const active = (md.ticketNext || md.ticket) === id;
       const f = Engine.ticketForecast(id);
       return `
         <button data-action="set-ticket" data-value="${id}" ${ok ? '' : 'disabled'}
@@ -7703,9 +7728,9 @@ const UI = {
       ${UI.h4('Polityka cenowa biletów na bramce')}
       <div class="grid gap-1.5">${policies}</div>
       <p class="text-[11px] text-ink-700 leading-snug mt-1">${DATA.tickets[md.ticket].desc}</p>
-      <p class="text-[11px] font-semibold mt-0.5 ${Engine.ticketWindowOpen() ? 'text-grass' : 'text-ink-700'}">${Engine.ticketWindowOpen()
-        ? '🔓 Okno cenowe otwarte: cennik ustalasz teraz na całą rundę.'
-        : md.ticketFixKey === Engine.ticketRundaKey() ? '🔒 Cennik zablokowany do przerwy – korekta w tej rundzie już wykorzystana.' : '🔒 Cennik ustalony na rundę. Zostaje 1 korekta o jeden próg.'}</p>
+      <p class="text-[11px] font-semibold mt-0.5 ${md.ticketNext ? 'text-amber-700' : 'text-ink-700'}">${md.ticketNext
+        ? '📅 Nowy cennik od następnego miesiąca (za ' + Selectors.weeksToMonth() + ' tyg.) – teraz: ' + DATA.tickets[md.ticket].policy + '.'
+        : '📅 Zmiany cen wchodzą od nowego miesiąca; skutki dla kibiców rozliczane co 4 tygodnie.'}</p>
       ${UI.h4('Menu w budce Pana Zenka')}
       ${UI.choiceRow('set-sausage', Object.entries(DATA.sausages), md.sausage, (s) => s.label + ' – ' + s.price + ' zł', (s) => s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')}
       <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">📈 Nastroje po wynikach: <b>${Selectors.formLabel()}</b> do frekwencji, gastro i sklepu · ☀️ w słońcu grill +30%.</p>
@@ -7731,8 +7756,9 @@ const UI = {
       ${rows}
       <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Schodzi szybciej po wygranych i w tygodnie meczów u siebie (nastroje po wynikach: <b>${Selectors.formLabel()}</b>). Ulubieńcy Trybun (${favorites}) napędzają koszulki.</p>
       ${UI.h4('Narzut')}
-      ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
-      <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markup].fans < 0 || m.markup === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markup].note}${DATA.merchMarkups[m.markup].fans ? ' · kibice ' + (DATA.merchMarkups[m.markup].fans > 0 ? '+' : '') + DATA.merchMarkups[m.markup].fans + '%/tydz.' : ''}</p>
+      ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markupNext || m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
+      ${m.markupNext ? `<p class="text-[11px] text-amber-700 font-semibold mt-1">📅 Nowy narzut od następnego miesiąca (za ${Selectors.weeksToMonth()} tyg.) – teraz obowiązuje: ${DATA.merchMarkups[m.markup].label.split(' – ')[0]}</p>` : ''}
+      <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markupNext || m.markup].fans < 0 || (m.markupNext || m.markup) === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markupNext || m.markup].note}${DATA.merchMarkups[m.markupNext || m.markup].fans ? ' · kibice ' + (DATA.merchMarkups[m.markupNext || m.markup].fans > 0 ? '+' : '') + DATA.merchMarkups[m.markupNext || m.markup].fans + '%/tydz. (rozliczane co miesiąc)' : ''}</p>
     `);
   },
 
@@ -8049,7 +8075,11 @@ const Actions = {
 
   'set-ticket'(el)   { Engine.setTicket(el.dataset.value); App.commit(); },
   'set-sausage'(el)  { if (DATA.sausages[el.dataset.value]) gameState.matchday.sausage = el.dataset.value; App.commit(); },
-  'set-markup'(el)   { if (DATA.merchMarkups[el.dataset.value]) gameState.merch.markup = el.dataset.value; App.commit(); },
+  'set-markup'(el)   {
+    const v = el.dataset.value, m = gameState.merch;
+    if (DATA.merchMarkups[v]) m.markupNext = v === m.markup ? null : v;   // nowy cennik od następnego miesiąca
+    App.commit();
+  },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
   'sign-sponsor'(el) { Engine.signSponsor(el.dataset.id); App.commit(); },
   'end-sponsor'() {
