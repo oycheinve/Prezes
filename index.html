@@ -789,6 +789,44 @@ const DATA = {
         },
       ],
     },
+    cutActivist: {
+      id: 'cutActivist',
+      levels: [1, 5],
+      cutscene: { icon: '🌭', place: 'Bufet przy sekretariacie Związku · piątek' },
+      from: 'Działacz Okręgowego Związku (z teczką)',
+      title: 'Działacz od terminarza',
+      body: () => 'Działacz od obsady sędziów i terminarza rozpina marynarkę: „Panie Prezesie, terminy derbów, obsada na ważne mecze… wszystko da się ułożyć. Ale wie Pan, ludzie oczekują docenienia.” Patrzy znacząco na bagażnik Prezesa.',
+      options: [
+        {
+          label: 'Skrzynka piwa i wiejska kiełbasa',
+          hint: () => { const o = Selectors.beerOdds(); return '-' + Utils.formatMoney(Selectors.beerCost()) + ', ok. ' + Math.round(o.ok * 100) + '% sukcesu (lepsza gra w najbliższym meczu), ' + Math.round(o.scandal * 100) + '% ryzyko afery'; },
+          effects: {},
+          log: 'Prezes otworzył bagażnik: skrzynka „Żubra” i pęto kiełbasy od pana Zenka.',
+          onChoose: () => {
+            const res = Engine.beerDeal('Działacz Związku');
+            if (res === 'ok') { gameState.coach.carpetBoost = Math.max(gameState.coach.carpetBoost || 0, 0.05); Engine.addLog('🌭 Działacz zadowolony: „Coś się poukłada”. Najbliższy mecz pod dobrą gwiazdą.', 'event'); }
+            else if (res === 'refuse') Engine.addLog('🌭 Działacz prychnął: „Panie, ja nie z tych”. Teczka zamknięta.', 'event');
+          },
+        },
+        {
+          label: 'Koperta „na koszty administracyjne”',
+          hint: () => Utils.signedMoney(-Math.round(250 * Selectors.econ())) + ', ok. 30% ryzyko poważnego skandalu',
+          effects: () => ({ budget: -Math.round(250 * Selectors.econ()) }),
+          log: 'Koperta zniknęła w teczce szybciej niż kiełbasa z grilla.',
+          onChoose: () => {
+            if (Math.random() < 0.3) { Engine.applyEffects({ fans: -8 }); Engine.addScandal('koperta dla działacza Związku'); Engine.alert('🚔', 'Afera kopertowa!', 'Ktoś nagrał przekazanie koperty. Prokuratura pyta, kibice wściekli (-8%).', 'bad', true); }
+            else { gameState.coach.carpetBoost = Math.max(gameState.coach.carpetBoost || 0, 0.06); Engine.addLog('📁 Terminarz „przypadkiem” ułożył się po naszej myśli.', 'event'); }
+          },
+        },
+        {
+          label: 'Podziękować – gramy uczciwie',
+          hint: 'DNA w stronę profesjonalizmu, kibice +2%',
+          effects: { fans: +2 },
+          log: 'Prezes podziękował za kawę. Działacz zapisał coś w notesie.',
+          onChoose: () => Engine.shiftDNA(+2),
+        },
+      ],
+    },
     cutBus: {
       id: 'cutBus',
       levels: [1, 3],
@@ -1940,13 +1978,15 @@ const DATA = {
         },
         {
           label: 'Skrzynka piwa i kiełbasa na zgodę',
-          hint: '-60 zł, ok. 60% szans, że wystarczy',
-          effects: { budget: -60 },
+          hint: () => { const o = Selectors.beerOdds(Selectors.callPlayer()); return '-' + Utils.formatMoney(Selectors.beerCost()) + ', ok. ' + Math.round(o.ok * 100) + '% że wystarczy, ' + Math.round(o.scandal * 100) + '% ryzyko afery w mediach'; },
+          effects: {},
           log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes zawiózł skrzynkę i pęto kiełbasy pod dom „' + p.nick + '”.' : 'Skrzynka pojechała w ciemno.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            if (Math.random() < 0.6) Engine.addLog('🍺 „' + p.nick + '” przyjął skrzynkę i temat podwyżki ucichł. Na razie.', 'event');
-            else { Engine.applyEffects({ lockerRoom: -5 }); Engine.addLog('😒 „' + p.nick + '”: „Za skrzynkę to ja mogę sąsiadowi płot pomalować”. Foch w szatni. [szatnia -5%]', 'event'); }
+            const res = Engine.beerDeal('„' + p.nick + '”', p);
+            if (res === 'ok') Engine.addLog('🍺 „' + p.nick + '” przyjął skrzynkę i temat podwyżki ucichł. Na razie.', 'event');
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -5 }); Engine.addLog('😒 „' + p.nick + '” odesłał skrzynkę. Foch w szatni. [szatnia -5%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -4 }); Engine.addLog('📰 „' + p.nick + '” wrzucił zdjęcie skrzynki do internetu. Afera! [szatnia -4%]', 'event'); }
           },
         },
         {
@@ -3323,6 +3363,65 @@ const Engine = {
     if (newLevel !== level) Engine.addLog('📠 Nowy terminarz z faksu Związku. Rywale w lidze ' + Selectors.leagueName() + ': ' + gameState.league.rivals.map((x) => x.name).join(', ') + '.', 'system');
   },
 
+  /* ----- Negocjacje „na skrzynkę piwa i kiełbasę” ----- */
+  // Zwraca 'ok' | 'refuse' | 'scandal' i od razu pokazuje powiadomienie na ekranie
+  beerDeal(who, p) {
+    const o = Selectors.beerOdds(p);
+    const cost = Selectors.beerCost();
+    Engine.money('Skrzynka piwa i kiełbasa', -cost);
+    gameState.stats.beerDeals = (gameState.stats.beerDeals || 0) + 1;
+    const r = Math.random();
+    if (r < o.ok) {
+      Engine.alert('🍺', 'Skrzynka zadziałała!', who + ' przyjął swojski podarunek i machnął ręką. „Kiełbasa jak u babci, panie Prezesie.”', 'good', true);
+      return 'ok';
+    }
+    if (r < o.ok + o.scandal) {
+      const lvl = gameState.club.leagueLevel;
+      const fans = -Math.min(14, 3 + lvl * 1.5);
+      Engine.applyEffects({ fans: Math.round(fans) });
+      Engine.addScandal('afera obyczajowa: skrzynka piwa w negocjacjach (' + who + ')');
+      Engine.shiftDNA(-2);
+      const media = lvl >= 5 ? 'Ogólnopolskie media' : lvl >= 3 ? 'Portal powiatowy' : 'Cała wieś';
+      Engine.alert('📰', 'AFERA OBYCZAJOWA!', media + ': „Prezes ' + Selectors.clubDisplayName() + ' załatwia sprawy skrzynką piwa”. ' + who + ' pokazał zdjęcia. Reputacja w dół, kibice ' + Math.round(fans) + '%.', 'bad', true);
+      Engine.xPost('portal', 'SKANDAL: prezes ' + Selectors.clubDisplayName() + ' negocjuje „na skrzynkę i kiełbasę”! ' + who + ' ujawnia zdjęcia. 🍺🌭📸');
+      return 'scandal';
+    }
+    Engine.alert('😒', 'Skrzynka nie przeszła', who + ' odesłał piwo: „Za skrzynkę to ja mogę sąsiadowi płot pomalować”.', 'warn', true);
+    return 'refuse';
+  },
+  buyTransferBeer(id) {
+    const t = gameState.transfer;
+    const p = t.open && t.market.find((x) => x.id === id);
+    if (!p || p.beerTried || !Selectors.beerAllowed() || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.beerCost()) return;
+    p.beerTried = true;
+    const res = Engine.beerDeal(Selectors.playerName(p), p);
+    if (res === 'ok') {
+      t.market = t.market.filter((x) => x.id !== id);
+      delete p.fee; delete p.beerTried;
+      gameState.squad.push(p);
+      t.bought++;
+      Engine.addLog('🍺 Transfer za skrzynkę piwa i kiełbasę: ' + Selectors.playerName(p) + ' dołącza do klubu (' + p.wage + ' zł/tydz.).', 'decision');
+    } else if (res === 'scandal') {
+      t.market = t.market.filter((x) => x.id !== id);   // obrażony – nie chce słyszeć o klubie
+    } else {
+      p.fee = Math.round(p.fee * 1.1 / 10) * 10;          // poczuł się niedoceniony – cena w górę
+    }
+  },
+  signCandidateBeer(id) {
+    const sc = gameState.scouting;
+    const p = sc.candidates.find((x) => x.id === id);
+    if (!p || p.beerTried || !gameState.transfer.open || !Selectors.beerAllowed() || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.beerCost()) return;
+    p.beerTried = true;
+    const res = Engine.beerDeal(Selectors.playerName(p), p);
+    if (res === 'ok') {
+      sc.candidates = sc.candidates.filter((x) => x.id !== id);
+      delete p.fee; delete p.rumorSkill; delete p.beerTried;
+      gameState.squad.push(p);
+      Engine.addLog('🍺 Kontrakt podpisany przy skrzynce piwa: ' + Selectors.playerName(p) + '. Odstępne: kiełbasa.', 'decision');
+    } else if (res === 'scandal') sc.candidates = sc.candidates.filter((x) => x.id !== id);
+    else p.fee = Math.round(p.fee * 1.1 / 10) * 10;
+  },
+
   /* ----- Europejskie puchary ----- */
   euroSetup(q) {
     const C = DATA.euro.comps[q.comp];
@@ -4584,11 +4683,11 @@ const Engine = {
     Engine.alert(icon, title, text, tone);
   },
   // Powiadomienie na ekranie (znika po tygodniu albo po kliknięciu)
-  alert(icon, title, text, tone = 'info') {
+  alert(icon, title, text, tone = 'info', top = false) {
     gameState.ui.alertSeq = (gameState.ui.alertSeq || 0) + 1;
-    gameState.alerts.unshift({ id: gameState.ui.alertSeq, week: gameState.calendar.week, icon, title, text, tone });
+    gameState.alerts.unshift({ id: gameState.ui.alertSeq, week: gameState.calendar.week, icon, title, text, tone, top });   // top = widoczne także nad giełdą i scenkami
     gameState.alerts = gameState.alerts.slice(0, 4);
-    Engine.addLog(icon + ' ' + title + ': ' + text, 'finance');
+    Engine.addLog(icon + ' ' + title + ' – ' + text, 'finance');
   },
 
   takeLoan(id) {
@@ -5135,6 +5234,24 @@ const Selectors = {
     return t ? t.pts + ' pkt w ' + t.p + ' meczach' : 'słabe wyniki';
   },
   euroBid: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return p ? Math.round((Selectors.sellPrice(p) * 3 + 20000 * Selectors.econ() * Selectors.euroComp().mult) / 1000) * 1000 : 0; },
+  /* Skrzynka piwa i kiełbasa: im niższa liga i bardziej wiejski klub, tym większa szansa; wyżej – ryzyko afery */
+  beerAllowed: () => gameState.club.leagueLevel <= 5,
+  beerCost: () => Math.round(60 * (1 + (gameState.club.leagueLevel - 1) * 0.5) / 5) * 5,
+  beerOdds: (p) => {
+    const lvl = gameState.club.leagueLevel;
+    let ok = [0, 0.72, 0.6, 0.47, 0.33, 0.2, 0.1, 0.05, 0.02][lvl] || 0.02;
+    if (gameState.club.character === 'rural') ok += 0.08;
+    ok -= Math.max(0, gameState.club.professionalism - 50) * 0.003;          // „profesjonalny” klub – wstyd tak załatwiać
+    if (p) {
+      ok -= Math.max(0, Selectors.ovr(p) - Selectors.teamOvr() - 3) * 0.02;  // lepszy zawodnik = większe wymagania
+      if (p.age >= 30) ok += 0.08;                                           // weteran z okolicy machnie ręką
+      if (p.age <= 20) ok -= 0.05;                                           // młodzi chcą kasy na telefon
+      if (p.tag === 'party') ok += 0.1;
+    }
+    ok = Utils.clamp(ok, 0.02, 0.85);
+    const scandal = Utils.clamp((1 - ok) * ([0, 0.18, 0.25, 0.35, 0.5, 0.65, 0.8, 0.9, 0.95][lvl] || 0.9), 0.03, 0.9);   // wyżej = media czujniejsze
+    return { ok, scandal, refuse: Math.max(0, 1 - ok - scandal) };
+  },
   euroThisSeason: () => !!(gameState.euro && gameState.euro.season === gameState.calendar.season),
   euroLive: () => Selectors.euroThisSeason() && !gameState.euro.done,
   euroComp: (c) => DATA.euro.comps[c || (gameState.euro && gameState.euro.comp) || 'UCL'],
@@ -5527,20 +5644,21 @@ const UI = {
     </div>
     ${UI.playerSheet()}
     ${overlay || gameState.ui.playerSheet ? '' : UI.alertsBar()}
-    ${overlay}`;
+    ${overlay}
+    ${overlay ? UI.alertsBar(true) : ''}`;
   },
 
   // Powiadomienia o długach w lidze: wyskakują u góry ekranu, klik = finanse ligi, ✕ = zamknij
-  alertsBar() {
-    const list = (gameState.alerts || []).slice(0, 2);
+  alertsBar(onlyTop) {
+    const list = (gameState.alerts || []).filter((a) => !onlyTop || a.top).slice(0, 2);
     if (!list.length) return '';
     const edge = { good: 'border-l-grass', warn: 'border-l-amber-400', bad: 'border-l-stamp', info: 'border-l-sky-500' };
     return `
-    <div class="fixed inset-x-0 top-2 z-[60] flex justify-center pointer-events-none px-2">
+    <div class="fixed inset-x-0 top-2 ${onlyTop ? 'z-[90]' : 'z-[60]'} flex justify-center pointer-events-none px-2">
       <div class="w-full max-w-[464px] space-y-1.5">
         ${list.map((a) => `
         <div class="ov-in pointer-events-auto flex items-start gap-2 rounded-xl bg-desk-800/95 backdrop-blur border border-desk-600 border-l-4 ${edge[a.tone] || edge.info} shadow-lg px-2.5 py-2">
-          <button data-action="open-alert" data-id="${a.id}" class="flex-1 min-w-0 text-left flex items-start gap-2">
+          <button data-action="${a.top ? 'dismiss-alert' : 'open-alert'}" data-id="${a.id}" class="flex-1 min-w-0 text-left flex items-start gap-2">
             <span class="text-[20px] leading-none mt-0.5">${a.icon}</span>
             <span class="min-w-0">
               <span class="block text-[12.5px] font-bold text-paper-100 truncate">${Utils.escape(a.title)}</span>
@@ -5549,7 +5667,7 @@ const UI = {
           </button>
           <button data-action="dismiss-alert" data-id="${a.id}" class="flex-shrink-0 w-7 h-7 -mr-1 rounded-md text-paper-400 active:bg-desk-700" aria-label="Zamknij">✕</button>
         </div>`).join('')}
-        ${gameState.alerts.length > 2 ? `<button data-action="dismiss-alert" data-id="all" class="pointer-events-auto block mx-auto text-[11px] text-paper-300 bg-desk-800/90 rounded-full px-3 py-1">+${gameState.alerts.length - 2} · zamknij wszystkie</button>` : ''}
+        ${!onlyTop && gameState.alerts.length > 2 ? `<button data-action="dismiss-alert" data-id="all" class="pointer-events-auto block mx-auto text-[11px] text-paper-300 bg-desk-800/90 rounded-full px-3 py-1">+${gameState.alerts.length - 2} · zamknij wszystkie</button>` : ''}
       </div>
     </div>`;
   },
@@ -5947,7 +6065,9 @@ const UI = {
         </article>`;
       }).join('') || '<p class="text-[12.5px] text-paper-400 py-2">Wszystkie oferty i żądania rozpatrzone.</p>');
     } else if (view === 'buy') {
-      rows = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', btn('buy-transfer', p.id, 'Kup za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
+      const beer = (p) => (Selectors.beerAllowed() ? btn('buy-beer', p.id, p.beerTried ? '🍺 już próbowano' : '🍺 Skrzynka i kiełbasa · ' + Math.round(Selectors.beerOdds(p).ok * 100) + '%', p.beerTried || full || budget < Selectors.beerCost(), 'bg-desk-700 text-paper-100 border border-desk-600') : '');
+      rows = (Selectors.beerAllowed() ? `<p class="text-[10.5px] text-paper-400 mt-1.5 leading-snug">🍺 Po prowincjonalnemu: skrzynka piwa i wiejska kiełbasa (${Utils.formatMoney(Selectors.beerCost())}) zamiast odstępnego. Może przejść… albo skończyć się aferą w mediach.</p>` : '')
+        + t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', beer(p) + btn('buy-transfer', p.id, 'Kup za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
         || '<p class="text-[12.5px] text-paper-400 py-2">Giełda pusta – wszyscy już kupieni.</p>';
     } else if (view === 'loan') {
       rows = '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji, po sezonie wracają do siebie.</p>'
@@ -6731,7 +6851,10 @@ const UI = {
             <div class="text-[10px] uppercase tracking-wide text-ink-700">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. ${UI.profileBadge(p.profile)}</div>
             <div class="text-[13px] font-bold leading-tight">${Utils.escape(Selectors.playerName(p))}</div>
           </div>
-          ${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, gameState.transfer.open ? 'Podpisz (' + Utils.formatMoney(p.fee) + ')' : '🔒 w oknie · ' + Utils.formatMoney(p.fee), !gameState.transfer.open || full || budget < p.fee)}
+          <div class="flex flex-col items-end gap-1 flex-shrink-0">
+            ${UI.smallBtn('sign-candidate', `data-id="${p.id}"`, gameState.transfer.open ? 'Podpisz (' + Utils.formatMoney(p.fee) + ')' : '🔒 w oknie · ' + Utils.formatMoney(p.fee), !gameState.transfer.open || full || budget < p.fee)}
+            ${gameState.transfer.open && Selectors.beerAllowed() ? UI.smallBtn('sign-beer', `data-id="${p.id}"`, p.beerTried ? '🍺 już próbowano' : '🍺 Za skrzynkę · ' + Math.round(Selectors.beerOdds(p).ok * 100) + '%', p.beerTried || full || budget < Selectors.beerCost()) : ''}
+          </div>
         </div>
         <p class="text-[11.5px] italic leading-snug">Szwagier: „${Utils.escape(p.trait)}”</p>
         <div class="text-[11px] leading-snug">
@@ -7150,6 +7273,8 @@ const Actions = {
     App.commit();
   },
   'buy-transfer'(el) { Engine.buyTransfer(el.dataset.id); App.commit(); },
+  'buy-beer'(el)     { Engine.buyTransferBeer(el.dataset.id); App.commit(); },
+  'sign-beer'(el)    { Engine.signCandidateBeer(el.dataset.id); App.commit(); },
   'loan-in'(el)      { Engine.loanIn(el.dataset.id); App.commit(); },
   'player-open'(el)  { gameState.ui.playerSheet = el.dataset.id; App.commit(); },
   'player-close'()   { gameState.ui.playerSheet = null; App.commit(); },
