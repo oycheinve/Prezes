@@ -4137,7 +4137,7 @@ const Engine = {
   },
   u19Init() {
     gameState.u19 = { squad: [], table: {}, coach: null, recruiter: null, graduates: [], log: [], last: null };
-    [15, 16, 16, 17, 17, 18, 18].forEach((age) => gameState.u19.squad.push(Engine.makeJunior(age)));
+    [15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 16].forEach((age) => gameState.u19.squad.push(Engine.makeJunior(age)));
     Engine.u19NewSeason();
   },
   u19NewSeason() {
@@ -4153,17 +4153,30 @@ const Engine = {
     const me = Selectors.u19Name();
     if (!u.table[me]) Engine.u19NewSeason();
     const eleven = u.squad.slice().sort((a, b) => b.skill - a.skill).slice(0, 11);
-    const avg = eleven.reduce((s, p) => s + p.skill, 0) / Math.max(1, eleven.length);
-    const ourS = (0.45 + avg * 0.13) * (1 + Selectors.u19Lvl('coach') * 0.04) * (1 - Math.max(0, 11 - eleven.length) * 0.07);
-    const oppS = (0.45 + (2.5 + Selectors.levelSkillBonus()) * 0.13) * Utils.randRange(0.85, 1.15);
+    const filler = Math.max(1, Selectors.academy().skill[0] + Selectors.levelSkillBonus() - 1);   // braki w składzie łata chłopak z rocznika
+    const avg = (eleven.reduce((s, p) => s + p.skill, 0) + Math.max(0, 11 - eleven.length) * filler) / 11;
+    const ourS = (0.45 + avg * 0.13) * (1 + Selectors.u19Lvl('coach') * 0.04);
+    const oppS = (0.45 + (1.6 + Selectors.levelSkillBonus()) * 0.13) * Utils.randRange(0.8, 1.2);   // przeciętna akademia rywala
     const others = Object.keys(u.table).filter((t) => t !== me);
     const opp = Utils.rand(others);
     const gf = Utils.poisson(1.3 * Math.pow(ourS / oppS, 1.3)), ga = Utils.poisson(1.3 * Math.pow(oppS / ourS, 1.3));
     const rec = (t, f, a) => { const r = u.table[t]; r.p++; r.gf += f; r.ga += a; if (f > a) { r.w++; r.pts += 3; } else if (f === a) { r.d++; r.pts++; } else r.l++; };
     rec(me, gf, ga); rec(opp, ga, gf);
     Utils.shuffle(others.filter((t) => t !== opp)).forEach((t, i, arr) => { if (i % 2 === 0 && arr[i + 1]) { const a = Utils.poisson(1.3), b = Utils.poisson(1.3); rec(t, a, b); rec(arr[i + 1], b, a); } });
-    eleven.forEach((p) => { p.u19Apps = (p.u19Apps || 0) + 1; });
-    u.last = { opp, gf, ga };
+    eleven.forEach((p) => { p.u19Apps = (p.u19Apps || 0) + 1; p.u19Total = (p.u19Total || 0) + 1; });
+    // strzelcy i noty juniorów
+    const scorers = [];
+    for (let i = 0; i < gf; i++) {
+      const sc = Utils.weightedPick(eleven, (x) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[x.pos]) * x.skill);
+      if (sc) { sc.u19Goals = (sc.u19Goals || 0) + 1; sc.u19GoalsTotal = (sc.u19GoalsTotal || 0) + 1; scorers.push(sc.nick); }
+    }
+    eleven.forEach((x) => {
+      const r = Math.round(Utils.clamp(6 + (gf - ga) * 0.35 + scorers.filter((n) => n === x.nick).length * 0.8 + (x.skill - avg) * 0.25 + Utils.randRange(-1, 1), 2, 10) * 10) / 10;
+      x.u19RatingSum = (x.u19RatingSum || 0) + r; x.u19RatingN = (x.u19RatingN || 0) + 1;
+      x.u19Form = (x.u19Form || []).concat([r]).slice(-5);
+    });
+    u.form = (u.form || []).concat([gf > ga ? 'W' : gf === ga ? 'D' : 'L']).slice(-5);
+    u.last = { opp, gf, ga, scorers };
   },
   // Co tydzień: łowcy perełek z innych klubów
   u19Poachers() {
@@ -4216,14 +4229,15 @@ const Engine = {
       let gain = Engine.develop(p, Math.round((p.u19Apps || 0) * 1.3), false);
       if (Math.random() < Selectors.u19Lvl('coach') * 0.15 && p.skill < Selectors.potential(p)) { p.skill++; gain++; }   // trener juniorów
       if (gain) grew.push(p.nick + ' +' + gain);
-      p.age++; p.u19Apps = 0;
+      p.age++; p.u19Apps = 0; p.u19Goals = 0; p.u19RatingSum = 0; p.u19RatingN = 0;   // nowy sezon juniorów
     });
+    u.form = [];
     const grads = u.squad.filter((p) => p.age >= 19);
     u.squad = u.squad.filter((p) => p.age < 19);
     u.graduates = u.graduates.concat(grads);
     if (u.graduates.length) Engine.pushDecision('u19Graduate');
     const A = Selectors.academy();
-    const n = Math.min(Math.max(0, 16 - u.squad.length), A.cands + Selectors.u19Lvl('recruiter'));
+    const n = Math.min(Math.max(0, 16 - u.squad.length), Math.max(A.cands + Selectors.u19Lvl('recruiter'), 12 - u.squad.length));   // nabór utrzymuje co najmniej 12 juniorów
     const fresh = [];
     for (let i = 0; i < n; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); u.squad.push(p); fresh.push(p.nick + (p.talent ? ' 💎' : '')); }
     summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą: ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '');
@@ -5421,14 +5435,21 @@ const Engine = {
     const kolejka = gameState.calendar.round + 1;
     const t = gameState.season.table[US];
     const contender = t && t.p > 0 && Selectors.ourPosition() <= 3;
-    const crisis = gameState.finance.budget < 0 || (kolejka >= gameState.season.rounds.length * 0.75 && t && t.p > 0 && (contender || Selectors.ourPosition() >= Selectors.leagueSize() - 1));
+    // Tylko skrajne chwile: głęboko pod kreską albo dramatyczna końcówka walki o awans / utrzymanie
+    const n = Selectors.leagueSize(), pos = Selectors.ourPosition();
+    const zoneAt = (q) => Selectors.zoneOf(Utils.clamp(q, 1, n), n);
+    const late = kolejka >= gameState.season.rounds.length * 0.6 && t && t.p > 0;
+    const promoFight = late && ['up', 'upPO', 'title'].some((z) => zoneAt(pos) === z || zoneAt(pos - 1) === z);
+    const relegFight = late && ['down', 'downPO', 'last'].some((z) => zoneAt(pos) === z || zoneAt(pos + 1) === z);
+    const deepDebt = gameState.finance.budget < Selectors.debtThresholds().warn;
+    const crisis = deepDebt || promoFight || relegFight;
     // Im wyższa liga, tym szczelniejszy system: w B-klasie „okazje” trafiają się co jakiś czas, w Ekstraklasie sporadycznie
-    const chance = [0, 0.25, 0.2, 0.15, 0.09, 0.06, 0.04, 0.025, 0.015][lvl] || 0.015;
-    if (!(crisis || lvl <= 3) || Math.random() > chance) return;
+    const chance = [0, 0.12, 0.1, 0.08, 0.06, 0.045, 0.03, 0.02, 0.012][lvl] || 0.012;
+    if (!crisis || Math.random() > chance) return;   // nawet w kryzysie – rzadkie i niebezpieczne koło ratunkowe
     d.lastOfferWeek = gameState.calendar.week;
     d.variant = Utils.randInt(0, 3);   // miejsce i przebieg spotkania
     d.offersThisSeason++;
-    Engine.pushDecision(contender && gameState.finance.budget >= Selectors.passatBuyAmount() ? 'passatBuy' : 'passatSell');
+    Engine.pushDecision((contender || promoFight) && !deepDebt && gameState.finance.budget >= Selectors.passatBuyAmount() ? 'passatBuy' : 'passatSell');
   },
 
   resolveDarkDeal() {
@@ -5607,6 +5628,7 @@ const Engine = {
     s.burned.push(s.active);
     s.burnedAt[s.active] = gameState.calendar.week;
     s.active = null;
+    s.strikes = 0;   // nowy sponsor zaczyna z czystą kartą
     Engine.addLog(logText, 'event');
     Engine.ensureSponsor();
   },
@@ -5871,7 +5893,16 @@ const Engine = {
       Engine.ensureSponsor();
       Engine.refreshSponsors();
       const sp = Selectors.sponsorDef(s.active);
-      if (sp.breaks(gameState)) Engine.endSponsor('❌ ' + sp.breakLog);   // zerwał – od razu wchodzi lokalny sponsor
+      // Cierpliwość: chwilowy dołek nie zrywa umowy – sponsor odchodzi po kilku złych tygodniach albo przy katastrofie
+      if (Selectors.hasRealSponsor()) {
+        const t = Selectors.debtThresholds();
+        const row = gameState.season.table[US];
+        const catastrophe = gameState.finance.budget < t.bailiff || (row && row.p >= 8 && Selectors.ourPosition() === Selectors.leagueSize() && gameState.record.lossStreak >= 4);
+        const unhappy = sp.breaks(gameState) || catastrophe;
+        s.strikes = unhappy ? (s.strikes || 0) + 1 : Math.max(0, (s.strikes || 0) - 1);
+        if (unhappy && s.strikes === 2) Engine.alert('😟', 'Sponsor niezadowolony', sp.name + ' dzwoni z pretensjami: „Jeszcze trochę i się rozstaniemy”. Popraw sytuację w ciągu kilku tygodni.', 'warn');
+        if (s.strikes >= (catastrophe ? 3 : 5)) { s.strikes = 0; Engine.endSponsor('❌ ' + sp.breakLog); }   // zerwał – od razu wchodzi lokalny sponsor
+      }
       const payer = Selectors.sponsor();
       if (payer !== sp) { Engine.money('Sponsor: ' + payer.name, Selectors.sponsorWeekly(payer)); return; }
       Engine.money('Sponsor: ' + sp.name, Selectors.sponsorWeekly(sp));
@@ -7590,7 +7621,7 @@ const UI = {
     const u = gameState.u19;
     if (!u) return UI.panel('Akademia', '', '<p class="text-[12px]">Akademia jeszcze nie ruszyła.</p>');
     const view = UI.sub('u19', 'squad');
-    const segs = UI.subSegs('u19', view, [['squad', '👦 Kadra U19'], ['league', '📊 Liga juniorów'], ['base', '🏗️ Baza i sztab']]);
+    const segs = UI.subSegs('u19', view, [['squad', '👦 Kadra'], ['league', '📊 Tabela'], ['stats', '★ Statystyki'], ['base', '🏗️ Baza']]);
     const budget = gameState.finance.budget;
     const rec = Selectors.u19Lvl('recruiter');
     const st = Selectors.u19Standings();
@@ -7599,6 +7630,20 @@ const UI = {
       const rows = st.map((r, i) => `<tr class="border-b border-paper-300 last:border-0 ${r.team === Selectors.u19Name() ? 'bg-amber-glow/25 font-bold' : ''}"><td class="py-[3px] pl-1 text-right">${i + 1}.</td><td class="pl-1 max-w-0 w-full truncate">${Utils.escape(r.team)}</td><td class="text-center px-1">${r.p}</td><td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`).join('');
       return segs + UI.panel('📊 Liga juniorów', u.last ? 'Ostatnio: ' + Utils.escape(Selectors.u19Name()) + ' ' + u.last.gf + ':' + u.last.ga + ' ' + Utils.escape(u.last.opp) : 'Juniorzy grają w każdej kolejce razem z pierwszą drużyną.',
         `<table class="w-full text-[11.5px]"><tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left pl-1">Drużyna</th><th>M</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>${rows}</table>`);
+    }
+    if (view === 'stats') {
+      const me = u.table[Selectors.u19Name()] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+      const avgR = (p) => (p.u19RatingN ? p.u19RatingSum / p.u19RatingN : null);
+      const scorers = u.squad.filter((p) => p.u19Goals > 0).sort((a, b) => b.u19Goals - a.u19Goals).slice(0, 5);
+      const rated = u.squad.filter((p) => avgR(p) != null).sort((a, b) => avgR(b) - avgR(a)).slice(0, 6);
+      const dots = (u.form || []).map((r) => `<span class="inline-block w-2 h-2 rounded-full mr-0.5 ${{ W: 'bg-grass', D: 'bg-amber-400', L: 'bg-stamp' }[r]}"></span>`).join('');
+      const trend = (p) => { const f = p.u19Form || []; if (f.length < 2) return ''; const d = f[f.length - 1] - f[0]; return d > 0.5 ? ' 📈' : d < -0.5 ? ' 📉' : ''; };
+      return segs + UI.tiles([
+        UI.tile('Bilans', me.w + '-' + me.d + '-' + me.l, me.p + ' meczów'),
+        UI.tile('Bramki', me.gf + ':' + me.ga, me.pts + ' pkt · ' + (pos || '–') + '. miejsce'),
+        UI.tile('Forma', dots || '–', u.last ? 'ost. ' + u.last.gf + ':' + u.last.ga : 'brak meczów'),
+      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon · w nawiasie łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
+        + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${p.talent ? '💎 ' : ''}„${Utils.escape(p.nick)}” ${Utils.escape(p.last)} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
     }
     if (view === 'base') {
       const folds = gameState.ui.folds || {};
@@ -7626,17 +7671,17 @@ const UI = {
       const gem = Selectors.isGem(p);
       const flags = (p.talent ? ' 💎' : '') + (p.secured ? ' 🔒' : '') + (p.watch && rec ? ' 👀' : '');
       const action = p.secured ? '<span class="text-[10.5px] text-grass font-bold">UMOWA</span>'
-        : (p.age >= 17 || gem ? UI.smallBtn('u19-secure', `data-id="${p.id}"`, '🔒 ' + Utils.formatMoney(Selectors.secureCost(p)), budget < Selectors.secureCost(p)) : '');
-      return `<div class="flex items-center gap-1.5 py-1 border-b border-paper-300 last:border-0">
+        : (p.age >= 17 || gem ? `<button data-action="u19-secure" data-id="${p.id}" ${budget < Selectors.secureCost(p) ? 'disabled' : ''} class="btn-press h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap ${budget < Selectors.secureCost(p) ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-ink-900 text-paper-100'}">🔒 ${Utils.formatMoney(Selectors.secureCost(p))}</button>` : '');
+      return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0">
         ${UI.ovrBadge(p)}
-        <div class="min-w-0 flex-1"><div class="text-[12.5px] font-bold truncate">„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}${flags}</div>
-        <div class="text-[10.5px] text-ink-700 truncate">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
+        <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}${flags}</div>
+        <div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
         ${action}
       </div>`;
     }).join('');
     return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
-      + `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Kontrakt juniorski chroni perełki przed podkradaniem przez inne kluby.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`;
+      + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Kontrakt juniorski chroni perełki przed podkradaniem przez inne kluby.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
   },
 
   // Gablotka: wszystkie trofea w historii klubu + bieżąca edycja Pucharu Polski
