@@ -465,7 +465,7 @@ const DATA = {
     brak: { icon: '🎟️', label: 'Bez karnetów', sub: 'Tylko bilety na bramce', ticket: 'standard', passPrice: 0, share: 0, homeAdv: 0, fansMatch: 0, promo: 0,
       pros: 'pełna elastyczność, każdy płaci za mecz', cons: 'zero kasy z góry na start sezonu' },
     vip: { icon: '💼', label: 'Drogie karnety VIP', sub: 'Kasa z góry, teatr na trybunach', ticket: 'zdzierstwo', passPrice: 300, share: 0.12, homeAdv: -0.05, fansMatch: -3, loseHome: -2, promo: 5,
-      pros: 'duży zastrzyk gotówki na start, sponsorzy zachwyceni', cons: 'tradycyjni kibice odchodzą (-3%/mecz), cisza zamiast dopingu' },
+      pros: 'duży zastrzyk gotówki na start, sponsorzy zachwyceni', cons: 'tradycyjni kibice się odwracają (rozliczane co miesiąc), cisza zamiast dopingu' },
   },
 
   sausages: {
@@ -3362,8 +3362,8 @@ const Engine = {
     gameState.matchday.ticket = pp.ticket;
     gameState.matchday.ticketFixKey = '';
     if (f.revenue) Engine.money('Karnety na sezon (' + f.holders + ' szt.)', f.revenue);
-    if (id === 'vip') { Engine.applyEffects({ fans: -4 }); Engine.addLog('💼 Kibice z „Młyna”: „Karnet za ' + f.price + ' zł? Za to jest wczasy w Mielnie!”. [kibice -4%]', 'event'); }
-    if (id === 'twierdza') { Engine.applyEffects({ fans: +4 }); Engine.addLog('🔥 Ultrasi już szyją sektorówkę. Karnety rozeszły się w godzinę. [kibice +4%]', 'event'); }
+    if (id === 'vip') { gameState.monthly.fans -= 4; Engine.addLog('💼 Kibice z „Młyna”: „Karnet za ' + f.price + ' zł? Za to jest wczasy w Mielnie!”.', 'event'); }
+    if (id === 'twierdza') { gameState.monthly.fans += 4; Engine.addLog('🔥 Ultrasi już szyją sektorówkę. Karnety rozeszły się w godzinę.', 'event'); }
   },
 
   // Prognoza na najbliższy mecz u siebie dla danego cennika (bez losowości)
@@ -3399,7 +3399,7 @@ const Engine = {
     md.ticketNext = null;
     if (shop.markupNext && DATA.merchMarkups[shop.markupNext]) { shop.markup = shop.markupNext; changes.push('sklep: ' + DATA.merchMarkups[shop.markup].label.split(' – ')[0]); }
     shop.markupNext = null;
-    const fans = Math.round(m.fans * 0.7);   // miesięczna stabilizacja – wahania wygładzone
+    const fans = Utils.clamp(Math.round(m.fans * 0.6), -8, 8);   // miesięczna stabilizacja: łagodniej i z limitem w obie strony
     if (fans) Engine.applyEffects({ fans });
     const sum = m.tickets + m.merch + m.gastro;
     if (sum || fans || changes.length) {
@@ -3725,12 +3725,12 @@ const Engine = {
       Engine.addLog('🎆 Fanatycy z tanich karnetów odpalili race. Delegat zapisał wszystko: kara ' + Utils.formatMoney(fine) + '.', 'event');
     }
     if (pp.boycott && Math.random() < pp.boycott) {
-      Engine.applyEffects({ fans: -3 });
-      Engine.addLog('🪧 Ultrasi bojkotują „piknik dla rodzin”: transparent „TU SIĘ KIBICUJE, NIE JE WATĘ”. [kibice -3%]', 'event');
+      gameState.monthly.fans -= 3;   // rozliczane w miesięcznym bilansie
+      Engine.addLog('🪧 Ultrasi bojkotują „piknik dla rodzin”: transparent „TU SIĘ KIBICUJE, NIE JE WATĘ”. (nastroje rozliczane co miesiąc)', 'event');
     }
     if (pp.loseHome && gameState.lastMatch && gameState.lastMatch.result === 'L') {
-      Engine.applyEffects({ fans: pp.loseHome });
-      Engine.addLog('💼 Posiadacze karnetów VIP piszą skargi: „Płacimy jak za teatr, a gra jak w cyrku”. [kibice ' + pp.loseHome + '%]', 'event');
+      gameState.monthly.fans += pp.loseHome;
+      Engine.addLog('💼 Posiadacze karnetów VIP piszą skargi: „Płacimy jak za teatr, a gra jak w cyrku”. (nastroje rozliczane co miesiąc)', 'event');
     }
 
     if (Math.random() < sausage.poisonRisk) {
@@ -7717,7 +7717,7 @@ const UI = {
           <span class="text-[18px] w-6 text-center">${ok || active ? t.icon : '🔒'}</span>
           <span class="min-w-0 flex-1">
             <span class="block text-[12.5px] ${active ? 'font-bold' : 'font-semibold'} leading-tight">${t.policy} · ${t.price} zł</span>
-            <span class="block text-[10.5px] text-ink-700 leading-snug">${f ? '~' + f.att + ' widzów · ~' + Utils.formatMoney(f.gate) + ' z biletów na mecz' : 'brak meczów u siebie'}${t.fans ? ' · kibice ' + (t.fans > 0 ? '+' : '') + t.fans + '%/mecz' : ''}</span>
+            <span class="block text-[10.5px] text-ink-700 leading-snug">${f ? '~' + f.att + ' widzów · ~' + Utils.formatMoney(f.gate) + ' z biletów na mecz' : 'brak meczów u siebie'}${t.fans ? ' · nastroje ' + (t.fans > 0 ? '↑' : '↓') + ' (co miesiąc)' : ''}</span>
           </span>
         </button>`;
     }).join('');
@@ -7758,7 +7758,7 @@ const UI = {
       ${UI.h4('Narzut')}
       ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markupNext || m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
       ${m.markupNext ? `<p class="text-[11px] text-amber-700 font-semibold mt-1">📅 Nowy narzut od następnego miesiąca (za ${Selectors.weeksToMonth()} tyg.) – teraz obowiązuje: ${DATA.merchMarkups[m.markup].label.split(' – ')[0]}</p>` : ''}
-      <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markupNext || m.markup].fans < 0 || (m.markupNext || m.markup) === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markupNext || m.markup].note}${DATA.merchMarkups[m.markupNext || m.markup].fans ? ' · kibice ' + (DATA.merchMarkups[m.markupNext || m.markup].fans > 0 ? '+' : '') + DATA.merchMarkups[m.markupNext || m.markup].fans + '%/tydz. (rozliczane co miesiąc)' : ''}</p>
+      <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markupNext || m.markup].fans < 0 || (m.markupNext || m.markup) === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markupNext || m.markup].note}${DATA.merchMarkups[m.markupNext || m.markup].fans ? ' · nastroje kibiców ' + (DATA.merchMarkups[m.markupNext || m.markup].fans > 0 ? 'w górę' : 'w dół') + ' (rozliczane raz w miesiącu)' : ''}</p>
     `);
   },
 
