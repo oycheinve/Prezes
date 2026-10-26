@@ -103,7 +103,8 @@ const CONFIG = {
   carpetCooldown: 4,        // co ile tygodni można wezwać trenera na dywanik
   maxFavorites: 4,          // tylu Ulubieńców Trybun naraz
   maxSquad: 22,             // limit kadry (szatnia ma 22 haczyki)
-  maxSkill: 16,             // sufit umiejętności (Ekstraklasa wymaga grajków z prawdziwego zdarzenia)
+  maxSkill: 16,
+  domesticOvrCap: 92,       // krajowy sufit OVR; 93–99 zarezerwowane dla europejskich pucharów             // sufit umiejętności (Ekstraklasa wymaga grajków z prawdziwego zdarzenia)
   scoutCost: 80,            // benzyna + „załącznik” dla Szwagra
   scoutWeeks: 2,            // tyle trwa objazd festynów
   maxFeed: 80,              // tyle postów trzyma Wirtualny X
@@ -2665,17 +2666,19 @@ const Engine = {
   // Potencjał = sufit umiejętności. Młodzi mają zapas, starsi są już blisko szczytu.
   rollPotential(p) {
     const room = p.age <= 20 ? Utils.randInt(1, 5) : p.age <= 23 ? Utils.randInt(0, 3) : p.age <= 26 ? Utils.randInt(0, 1) : 0;
-    p.potential = Math.min(CONFIG.maxSkill, p.skill + room + (p.talent ? 2 : 0));
+    // sufit skalowany do ligi klubu (+1 dla zwykłych, +2 dla Perełek ponad poziom rozgrywek)
+    p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() + (p.talent ? 2 : 1), p.skill + room + (p.talent ? 2 : 0)));
   },
 
   markTalent(p) {
     p.talent = true;
-    p.potential = Math.min(CONFIG.maxSkill, Math.max(p.potential || p.skill, p.skill) + 2);   // Perełka = wyższy sufit
+    p.potential = Math.min(Selectors.leagueSkillCap() + 2, Math.max(p.potential || p.skill, p.skill) + 2);   // Perełka = wyższy sufit (ale w granicach ligi)
   },
 
   // Rozwój na koniec sezonu: im więcej gry, tym szybciej; regularna gra na wypożyczeniu = pewny postęp
   develop(p, apps, onLoan) {
-    if (p.age > 24 || p.skill >= Selectors.potential(p)) return 0;
+    const cap = Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
+    if (p.age > 24 || p.skill >= cap) return 0;
     const share = Utils.clamp(apps / Math.max(1, gameState.season.rounds.length || 18), 0, 1);
     let gain = 0;
     if (onLoan) {
@@ -2685,7 +2688,7 @@ const Engine = {
       gain = Math.random() < chance ? 1 : 0;
       if (gain && p.talent && share >= 0.7 && Math.random() < 0.25) gain++;
     }
-    gain = Math.min(gain, Selectors.potential(p) - p.skill);
+    gain = Math.min(gain, cap - p.skill);
     p.skill += gain;
     return gain;
   },
@@ -2701,8 +2704,8 @@ const Engine = {
   isTooGood(p, avgOvr) {
     const ovr = Selectors.ovr(p);
     const ps = p.prevSeason;   // w oknie transferowym sezon jest już wyzerowany
-    const formStar = ps && ps.apps >= 4 && ps.avg != null && ps.avg >= 7 && ovr >= avgOvr + 5;
-    return ovr >= Math.max(avgOvr + 9, 62 + Selectors.levelSkillBonus() * 4.5) || formStar;
+    const formStar = ps && ps.apps >= 4 && ps.avg != null && ps.avg >= 7 && ovr >= avgOvr + 4;
+    return ovr >= Math.max(avgOvr + 7, 57 + Selectors.levelSkillBonus() * 3.6) || formStar;
   },
 
   // Wywoływane przy otwarciu okna transferowego: znana gwiazda wraca z żądaniem, nowa zgłasza się pierwszy raz
@@ -3076,7 +3079,7 @@ const Engine = {
     }
     const lvl = DATA.youthLevels[Selectors.youthLevel()];
     const talent = Math.random() < lvl.talentChance;
-    const p = Engine.generatePlayer({ ageMin: 17, ageMax: 18, skillMin: (talent ? 5 : lvl.skillMin) + Selectors.levelSkillBonus(), skillMax: (talent ? 6 : lvl.skillMax) + Selectors.levelSkillBonus(), wageMin: 5, wageMax: 5 });
+    const p = Engine.generatePlayer({ ageMin: 17, ageMax: 18, skillMin: (talent ? 5 : lvl.skillMin) + Selectors.levelSkillBonus(), skillMax: (talent ? 6 : lvl.skillMax) + Selectors.levelSkillBonus(), wageMin: Math.round(5 * Selectors.econ()), wageMax: Math.round(5 * Selectors.econ()) });
     if (talent) Engine.markTalent(p);
     Engine.addLog(talent
       ? '💎 PEREŁKA POWIATU! Ze szkółki wskakuje ' + Selectors.playerName(p) + ' (' + p.age + ' l., ' + DATA.positions[p.pos].label.toLowerCase() + '). Skauci z A-klasy już dzwonią do jego mamy.'
@@ -3749,11 +3752,15 @@ const Selectors = {
   calmCost: (p) => Math.round(p.skill * 80 * Selectors.econ() / 10) * 10,
   transferOffers: () => gameState.pendingDecisions.filter((id) => DATA.decisions[id] && DATA.decisions[id].transfer),
   // OVR 1–99: klasa zawodnika skorygowana o aktualną formę (noty z ostatnich meczów)
+  // Skala: B-klasa ok. 43–61, Ekstraklasa ok. 72–90; krajowy sufit 92 – OVR 93–99 tylko dla gwiazd europejskich pucharów
   ovr: (p) => {
     const hist = p.formHistory || [];
-    const form = hist.length ? (hist.reduce((s, r) => s + r, 0) / hist.length - 6) * 2 : 0;
-    return Math.round(Utils.clamp(30 + p.skill * 4.5 + form, 1, 99));
+    const form = hist.length ? Utils.clamp((hist.reduce((s, r) => s + r, 0) / hist.length - 6) * 1.5, -4, 4) : 0;
+    return Math.round(Utils.clamp(32 + p.skill * 3.6 + form, 1, CONFIG.domesticOvrCap));
   },
+  // Sufit rozwoju zależny od ligi klubu: zawodnik nie urośnie dużo ponad poziom rozgrywek
+  leagueSkillCap: () => Math.min(CONFIG.maxSkill, 9 + Selectors.levelSkillBonus()),
+  leagueOvrRange: () => { const b = Selectors.levelSkillBonus(); return [Math.round(32 + (3 + b) * 3.6), Math.round(32 + (8 + b) * 3.6)]; },
   teamOvr: () => { const l = Selectors.projectedLineup(); return l.length ? Math.round(l.reduce((s, p) => s + Selectors.ovr(p), 0) / l.length) : 0; },
   potential: (p) => Math.min(CONFIG.maxSkill, Math.max(p.skill, p.potential != null ? p.potential : p.skill + (p.age <= 23 ? 2 : 0))),
   potentialStars: (p) => Utils.clamp(Math.round((Selectors.potential(p) - 2) / 2.8), 1, 5),
@@ -3821,6 +3828,32 @@ const Selectors = {
     const returns = Math.round(amount * (b.returns / b.amount) / 10) * 10;
     const risk = Utils.clamp(b.risk + (ec.cash < 0 ? 0.15 : 0) + (ec.loan ? 0.1 : 0) - (ec.cash > 3000 * e ? 0.05 : 0), 0.02, 0.9);
     return { amount, returns, risk, weeks: b.weeks, cash: ec.cash };
+  },
+  // Mocne i słabe strony zawodnika – wyliczone z jego danych, do świadomych zakupów
+  prosCons: (p) => {
+    const pros = [], cons = [];
+    const team = Selectors.teamOvr(), ovr = Selectors.ovr(p);
+    const wages = gameState.squad.map((x) => x.wage);
+    const avgWage = wages.length ? wages.reduce((s, w) => s + w, 0) / wages.length : 10;
+    const ps = p.prevSeason;
+    if (ovr >= team + 5) pros.push('Od razu wzmocni skład (OVR ' + ovr + ' przy średniej ' + team + ')');
+    else if (ovr <= team - 5) cons.push('Na start raczej rezerwowy (OVR ' + ovr + ' przy średniej ' + team + ')');
+    if (p.age <= 21 && Selectors.potential(p) > p.skill) pros.push('Młody – jeszcze urośnie');
+    if (Selectors.potentialStars(p) >= 4 && Selectors.potential(p) > p.skill) pros.push('Wysoki sufit rozwoju');
+    if (p.talent) pros.push('Perełka – rozwija się szybciej');
+    if (p.age >= 31) cons.push('Wiek – forma będzie spadać');
+    if (ps && ps.apps >= 5 && ps.avg != null && ps.avg >= 7) pros.push('Świetny zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
+    if (ps && ps.apps >= 5 && ps.avg != null && ps.avg < 5.6) cons.push('Słaby zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
+    if (ps && ps.apps < 5) cons.push('Mało grał w zeszłym sezonie');
+    if (ps && (p.pos === 'FWD' || p.pos === 'MID') && ps.apps && ps.goals / ps.apps >= 0.35) pros.push('Skuteczny pod bramką (' + ps.goals + ' goli)');
+    if (p.wage >= avgWage * 1.6) cons.push('Wysoka pensja (' + p.wage + ' zł/tydz.)');
+    else if (p.wage <= avgWage * 0.7) pros.push('Tani w utrzymaniu');
+    if (p.tag === 'leader') pros.push('Lider szatni');
+    if (p.tag === 'freekick') pros.push('Specjalista od stałych fragmentów');
+    if (p.tag === 'worker') cons.push('Pracuje na budowie – bywa nieobecny');
+    if (p.tag === 'party') cons.push('Imprezowicz – zdarza się kac na meczu');
+    if (Engine.profileFit(p, Selectors.coach().style) >= 1) pros.push('Pasuje do stylu trenera');
+    return { pros: pros.slice(0, 3), cons: cons.slice(0, 3) };
   },
   loanOutFee: (p) => Math.max(10, Math.round(Selectors.sellPrice(p) * 0.25 / 10) * 10),
   sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * (p.listed ? 1.15 : 1) * Selectors.econ() / 10) * 10),   // lista transferowa: kupcy wiedzą, +15%
@@ -4398,7 +4431,9 @@ const UI = {
 
   ovrBadge(p) {
     const v = Selectors.ovr(p);
-    const tone = v >= 80 ? 'bg-amber-400 text-ink-900' : v >= 65 ? 'bg-grass text-white' : v >= 50 ? 'bg-ink-900 text-paper-100' : 'bg-paper-300 text-ink-900';
+    // kolory względem ligi: złoty = gwiazda ligi, zielony = mocny, granat = przeciętny, szary = słaby
+    const [lo, hi] = Selectors.leagueOvrRange();
+    const tone = v >= hi ? 'bg-amber-400 text-ink-900' : v >= (lo + hi) / 2 + 3 ? 'bg-grass text-white' : v >= lo + 3 ? 'bg-ink-900 text-paper-100' : 'bg-paper-300 text-ink-900';
     return `<span class="inline-block min-w-[24px] px-1 rounded text-[11px] leading-[17px] font-extrabold text-center ${tone}">${v}</span>`;
   },
 
@@ -4517,8 +4552,8 @@ const UI = {
       <details data-fold="${key}" class="border-b border-desk-700 last:border-0" ${folds[key] ? 'open' : ''}>
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
-            <div class="text-[13.5px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · <b class="text-paper-100">OVR ${Selectors.ovr(p)}</b> · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -4528,6 +4563,11 @@ const UI = {
           <div class="grid grid-cols-4 gap-1 mt-1.5 text-center">
             ${stat('Mecze', ps ? ps.apps : p.seasonApps)}${stat('Gole', ps ? ps.goals : p.seasonGoals)}${stat('Nota', ps ? Selectors.ratingText(ps.avg) : Selectors.ratingText(Selectors.avgRating(p)))}${stat('Pensja', p.wage + ' zł')}
           </div>
+          <div class="flex justify-between gap-2 text-[11.5px] mt-1.5"><span class="text-paper-200">💰 ${p.loan && p.fee != null ? 'Opłata za wypożyczenie' : 'Cena rynkowa'}: <b class="text-paper-100">${Utils.formatMoney(p.fee != null ? p.fee : (p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)))}</b></span><span class="text-paper-400">OVR ${Selectors.ovr(p)}</span></div>
+          ${(() => { const pc = Selectors.prosCons(p); return pc.pros.length || pc.cons.length ? `<div class="grid grid-cols-2 gap-1.5 mt-1.5">
+            <ul class="rounded-lg bg-grass/15 px-2 py-1 space-y-0.5">${pc.pros.map((x) => `<li class="text-[11px] text-paper-100 leading-snug">➕ ${Utils.escape(x)}</li>`).join('') || '<li class="text-[11px] text-paper-400">brak wyraźnych plusów</li>'}</ul>
+            <ul class="rounded-lg bg-stamp/15 px-2 py-1 space-y-0.5">${pc.cons.map((x) => `<li class="text-[11px] text-paper-100 leading-snug">➖ ${Utils.escape(x)}</li>`).join('') || '<li class="text-[11px] text-paper-400">brak wyraźnych minusów</li>'}</ul>
+          </div>` : ''; })()}
           <div class="text-[11px] text-paper-200 mt-1">📈 Potencjał: <b class="text-amber-glow">${UI.potentialText(p)}</b>${p.age <= 23 && Selectors.potential(p) > p.skill ? ' · rośnie najszybciej, gdy regularnie gra' : ''}</div>
           <div class="text-[10.5px] text-paper-400 mt-0.5">${ps ? 'Zeszły sezon' + (p.fromClub ? ' w ' + Utils.escape(p.fromClub) : '') : 'Bieżący sezon'} · profil: ${DATA.profiles[p.profile].label}${p.apps ? ' · w klubie: ' + p.apps + ' m, ' + p.goals + ' g' : ''}${p.loan ? ' · wypożyczenie z ' + Utils.escape(p.loan.from) + ' do końca sezonu' : ''}</div>
           ${buttons ? `<div class="flex gap-1.5 mt-2 justify-end">${buttons}</div>` : ''}
@@ -4575,6 +4615,7 @@ const UI = {
       <div class="flex-shrink-0 px-4 pt-5 text-paper-100">
         <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Okno transferowe · przed sezonem ${t.season}</div>
         <h2 class="text-center text-[22px] font-extrabold tracking-tight mt-1">🔁 Giełda zawodników</h2>
+        <p class="text-center text-[10.5px] text-paper-400">${Selectors.leagueName()}: typowy OVR ${Selectors.leagueOvrRange().join('–')}</p>
         <div class="grid grid-cols-3 gap-1.5 mt-2 text-center">
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kasa</div><b class="text-[14px] ${budget < 0 ? 'text-stamp' : ''}">${Utils.formatMoney(budget)}</b></div>
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px]">${gameState.squad.length}/${CONFIG.maxSquad}</b></div>
