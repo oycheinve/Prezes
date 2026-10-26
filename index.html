@@ -558,6 +558,26 @@ const DATA = {
     ],
   },
 
+  // Akademia U19: trener juniorów (rozwój) i rekruter talentów (nabór, wykrywanie łowców perełek)
+  u19Staff: {
+    coach: [
+      { name: 'Pan Kazimierz, emerytowany WF-ista', level: 1, wage: 25 },
+      { name: 'Trener z licencją UEFA B i notesem', level: 2, wage: 70 },
+      { name: 'Były trener kadry U-17', level: 3, wage: 160 },
+    ],
+    recruiter: [
+      { name: 'Tata jednego z juniorów, jeździ po turniejach', level: 1, wage: 20 },
+      { name: 'Rekruter z siatką kontaktów w powiecie', level: 2, wage: 60 },
+      { name: 'Łowca talentów z bazą danych całego województwa', level: 3, wage: 140 },
+    ],
+  },
+  // Dyrektor Sportowy: w trybie automatycznym sam kupuje w oknie transferowym (lepszy = trafniejsze wybory)
+  directors: [
+    { name: 'Kuzyn pana Zenka z Excelem', level: 1, wage: 40, desc: 'Ma arkusz kalkulacyjny i dobre chęci. Czasem kupi kogoś, bo „ładnie biegał na filmiku”.' },
+    { name: 'Były menedżer z III ligi', level: 2, wage: 120, desc: 'Zna rynek i ceny. Rzadko przepłaca, pilnuje pozycji.' },
+    { name: 'Dyrektor z certyfikatem UEFA', level: 3, wage: 300, desc: 'Analizy, profile, budżety. Kupuje dokładnie tych, których trener potrzebuje.' },
+  ],
+
   // Puchar Polski: kluby z niższych lig zaczynają od rund okręgowych; [min, max] – poziom ligi rywala; k – kolejka (przy 34)
   cupRounds: [
     { label: 'I runda – szczebel okręgowy', opp: [1, 4], k: 2 },
@@ -2321,6 +2341,30 @@ const DATA = {
     },
 
 
+    u19Graduate: {
+      id: 'u19Graduate',
+      cutscene: { icon: '🎓', place: 'Gabinet prezesa · koniec sezonu', scripted: true },
+      player: () => (gameState.u19 && gameState.u19.graduates[0]) || null,
+      from: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? Selectors.u19Name() + ' · ' + p.age + ' lat' : 'Akademia'; },
+      title: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? '„' + p.nick + '” kończy 19 lat' : 'Junior kończy 19 lat'; },
+      body: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Trener juniorów kładzie na biurku teczkę: „' + Selectors.playerName(p) + ' wyrasta z U19. ' + (p.talent ? 'To perełka – szkoda by było go stracić. ' : '') + 'Albo dajemy mu kontrakt w pierwszej drużynie, albo musi szukać klubu.” ➕ ' + p.youthPro + ' · ➖ ' + p.youthCon : ''; },
+      options: [
+        {
+          label: () => (gameState.squad.length >= CONFIG.maxSquad ? 'Kontrakt w pierwszej drużynie (zwolni najsłabszego)' : 'Kontrakt w pierwszej drużynie'),
+          hint: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Pensja ok. ' + Selectors.gradWage(p) + ' zł/tydz.' + (p.secured ? ' (zabezpieczony wcześniej)' : '') : ''; },
+          effects: { lockerRoom: +1 },
+          log: () => { const p = gameState.u19.graduates[0]; return p ? Selectors.playerName(p) + ' podpisuje pierwszy zawodowy kontrakt. Mama płacze w sekretariacie.' : ''; },
+          onChoose: () => Engine.graduate(true),
+        },
+        {
+          label: 'Podziękować – niech szuka klubu',
+          hint: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p && p.talent ? 'Kibice -3% (odchodzi perełka)' : 'Bez kosztów'; },
+          effects: {},
+          log: () => { const p = gameState.u19.graduates[0]; return p ? Selectors.playerName(p) + ' odchodzi z akademii. Dostał na pożegnanie dres klubowy.' : ''; },
+          onChoose: () => Engine.graduate(false),
+        },
+      ],
+    },
     veteranStaff: {
       id: 'veteranStaff',
       cutscene: { icon: '🎖️', place: 'Koniec sezonu · pusta szatnia', scripted: true },
@@ -2992,6 +3036,7 @@ const DATA = {
     { id: 'finance',  label: 'Finanse i Stadion', icon: '💰' },
     { id: 'staff',    label: 'Sztab i Trener',    icon: '📋' },
     { id: 'squad',    label: 'Kadra i Szatnia',   icon: '👟' },
+    { id: 'u19',      label: 'Akademia U19',      icon: '🌱' },
     { id: 'virtualx', label: 'Wirtualny X',       icon: '📱' },
   ],
 
@@ -3120,6 +3165,8 @@ function createInitialState() {
     loansOut: [],               // nasi zawodnicy na wypożyczeniu: { player, club, until }
     euro: null,                 // kampania w europejskich pucharach (sezon, rozgrywki, etap, wyniki)
     monthly: { fans: 0, tickets: 0, merch: 0, gastro: 0 },
+    u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
+    director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
     cup: null,                  // Puchar Polski w bieżącym sezonie   // miesięczne rozliczenie skutków cen (co 4 tygodnie)
     star: { playerId: null, rebel: false, promised: 0, lastWeek: 0, talkWeek: 0 },   // gwiazda „za dobra na ten klub”   // okno transferowe po sezonie (do 1. kolejki)
@@ -3238,6 +3285,7 @@ const Engine = {
     Engine.addLog('Karta rejestracyjna przyjęta przez OZPN. Obiekt: ' + gameState.stadium.baseName + '.' + (Selectors.colorsNick() ? ' Barwy: ' + DATA.clubColors[card.colors].label.toLowerCase() + '.' : ''), 'system');
     Engine.addLog('Poprzedni prezes zostawił na biurku klucze (nie wiadomo do czego) i niedopitą kawę z 2019. Drużynę tymczasowo prowadzi Pan Mirek, konserwator.', 'flavor');
     Engine.addLog('Liga (' + Selectors.leagueSize() + ' drużyn, ' + gameState.season.rounds.length + ' kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
+    Engine.u19Init();
     Engine.pushDecision('welcomeWojt');
     Engine.offerTicketPolicy();
     Engine.ensureSponsor();
@@ -3705,6 +3753,7 @@ const Engine = {
     // --- Europejski wieczór w środku tygodnia ---
     Engine.euroWeek(kolejka);
     Engine.cupWeek(kolejka);
+    Engine.u19Match();   // juniorzy grają równolegle
 
     // --- Kalendarz ligi ---
     Engine.resolveDarkDeal();
@@ -3961,7 +4010,7 @@ const Engine = {
 
     // Szkółka: 2 juniorów; Były Ligowiec ściąga kogoś lepszego
     const idsBefore = gameState.squad.map((p) => p.id);
-    Engine.prepareYouthPick();   // wybór młodzika w osobnym okienku po podsumowaniu sezonu
+    Engine.u19SeasonEnd(summary);   // akademia: rozwój, 19-latkowie do decyzji, nabór
     if (Selectors.coach().attracts) Engine.coachBringsPlayer();
     summary.newcomers = gameState.squad.filter((p) => !idsBefore.includes(p.id)).map((p) => Selectors.playerName(p) + ' (' + p.age + ' l.)' + (p.talent ? ' 💎' : ''));
 
@@ -4070,6 +4119,169 @@ const Engine = {
     } else {
       p.fee = Math.round(p.fee * 1.1 / 10) * 10;          // poczuł się niedoceniony – cena w górę
     }
+  },
+
+  /* ----- Akademia U19 ----- */
+  makeJunior(age) {
+    const A = Selectors.academy();
+    const bonus = Selectors.levelSkillBonus();
+    const p = Engine.makePlayer({ ageMin: age, ageMax: age, skillMin: Math.max(1, A.skill[0] + bonus - 1), skillMax: A.skill[1] + bonus - 1 });
+    p.wage = 0;   // junior gra za dres i obiad
+    p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() + 2, p.potential + A.room + Selectors.u19Lvl('recruiter')));
+    if (Math.random() < A.talent + Selectors.u19Lvl('recruiter') * 0.05) Engine.markTalent(p);
+    p.youthPro = Utils.rand(DATA.youthTraits.pros);
+    p.youthCon = Utils.rand(DATA.youthTraits.cons);
+    if (p.youthCon.startsWith('Kontuzjogenny')) p.fragile = true;
+    p.u19Apps = 0;
+    return p;
+  },
+  u19Init() {
+    gameState.u19 = { squad: [], table: {}, coach: null, recruiter: null, graduates: [], log: [], last: null };
+    [15, 16, 16, 17, 17, 18, 18].forEach((age) => gameState.u19.squad.push(Engine.makeJunior(age)));
+    Engine.u19NewSeason();
+  },
+  u19NewSeason() {
+    const u = gameState.u19;
+    const names = gameState.league.rivals.map((r) => r.name).concat(DATA.rivals.map((r) => r.name)).filter((n, i, a) => a.indexOf(n) === i).slice(0, 11);
+    u.table = {};
+    [Selectors.u19Name()].concat(names.map((n) => n + ' U19')).forEach((t) => { u.table[t] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }; });
+  },
+  // Kolejka ligi juniorów – równolegle z meczem pierwszej drużyny
+  u19Match() {
+    const u = gameState.u19;
+    if (!u || !u.squad.length) return;
+    const me = Selectors.u19Name();
+    if (!u.table[me]) Engine.u19NewSeason();
+    const eleven = u.squad.slice().sort((a, b) => b.skill - a.skill).slice(0, 11);
+    const avg = eleven.reduce((s, p) => s + p.skill, 0) / Math.max(1, eleven.length);
+    const ourS = (0.45 + avg * 0.13) * (1 + Selectors.u19Lvl('coach') * 0.04) * (1 - Math.max(0, 11 - eleven.length) * 0.07);
+    const oppS = (0.45 + (2.5 + Selectors.levelSkillBonus()) * 0.13) * Utils.randRange(0.85, 1.15);
+    const others = Object.keys(u.table).filter((t) => t !== me);
+    const opp = Utils.rand(others);
+    const gf = Utils.poisson(1.3 * Math.pow(ourS / oppS, 1.3)), ga = Utils.poisson(1.3 * Math.pow(oppS / ourS, 1.3));
+    const rec = (t, f, a) => { const r = u.table[t]; r.p++; r.gf += f; r.ga += a; if (f > a) { r.w++; r.pts += 3; } else if (f === a) { r.d++; r.pts++; } else r.l++; };
+    rec(me, gf, ga); rec(opp, ga, gf);
+    Utils.shuffle(others.filter((t) => t !== opp)).forEach((t, i, arr) => { if (i % 2 === 0 && arr[i + 1]) { const a = Utils.poisson(1.3), b = Utils.poisson(1.3); rec(t, a, b); rec(arr[i + 1], b, a); } });
+    eleven.forEach((p) => { p.u19Apps = (p.u19Apps || 0) + 1; });
+    u.last = { opp, gf, ga };
+  },
+  // Co tydzień: łowcy perełek z innych klubów
+  u19Poachers() {
+    const u = gameState.u19;
+    if (!u) return;
+    const rec = Selectors.u19Lvl('recruiter');
+    u.squad.slice().forEach((p) => {
+      if (p.secured || p.age < 17 || !Selectors.isGem(p)) return;
+      if (!p.watch && Math.random() < 0.25) {
+        p.watch = 1;
+        p.watchClub = Engine.otherClubName(Utils.randInt(1, 3));
+        if (rec) Engine.alert('👀', 'Łowcy talentów w akademii', 'Skauci klubu ' + p.watchClub + ' obserwują ' + Selectors.playerName(p) + ' z U19. Zabezpiecz go kontraktem, zanim go podkradną!', 'warn');
+        return;
+      }
+      if (!p.watch) return;
+      p.watch++;
+      if (p.watch >= 4 && Math.random() < Utils.clamp(0.06 + p.watch * 0.03 - rec * 0.04, 0.02, 0.35)) {
+        u.squad = u.squad.filter((x) => x.id !== p.id);
+        Engine.applyEffects({ fans: -3 });
+        Engine.alert('🕵️', 'Perełka podkradziona!', p.watchClub + ' bezczelnie podkradł ' + Selectors.playerName(p) + ' z naszej akademii. Bez kontraktu nie mogliśmy nic zrobić. [kibice -3%]', 'bad', true);
+        Engine.addLog('🕵️ ' + p.watchClub + ' podkradł z U19: ' + Selectors.playerName(p) + '.', 'event');
+      }
+    });
+  },
+  u19Secure(id) {
+    const u = gameState.u19;
+    const p = u && u.squad.find((x) => x.id === id);
+    if (!p || p.secured) return;
+    const cost = Selectors.secureCost(p);
+    if (gameState.finance.budget < cost) return;
+    Engine.money('Kontrakt juniorski: ' + Selectors.playerName(p), -cost);
+    p.secured = true;
+    p.watch = 0;
+    Engine.addLog('🔒 ' + Selectors.playerName(p) + ' podpisał kontrakt juniorski. Łowcy talentów odjeżdżają z niczym.', 'decision');
+  },
+  hireU19(role, idx) {
+    const c = DATA.u19Staff[role] && DATA.u19Staff[role][idx];
+    if (!c || !gameState.u19) return;
+    gameState.u19[role] = { ...c };
+    Engine.addLog('🌱 Akademia: ' + (role === 'coach' ? 'trener juniorów' : 'rekruter talentów') + ' – ' + c.name + '.', 'decision');
+  },
+  fireU19(role) { if (gameState.u19) gameState.u19[role] = null; },
+  // Koniec sezonu: rozwój, 19-latkowie do decyzji, nabór nowych
+  u19SeasonEnd(summary) {
+    const u = gameState.u19;
+    if (!u) return;
+    const pos = Selectors.u19Standings().findIndex((r) => r.team === Selectors.u19Name()) + 1;
+    const grew = [];
+    u.squad.forEach((p) => {
+      let gain = Engine.develop(p, Math.round((p.u19Apps || 0) * 1.3), false);
+      if (Math.random() < Selectors.u19Lvl('coach') * 0.15 && p.skill < Selectors.potential(p)) { p.skill++; gain++; }   // trener juniorów
+      if (gain) grew.push(p.nick + ' +' + gain);
+      p.age++; p.u19Apps = 0;
+    });
+    const grads = u.squad.filter((p) => p.age >= 19);
+    u.squad = u.squad.filter((p) => p.age < 19);
+    u.graduates = u.graduates.concat(grads);
+    if (u.graduates.length) Engine.pushDecision('u19Graduate');
+    const A = Selectors.academy();
+    const n = Math.min(Math.max(0, 16 - u.squad.length), A.cands + Selectors.u19Lvl('recruiter'));
+    const fresh = [];
+    for (let i = 0; i < n; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); u.squad.push(p); fresh.push(p.nick + (p.talent ? ' 💎' : '')); }
+    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą: ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '');
+    Engine.u19NewSeason();
+  },
+
+  /* ----- Dyrektor Sportowy ----- */
+  graduate(sign) {
+    const u = gameState.u19;
+    const p = u && u.graduates.shift();
+    if (p) {
+      if (sign) {
+        if (gameState.squad.length >= CONFIG.maxSquad) {
+          const weakest = gameState.squad.filter((x) => !x.favorite && !x.legend && !x.loan).sort((a, b) => a.skill - b.skill || b.age - a.age)[0];
+          if (weakest) { gameState.squad = gameState.squad.filter((x) => x.id !== weakest.id); Engine.addLog('👋 Dla juniora zwalnia się miejsce: odchodzi ' + Selectors.playerName(weakest) + '.', 'event'); }
+        }
+        p.wage = Selectors.gradWage(p);
+        delete p.watch; delete p.u19Apps;
+        gameState.squad.push(p);
+      } else if (p.talent) Engine.applyEffects({ fans: -3 });
+    }
+    if (u && u.graduates.length) Engine.pushDecision('u19Graduate');
+  },
+
+  hireDirector(idx) {
+    const d = DATA.directors[idx];
+    if (!d) return;
+    gameState.director.hired = { ...d };
+    Engine.addLog('🧑‍💼 Nowy Dyrektor Sportowy: ' + d.name + '.', 'decision');
+  },
+  // Tryb automatyczny: dyrektor sam kupuje w oknie transferowym – pod potrzeby składu, styl trenera i budżet
+  directorAct() {
+    const dir = gameState.director;
+    const t = gameState.transfer;
+    if (!dir || !dir.hired || dir.mode !== 'auto' || !t.open) return;
+    const lvl = dir.hired.level;
+    const e = Selectors.econ();
+    let budget = Math.max(0, gameState.finance.budget - 500 * e) * (0.3 + lvl * 0.07);
+    const need = { GK: 2, DEF: 6, MID: 6, FWD: 4 };
+    gameState.squad.forEach((p) => { need[p.pos]--; });
+    const style = Selectors.coach().style;
+    const bought = [];
+    for (let k = 0; k < (lvl >= 2 ? 3 : 2); k++) {
+      if (gameState.squad.length >= CONFIG.maxSquad) break;
+      const pool = t.market.filter((p) => p.fee <= budget && p.fee <= gameState.finance.budget);
+      if (!pool.length) break;
+      const score = (p) => Selectors.ovr(p) + (need[p.pos] > 0 ? 8 : -4) + Engine.profileFit(p, style) * 4 - p.fee / (60 * e) + (p.age <= 23 ? 2 : 0) + Utils.randRange(-1, 1) * (4 - lvl) * 4;
+      const best = pool.sort((a, b) => score(b) - score(a))[0];
+      if (Selectors.ovr(best) < Selectors.teamOvr() - 6 && need[best.pos] <= 0) break;   // nie kupuje zapchajdziur
+      const fee = best.fee;
+      Engine.buyTransfer(best.id);
+      budget -= fee; need[best.pos]--;
+      bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
+    }
+    const msg = bought.length ? 'Kupił: ' + bought.join('; ') : 'Nie znalazł nikogo wartego tych pieniędzy.';
+    dir.log = [msg].concat(dir.log || []).slice(0, 4);
+    t.news = ['🧑‍💼 Dyrektor: ' + msg].concat(t.news || []).slice(0, 4);
+    Engine.alert('🧑‍💼', 'Dyrektor Sportowy w oknie transferowym', msg, bought.length ? 'good' : 'info');
   },
 
   /* ----- Puchar Polski ----- */
@@ -4482,7 +4694,7 @@ const Engine = {
   // Imię, ksywa i nazwisko bez powtórek w kadrze, na wypożyczeniach i na giełdzie
   uniqueName() {
     const t = gameState.transfer || {};
-    const taken = gameState.squad.concat((gameState.loansOut || []).map((l) => l.player), t.market || [], t.loanMarket || [], (gameState.youthPick && gameState.youthPick.cands) || []);
+    const taken = gameState.squad.concat((gameState.loansOut || []).map((l) => l.player), t.market || [], t.loanMarket || [], (gameState.youthPick && gameState.youthPick.cands) || [], (gameState.u19 && gameState.u19.squad) || []);
     const nicks = new Set(taken.map((p) => p.nick));
     const full = new Set(taken.map((p) => p.first + ' ' + p.last));
     let n = null;
@@ -4732,6 +4944,7 @@ const Engine = {
     gameState.transfer = { open: true, season: gameState.calendar.season, market, loanMarket, bought: 0, sold: 0, shown: false, news: [] };   // sezon już przestawiony na nowy
     (gameState.league.fireSale || []).forEach((name) => Engine.addFireSale(name));
     gameState.league.fireSale = [];
+    Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
     if (!gameState.pendingDecisions.includes('starDemand') && gameState.squad.length > CONFIG.minSquad && Math.random() < 0.4) {
@@ -5715,6 +5928,9 @@ const Engine = {
         if (p.injured <= 0) { p.injured = 0; delete p.injuryLabel; }
       });
     },
+    function academy() {
+      if (Selectors.isMatchWeek()) Engine.u19Poachers();
+    },
     function monthlyPrices() {
       if (gameState.calendar.week % 4 === 0) Engine.monthlySettlement();
     },
@@ -5878,7 +6094,20 @@ const Selectors = {
     .sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf),
   ourPosition: () => Selectors.standings().findIndex((r) => r.team === US) + 1,
   squadWages: () => gameState.squad.reduce((s, p) => s + p.wage, 0),
-  staffWages: () => Object.values(gameState.staff).reduce((s, m) => s + (m ? m.wage : 0), 0),
+  staffWages: () => Object.values(gameState.staff).reduce((s, m) => s + (m ? m.wage : 0), 0) + Selectors.extraStaffWages(),
+  // Pensje sztabu akademii i dyrektora sportowego
+  extraStaffWages: () => {
+    const u = gameState.u19, d = gameState.director;
+    const e = Selectors.econ();
+    return Math.round(((u && u.coach ? u.coach.wage : 0) + (u && u.recruiter ? u.recruiter.wage : 0) + (d && d.hired ? d.hired.wage : 0)) * e);
+  },
+  u19Name: () => Selectors.clubDisplayName() + ' U19',
+  u19Lvl: (role) => (gameState.u19 && gameState.u19[role] ? gameState.u19[role].level : 0),
+  u19Standings: () => Object.entries((gameState.u19 && gameState.u19.table) || {}).map(([team, r]) => ({ team, ...r })).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga)),
+  // Perełka: talent albo wysoki sufit – na takich polują inne kluby
+  isGem: (p) => p.talent || Selectors.potentialStars(p) >= 4,
+  gradWage: (p) => Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 0.6 / 5) * 5),
+  secureCost: (p) => Math.round(150 * Selectors.econ() * (1 + Selectors.potentialStars(p)) / 10) * 10,
   weeklyPayroll: () => Selectors.squadWages() + Selectors.coachWeekly() + Selectors.staffWages(),
   lockerBaseline: () => {
     const legends = gameState.squad.filter((p) => p.legend).length;
@@ -6303,6 +6532,7 @@ const Storage = {
     }
     if (state.loans) state.loans.given = [];
     if (!state.trophies) state.trophies = [];
+    if (!state.u19) { const prev = gameState; gameState = state; Engine.u19Init(); gameState = prev; }   // Krok 13.35: akademia U19 w starych zapisach
     // Krok 13.26: bez skautingu – szkółka przechodzi do obiektów, skaut ze sztabu odchodzi
     if (!saved.academy && state.scouting && state.scouting.youthUpgrades) state.academy.level = (state.scouting.youthUpgrades.dresy ? 1 : 0) + (state.scouting.youthUpgrades.wfista ? 1 : 0);
     if (state.staff) delete state.staff.skaut;
@@ -6965,7 +7195,7 @@ const UI = {
           ${sm.growth && sm.growth.length ? list('📈 Rozwój młodych', sm.growth, '') : ''}
           ${sm.debtNews && sm.debtNews.length ? list('💸 Nasze pożyczki', sm.debtNews, '') : ''}
           ${sm.newcomers && sm.newcomers.length ? list('🌱 Nowi w kadrze', sm.newcomers, '') : ''}
-          <p class="text-[11px] text-paper-400 text-center">🌱 Za chwilę: selekcja w szkółce – wybierzesz jednego młodzika.</p>
+          ${sm.u19 ? `<p class="text-[11.5px] text-paper-300 text-center leading-snug">${Utils.escape(sm.u19)}</p>` : ''}
         </div>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -7142,7 +7372,7 @@ const UI = {
   appDock() {
     const canAdvance = Engine.canAdvanceWeek();
     const pending = gameState.pendingDecisions.length;
-    const short = { desk: 'Biurko', table: 'Tabela', finance: 'Finanse', staff: 'Sztab', squad: 'Kadra', scouting: 'Skauting', virtualx: 'X' };
+    const short = { desk: 'Biurko', table: 'Tabela', finance: 'Finanse', staff: 'Sztab', squad: 'Kadra', u19: 'U19', virtualx: 'X' };
     const tabs = DATA.tabs.map((t) => {
       const active = t.id === gameState.activeTab;
       const badge = UI.tabBadge(t.id);
@@ -7178,6 +7408,7 @@ const UI = {
     finance: () => UI.financeTab(),
     staff: () => UI.staffTab(),
     squad: () => UI.squadTab(),
+    u19: () => UI.u19Tab(),
     virtualx: () => UI.virtualXTab(),
   },
 
@@ -7353,6 +7584,59 @@ const UI = {
       UI.tile('Sponsor', sp ? Utils.formatMoney(Selectors.sponsorWeekly(sp)) : 'brak', sp ? Utils.escape(sp.name) : 'nikt nie płaci'),
       UI.tile('DNA klubu', (dna > 0 ? '+' : '') + dna, '„' + Utils.escape(Selectors.dnaLabel()) + '”'),
     ];
+  },
+
+  u19Tab() {
+    const u = gameState.u19;
+    if (!u) return UI.panel('Akademia', '', '<p class="text-[12px]">Akademia jeszcze nie ruszyła.</p>');
+    const view = UI.sub('u19', 'squad');
+    const segs = UI.subSegs('u19', view, [['squad', '👦 Kadra U19'], ['league', '📊 Liga juniorów'], ['base', '🏗️ Baza i sztab']]);
+    const budget = gameState.finance.budget;
+    const rec = Selectors.u19Lvl('recruiter');
+    const st = Selectors.u19Standings();
+    const pos = st.findIndex((r) => r.team === Selectors.u19Name()) + 1;
+    if (view === 'league') {
+      const rows = st.map((r, i) => `<tr class="border-b border-paper-300 last:border-0 ${r.team === Selectors.u19Name() ? 'bg-amber-glow/25 font-bold' : ''}"><td class="py-[3px] pl-1 text-right">${i + 1}.</td><td class="pl-1 max-w-0 w-full truncate">${Utils.escape(r.team)}</td><td class="text-center px-1">${r.p}</td><td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`).join('');
+      return segs + UI.panel('📊 Liga juniorów', u.last ? 'Ostatnio: ' + Utils.escape(Selectors.u19Name()) + ' ' + u.last.gf + ':' + u.last.ga + ' ' + Utils.escape(u.last.opp) : 'Juniorzy grają w każdej kolejce razem z pierwszą drużyną.',
+        `<table class="w-full text-[11.5px]"><tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left pl-1">Drużyna</th><th>M</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>${rows}</table>`);
+    }
+    if (view === 'base') {
+      const folds = gameState.ui.folds || {};
+      const al = Selectors.academyLevel();
+      const baseRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(a.cost)}</span>`,
+        'nabór ' + a.cands + '/sezon · sufit +' + a.room + ' · 💎 ' + Math.round(a.talent * 100) + '%',
+        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? UI.smallBtn('build-academy', '', 'Buduj', budget < a.cost) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      const staffGroup = (role, title, effect) => {
+        const cur = u[role];
+        const rows = DATA.u19Staff[role].map((c, i) => UI.row(Utils.escape(c.name), 'poziom ' + c.level + ' · ' + Utils.formatMoney(Math.round(c.wage * Selectors.econ())) + '/tydz.',
+          cur && cur.name === c.name ? UI.smallBtn('fire-u19', `data-role="${role}"`, 'Zwolnij', false, 'stamp') : UI.smallBtn('hire-u19', `data-role="${role}" data-idx="${i}"`, 'Zatrudnij', false), '', true)).join('');
+        return `<details data-fold="u19-${role}" class="mt-1.5" ${folds['u19-' + role] ? 'open' : ''}>
+          <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none"><span>${title}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700 truncate max-w-[130px]">${cur ? 'poz. ' + cur.level : 'wakat'}</span><span class="fold-chevron text-ink-700">⌄</span></span></summary>
+          <p class="text-[10.5px] text-ink-700 px-1 mt-1">${effect}</p>${rows}</details>`;
+      };
+      return segs + UI.panel('🏗️ Baza i sztab akademii', '', `
+        <details data-fold="u19-base" class="mt-0.5" ${folds['u19-base'] ? 'open' : ''}>
+          <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none"><span>🏟️ Baza treningowa U19</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">poziom ${al}/${DATA.academyLevels.length - 1}</span><span class="fold-chevron text-ink-700">⌄</span></span></summary>
+          ${baseRows}
+        </details>
+        ${staffGroup('coach', '🧑‍🏫 Trener juniorów', 'Szybszy rozwój juniorów i lepsze wyniki U19.')}
+        ${staffGroup('recruiter', '🔭 Rekruter talentów', 'Większy nabór i więcej perełek; ostrzega, gdy łowcy z innych klubów obserwują naszych juniorów (bez niego dowiesz się dopiero po fakcie).')}`);
+    }
+    const rows = u.squad.slice().sort((a, b) => b.age - a.age || b.skill - a.skill).map((p) => {
+      const gem = Selectors.isGem(p);
+      const flags = (p.talent ? ' 💎' : '') + (p.secured ? ' 🔒' : '') + (p.watch && rec ? ' 👀' : '');
+      const action = p.secured ? '<span class="text-[10.5px] text-grass font-bold">UMOWA</span>'
+        : (p.age >= 17 || gem ? UI.smallBtn('u19-secure', `data-id="${p.id}"`, '🔒 ' + Utils.formatMoney(Selectors.secureCost(p)), budget < Selectors.secureCost(p)) : '');
+      return `<div class="flex items-center gap-1.5 py-1 border-b border-paper-300 last:border-0">
+        ${UI.ovrBadge(p)}
+        <div class="min-w-0 flex-1"><div class="text-[12.5px] font-bold truncate">„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}${flags}</div>
+        <div class="text-[10.5px] text-ink-700 truncate">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
+        ${action}
+      </div>`;
+    }).join('');
+    return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
+      rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
+      + `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Kontrakt juniorski chroni perełki przed podkradaniem przez inne kluby.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`;
   },
 
   // Gablotka: wszystkie trofea w historii klubu + bieżąca edycja Pucharu Polski
@@ -7583,8 +7867,19 @@ const UI = {
     const carpetReady = gameState.calendar.week - c.lastCarpetWeek >= CONFIG.carpetCooldown;
     const isTemp = c.id === 'mirek';
     const view = UI.sub('staff', 'coach');
-    const segs = UI.subSegs('staff', view, [['coach', '🧢 Trener'], ['market', '🤝 Giełda'], ['crew', '🧰 Sztab']]);
+    const segs = UI.subSegs('staff', view, [['coach', '🧢 Trener'], ['market', '🤝 Giełda'], ['crew', '🧰 Sztab'], ['director', '🧑‍💼 Dyrektor']]);
     const intro = '<p class="text-[11px] text-paper-400 mb-1.5">Prezes nie ustawia składu ani taktyki. Prezes zatrudnia, zwalnia i wzywa na dywanik.</p>';
+
+    if (view === 'director') {
+      const d = gameState.director;
+      const cur = d.hired;
+      const rows = DATA.directors.map((c, i) => UI.row(Utils.escape(c.name) + ' <span class="font-normal text-ink-700">· poziom ' + c.level + '</span>', Utils.escape(c.desc) + ' · ' + Utils.formatMoney(Math.round(c.wage * Selectors.econ())) + '/tydz.',
+        cur && cur.name === c.name ? UI.smallBtn('fire-director', '', 'Zwolnij', false, 'stamp') : UI.smallBtn('hire-director', `data-idx="${i}"`, cur ? 'Zamień' : 'Zatrudnij', false), '', true)).join('');
+      const modeBtns = cur ? UI.segs('director-mode', d.mode, [['manual', '🙋 Sam kupuję'], ['auto', '🧑‍💼 Dyrektor kupuje']]) : '';
+      return segs + UI.panel('🧑‍💼 Dyrektor Sportowy', cur ? cur.name + ' · ' + (d.mode === 'auto' ? 'w oknie transferowym sam kupuje pod potrzeby składu, styl trenera i budżet' : 'czeka na polecenia – transfery robisz sam') : 'Wakat. Transfery robisz sam na giełdzie.',
+        modeBtns + `${(d.log || []).length ? '<ul class="text-[11.5px] text-ink-700 mt-1.5 space-y-0.5">' + d.log.slice(0, 3).map((x) => '<li class="truncate">• ' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}` + UI.h4('Kandydaci') + rows)
+        + `<p class="text-[10.5px] text-paper-400 leading-snug">W trybie automatycznym dyrektor wydaje do ok. ${30 + (cur ? cur.level * 7 : 0)}% wolnej kasy (zostawia rezerwę). Słabszy dyrektor częściej się myli.</p>`;
+    }
 
     if (view === 'market') {
       const market = Selectors.coachMarket().map((co) => {
@@ -7891,7 +8186,6 @@ const UI = {
       <p class="text-[11.5px] leading-snug mb-1 truncate">${Selectors.passPolicy().icon} Karnety: <b>${Selectors.passPolicy().label}</b>${Selectors.passHolders() ? ' · ' + Selectors.passHolders() + ' szt. (' + Utils.formatMoney(gameState.matchday.pass.revenue) + ' z góry)' : ''}</p>
       ${UI.h4('Polityka cenowa biletów na bramce')}
       <div class="grid gap-1.5">${policies}</div>
-      <p class="text-[11px] text-ink-700 leading-snug mt-1">${DATA.tickets[md.ticket].desc}</p>
       <p class="text-[11px] font-semibold mt-0.5 ${md.ticketNext ? 'text-amber-700' : 'text-ink-700'}">${md.ticketNext
         ? '📅 Nowy cennik od następnego miesiąca (za ' + Selectors.weeksToMonth() + ' tyg.) – teraz: ' + DATA.tickets[md.ticket].policy + '.'
         : '📅 Zmiany cen wchodzą od nowego miesiąca; skutki dla kibiców rozliczane co 4 tygodnie.'}</p>
@@ -8055,7 +8349,6 @@ const UI = {
       <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
       ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(nextLv.cost) + ')' : ''}</p>`}
       ${buildGroup}
-      ${youthGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
       ${group('st-fans', '🏟️ Rozbudowa: dla kibiców', fansList, '')}
       ${group('st-team', '🏋️ Rozbudowa: dla drużyny', teamList, '')}
@@ -8184,7 +8477,7 @@ const Actions = {
     if (o && o.type === 'match' && sm && !sm.seen) gameState.ui.overlay = { type: sm.playoff && !sm.playoffSeen ? 'playoff' : 'season' };
     else if (o && o.type === 'playoff' && sm) { sm.playoffSeen = true; gameState.ui.overlay = { type: 'season' }; }
     else if (o && o.type === 'transfer') gameState.ui.overlay = null;
-    else if (t.open && !t.shown && (!sm || sm.seen) && !gameState.pendingDecisions.some((id) => ['veteranStaff', 'coachLicense'].includes(id))) {
+    else if (t.open && !t.shown && (!sm || sm.seen) && !gameState.pendingDecisions.some((id) => ['veteranStaff', 'coachLicense', 'u19Graduate'].includes(id))) {
       t.shown = true;
       gameState.ui.transferView = Selectors.transferOffers().length ? 'offers' : 'buy';
       gameState.ui.overlay = { type: 'transfer' };
@@ -8197,6 +8490,12 @@ const Actions = {
     Actions['overlay-close']();
   },
   'build-academy'()  { Engine.buildAcademy(); App.commit(); },
+  'u19-secure'(el)   { Engine.u19Secure(el.dataset.id); App.commit(); },
+  'hire-u19'(el)     { Engine.hireU19(el.dataset.role, Number(el.dataset.idx)); App.commit(); },
+  'fire-u19'(el)     { Engine.fireU19(el.dataset.role); App.commit(); },
+  'hire-director'(el) { Engine.hireDirector(Number(el.dataset.idx)); App.commit(); },
+  'fire-director'()  { gameState.director.hired = null; gameState.director.mode = 'manual'; App.commit(); },
+  'director-mode'(el) { if (['manual', 'auto'].includes(el.dataset.value)) gameState.director.mode = el.dataset.value; if (el.dataset.value === 'auto' && gameState.transfer.open) Engine.directorAct(); App.commit(); },
   'open-transfer'() {
     if (gameState.transfer.open) { gameState.transfer.shown = true; gameState.ui.overlay = { type: 'transfer' }; }
     App.commit();
