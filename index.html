@@ -567,6 +567,38 @@ const DATA = {
     },
 
     /* ----- Cut-scenki skalowane do ligi: od wiejskich dram po presję mediów i kontrole w wielkiej piłce ----- */
+    cutBoardSack: {
+      id: 'cutBoardSack',
+      levels: [1, 8],
+      available: () => Selectors.teamStruggling(),   // tylko seria porażek / strefa spadkowa / kryzys punktowy
+      cutscene: { icon: '🪑', place: 'Nadzwyczajne zebranie zarządu · wieczór' },
+      from: 'Zarząd klubu (wszyscy naraz)',
+      title: () => 'Zarząd żąda dymisji trenera',
+      body: () => 'Zebranie przy długim stole. Skarbnik stuka długopisem w tabelę: „' + Selectors.crisisReason().replace(/^./, (c) => c.toUpperCase()) + '. Trener ' + Selectors.coach().name + ' stracił szatnię. Albo Prezes go zwalnia, albo zarząd przegłosuje to bez Prezesa.”',
+      options: [
+        {
+          label: 'Zwolnić trenera (odprawa)',
+          hint: () => Utils.signedMoney(-Engine.severance()) + ', kibice +5%, szatnia +2% (nowy impuls); stery przejmuje Pan Mirek',
+          effects: () => ({ budget: -Engine.severance(), fans: +5, lockerRoom: +2 }),
+          log: () => 'Trener ' + Selectors.coach().name + ' zwolniony po nadzwyczajnym zebraniu zarządu. Gwizdek tymczasowo bierze Pan Mirek.',
+          onChoose: () => Engine.setCoach('mirek'),
+        },
+        {
+          label: 'Ostatnia szansa: trzy mecze',
+          hint: 'Szatnia +3% (trener walczy o posadę), kibice -2%',
+          effects: { lockerRoom: +3, fans: -2 },
+          log: () => 'Trener ' + Selectors.coach().name + ' dostał trzy mecze. Na treningu biega szybciej niż piłkarze.',
+          onChoose: () => { gameState.coach.carpetBoost = Math.max(gameState.coach.carpetBoost || 0, 0.06); },
+        },
+        {
+          label: 'Postawić się zarządowi',
+          hint: 'Szatnia +5%, kibice -5%, DNA w dół (zarząd zapamięta)',
+          effects: { lockerRoom: +5, fans: -5 },
+          log: 'Prezes uderzył pięścią w stół: „Trener zostaje”. Skarbnik wyszedł obrażony.',
+          onChoose: () => Engine.shiftDNA(-1),
+        },
+      ],
+    },
     cutBus: {
       id: 'cutBus',
       levels: [1, 3],
@@ -765,10 +797,11 @@ const DATA = {
     cutPressConference: {
       id: 'cutPressConference',
       levels: [5, 8],
+      available: () => Selectors.teamStruggling(),   // pytania o dymisję tylko przy słabych wynikach
       cutscene: { icon: '🎤', place: 'Sala konferencyjna · po meczu' },
       from: 'Dziennikarze sportowi (kilkanaście kamer)',
       title: 'Konferencja prasowa na gorąco',
-      body: 'Flesze, mikrofony z logo stacji, ktoś z ostatniego rzędu krzyczy: „Panie Prezesie, czy trener jeszcze ma pana zaufanie? Kibice żądają dymisji na transparentach!”',
+      body: () => 'Flesze, mikrofony z logo stacji, ktoś z ostatniego rzędu krzyczy: „Panie Prezesie, ' + Selectors.crisisReason() + '. Czy trener jeszcze ma pana zaufanie? Kibice żądają dymisji na transparentach!”',
       options: [
         {
           label: 'Murem za trenerem',
@@ -2021,7 +2054,7 @@ const DATA = {
       title: () => 'Kibice żądają głowy trenera ' + Selectors.coach().name,
       body: () =>
         'Pod oknem biura transparent: „' + Selectors.coach().name.toUpperCase() + ' WON! CHCEMY GOLI, NIE MURU!”. ' +
-        'Kolejny mecz bez zwycięstwa i bez emocji. Ludzie przestali przychodzić, a ci, co przychodzą, rozwiązują krzyżówki. Co Prezes na to?',
+        'Kolejny mecz bez zwycięstwa i bez emocji (' + Selectors.crisisReason() + '). Ludzie przestali przychodzić, a ci, co przychodzą, rozwiązują krzyżówki. Co Prezes na to?',
       options: [
         {
           label: 'Zwalniam trenera (odprawa)',
@@ -2805,7 +2838,7 @@ const Engine = {
     // Mur bez wygranych → kibice chcą głowy trenera
     if (coach.style === 'def' && result !== 'W' && gf <= 1) coachState.boringStreak++;
     else coachState.boringStreak = 0;
-    if (coachState.boringStreak >= 3 && coachState.id !== 'mirek') {
+    if (coachState.boringStreak >= 3 && coachState.id !== 'mirek' && Selectors.teamStruggling()) {
       coachState.boringStreak = 0;
       Engine.pushDecision('fansVsCoach');
     }
@@ -4581,6 +4614,29 @@ const Selectors = {
     const odds = (1.25 + frac * 13).toFixed(2);
     const quote = ['', '„Czarny koń? Raczej czarna owca. Spadek murowany.”', '„Walka o utrzymanie do ostatniej kolejki.”', '„Środek tabeli – i to będzie sukces.”', '„Ciemny koń ligi. Kibice mogą marzyć.”', '„Główny faworyt do awansu. Inni grają o drugie miejsce.”'][stars];
     return { pos, stars, odds, quote };
+  },
+  // Kryzys sportowy: seria porażek, brak wygranej od 5 meczów, strefa spadkowa albo dramatycznie mało punktów.
+  // Drużyna w czołówce tabeli nigdy nie jest w kryzysie – wtedy nikt nie żąda głowy trenera.
+  teamStruggling: () => {
+    const t = gameState.season.table[US];
+    if (!t || t.p < 3 || gameState.coach.id === 'mirek') return false;
+    const n = Selectors.leagueSize(), pos = Selectors.ourPosition();
+    if (pos <= Math.ceil(n / 3)) return false;
+    const form = gameState.record.form || [];
+    const last3 = form.slice(-3);
+    const lossStreak = last3.length === 3 && last3.every((r) => r === 'L');
+    const winless = form.length >= 5 && !form.includes('W');
+    const zone = t.p >= 4 && ['down', 'downPO', 'last'].includes(Selectors.zoneOf(pos, n));
+    const pointsCrisis = t.p >= 6 && t.pts / t.p < 0.85;
+    return lossStreak || winless || zone || pointsCrisis;
+  },
+  crisisReason: () => {
+    const t = gameState.season.table[US];
+    const form = gameState.record.form || [];
+    if (form.slice(-3).length === 3 && form.slice(-3).every((r) => r === 'L')) return 'trzy porażki z rzędu';
+    if (form.length >= 5 && !form.includes('W')) return 'pięć meczów bez zwycięstwa';
+    if (['down', 'downPO', 'last'].includes(Selectors.zoneOf(Selectors.ourPosition()))) return Selectors.ourPosition() + '. miejsce – strefa spadkowa';
+    return t ? t.pts + ' pkt w ' + t.p + ' meczach' : 'słabe wyniki';
   },
   persuadeChance: (p) => {
     if (!p) return 0;
