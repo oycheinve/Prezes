@@ -255,10 +255,15 @@ const DATA = {
   /* ----- Trenerzy -----
      quality – bonus do siły; prefers – kogo trener faworyzuje przy wyborze składu;
      fanMod – wpływ na kibiców po każdym meczu; disappears – szansa, że zniknie w piątek */
+  // Licencje trenerskie: wymóg rośnie z ligą (indeks = poziom ligi); koszt kursu dla obecnego trenera
+  coachLicenses: ['bez licencji', 'UEFA C', 'UEFA B', 'UEFA A', 'UEFA Pro'],
+  coachLicenseReq: [0, 0, 0, 1, 2, 2, 3, 4, 4],
+  coachCourseCost: [0, 800, 3000, 12000, 40000],
+
   coaches: {
     mirek: {
       name: 'Pan Mirek', title: 'konserwator i były stoper', age: 61,
-      style: 'bal', sign: 0, weekly: 0, quality: -0.08, prefers: null, fanMod: 0,
+      style: 'bal', sign: 0, weekly: 0, quality: -0.08, prefers: null, fanMod: 0, license: 0,
       desc: 'Tymczasowy. Klucze do magazynu nosi przy pasku, taktykę rysuje kredą na drzwiach blaszaka. Nie bierze ani grosza – „dla klubu”.',
       reports: {
         W: ['Wygrali, to wygrali. Idę kosić.', 'Dobrze biegali. Ja bym tak nie dał rady, ale ja mam biodro.', 'Mówiłem im: kopać do przodu. Kopali.'],
@@ -269,9 +274,35 @@ const DATA = {
       carpetOk: 'Pan Mirek miętosi czapkę w dłoniach: „Się postaram, Prezesie”. Chłopaki widzieli, że jest poważnie.',
       carpetBad: 'Pan Mirek się obraził: „To niech Prezes sam trenuje, a ja wracam do kosiarki”. Do soboty mu przeszło. Prawie.',
     },
+    magister: {
+      name: 'Mgr Bogdan Lis', title: 'trener z licencją UEFA A, ex-asystent w I lidze', age: 52,
+      style: 'bal', sign: 900, weekly: 320, quality: 0.2, prefers: null, fanMod: 0, license: 3,
+      desc: 'Segregator z konspektami, gwizdek na smyczy PZPN i licencja UEFA A w ramce. Nie przeklina – „to nieprofesjonalne”.',
+      reports: {
+        W: ['Realizacja założeń na poziomie 80%. Jestem umiarkowanie zadowolony.', 'Struktura w obronie bez zarzutu. Wnioski spiszę w raporcie.', 'Wygraliśmy fazy przejściowe. Tak się wygrywa ligę.'],
+        D: ['Remis zgodny z przebiegiem. Pracujemy dalej według mikrocyklu.', 'Zabrakło jakości w ostatniej tercji. Mamy to na wideo.'],
+        L: ['Popełniliśmy błędy indywidualne. Omówimy je na odprawie.', 'Przeciwnik lepiej realizował plan. Wyciągniemy wnioski.', 'Porażka boli, ale proces jest ważniejszy niż wynik.'],
+      },
+      complaint: 'Panie Prezesie, w kadrze brakuje profili do mojego modelu gry. Przesłałem listę mailem.',
+      carpetOk: 'Mgr Lis otworzył segregator: „Przyjmuję uwagi, wdrażam działania korygujące”. I wdrożył.',
+      carpetBad: 'Mgr Lis poprawił okulary: „Takie rozmowy proszę kierować na piśmie”. Szatnia słyszała przez ścianę.',
+    },
+    profesor: {
+      name: 'Profesor Leszek Wąs', title: 'trener z licencją UEFA Pro, ma za sobą Ekstraklasę', age: 58,
+      style: 'off', sign: 3000, weekly: 900, quality: 0.27, prefers: null, fanMod: 1, license: 4,
+      desc: 'Licencja UEFA Pro, trzy kluby w Ekstraklasie i własny podcast. Wymagający, drogi i skuteczny.',
+      reports: {
+        W: ['Tak gra drużyna, która rozumie, po co wychodzi na boisko.', 'Pressing, odbiór, gol. Podręcznikowo.', 'Jestem dumny z chłopaków. I trochę z siebie.'],
+        D: ['Remis to nie porażka, ale też nie po to tu przyszedłem.', 'Kontrolowaliśmy mecz, zabrakło zimnej krwi.'],
+        L: ['Dziś wszystko poszło nie tak. Biorę to na siebie.', 'Taka porażka uczy pokory. Jutro trening o 8:00.', 'Panie Prezesie, potrzebujemy wzmocnień. Pilnie.'],
+      },
+      complaint: 'Prezesie, z takim składem możemy grać o utrzymanie, a nie o coś więcej.',
+      carpetOk: 'Profesor wysłuchał w ciszy: „Rozumiem. Zrobimy to lepiej”. I zrobili.',
+      carpetBad: 'Profesor uniósł brew: „W Ekstraklasie prezesi nie wołali mnie na dywanik”. Atmosfera zgęstniała.',
+    },
     stasiek: {
       name: 'Wujek Stasiek', title: 'emerytowany milicjant, trener z lat 80.', age: 67,
-      style: 'def', sign: 150, weekly: 60, quality: 0.08, prefers: 'veterans', fanMod: 0,
+      style: 'def', sign: 150, weekly: 60, quality: 0.08, prefers: 'veterans', fanMod: 0, license: 1,
       desc: 'Laga i autobus. Kocha dyscyplinę, gwizdek i starych wyjadaczy. Młodym mówi „synku”. Kibice na jego meczach przynoszą krzyżówki.',
       reports: {
         W: ['1:0 to też wynik. Najpiękniejszy wynik na świecie.', 'Zero z tyłu, panie Prezesie. ZERO. Tak się buduje drużynę.', 'Murowaliśmy jak za Gierka. Wybudowaliśmy zwycięstwo.'],
@@ -284,7 +315,7 @@ const DATA = {
     },
     kamil: {
       name: 'Kamil', title: 'Młody Teoretyk z Laptopem', age: 24,
-      style: 'off', sign: 300, weekly: 140, quality: 0.13, prefers: 'youth', fanMod: 1, mudWeakness: true,
+      style: 'off', sign: 300, weekly: 140, quality: 0.13, prefers: 'youth', fanMod: 1, mudWeakness: true, license: 1,
       desc: 'Ultraofensywa, wzór: Chelsea i Hazard. Ma licencję UEFA C, prezentacje w PowerPoincie i tablet z danymi. Kibice go kochają za widowisko.',
       reports: {
         W: ['Expected goals 2.7, panie Prezesie! Model zadziałał!', 'Pressing wysoki, rest-defence domknięta. Jak Chelsea z najlepszych lat.', 'Hazard by się nie powstydził. No może trochę.'],
@@ -297,7 +328,7 @@ const DATA = {
     },
     ligowiec: {
       name: 'Zdzisław „Brzuch” Ćwik', title: 'Były Ligowiec z Brzuszkiem', age: 46,
-      style: 'bal', sign: 250, weekly: 110, quality: 0.15, prefers: null, fanMod: 0, disappears: 0.15, attracts: true,
+      style: 'bal', sign: 250, weekly: 110, quality: 0.15, prefers: null, fanMod: 0, disappears: 0.15, attracts: true, license: 2,
       desc: 'Grał 3 sezony w II lidze (mówi, że w Ekstraklasie). Ma znajomości i ściąga lepszych grajków, ale w piątki lubi zniknąć „w sprawach rodzinnych”.',
       reports: {
         W: ['Na aferę i do przodu! Jak w Stali w dziewięćdziesiątym ósmym!', 'Ja wiedziałem, że oni mają jaja. Wiedziałem od rozgrzewki.', 'Trzy punkty, Prezesie. Stawiam kolejkę. Albo Prezes stawia.'],
@@ -598,6 +629,57 @@ const DATA = {
 
     /* ----- Cut-scenki skalowane do ligi: od wiejskich dram po presję mediów i kontrole w wielkiej piłce ----- */
     /* ----- Cut-scenki europejskie (tylko w sezonie z pucharami) ----- */
+    coachLicense: {
+      id: 'coachLicense',
+      cutscene: { icon: '📜', place: 'Wydział Licencyjny Związku · po awansie', scripted: true },
+      from: 'Wydział Licencyjny (pismo z pieczątką)',
+      title: () => 'Trener bez papierów na ' + DATA.leagueLevels[gameState.coach.licenseFor || gameState.club.leagueLevel].name,
+      body: () => { const req = Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel); return 'Gratulujemy awansu. Przypominamy: w tej klasie rozgrywkowej pierwszy trener musi mieć licencję ' + DATA.coachLicenses[req] + '. ' + Selectors.coach().name + ' ma: ' + DATA.coachLicenses[Selectors.coachLicense()] + '. Bez tego – kara przy licencji klubu i nakaz uzupełnienia do końca sezonu.'; },
+      options: [
+        {
+          label: () => 'Opłacić kurs trenerski (' + DATA.coachLicenses[Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel)] + ')',
+          hint: () => { const req = Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel); const mirek = gameState.coach.id === 'mirek'; return Utils.signedMoney(-Selectors.courseCost(req)) + ', ' + (mirek ? 'Pan Mirek zda z ok. 40% szans' : 'ok. 85% szans na zdanie egzaminu') + '; trener po kursie gra trochę lepiej'; },
+          effects: () => ({ budget: -Selectors.courseCost(Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel)) }),
+          log: () => Selectors.coach().name + ' jedzie na kurs trenerski do Białej Podlaskiej. Konspekty w reklamówce.',
+          onChoose: () => {
+            const req = Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel);
+            if (Math.random() < (gameState.coach.id === 'mirek' ? 0.4 : 0.85)) {
+              gameState.coach.license = req;
+              gameState.coach.figurehead = null;
+              Engine.alert('🎓', 'Licencja zdobyta!', Selectors.coach().name + ' zdał egzamin: ' + DATA.coachLicenses[req] + '. Wymóg licencyjny spełniony.', 'good');
+            } else Engine.alert('📕', 'Oblany egzamin', Selectors.coach().name + ' nie zdał (pomylił spalony z rzutem wolnym). Kurs przepadł – licencji brak, Związek naliczy karę.', 'bad');
+          },
+        },
+        {
+          label: () => { const id = Selectors.licensedCoachFor(Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel)); return id ? 'Zatrudnić trenera z papierami: ' + DATA.coaches[id].name : 'Zatrudnić trenera z papierami'; },
+          hint: () => { const id = Selectors.licensedCoachFor(Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel)); if (!id) return 'Brak wolnych trenerów z taką licencją'; const o = Selectors.coachOffer(DATA.coaches[id]); return 'Podpis ' + Utils.formatMoney(o.sign) + ', pensja ' + Utils.formatMoney(o.weekly) + '/tydz.' + (gameState.coach.id !== 'mirek' ? ', odprawa dla obecnego ' + Utils.formatMoney(Engine.severance()) + ', szatnia -3%' : ''); },
+          effects: {},
+          log: 'Prezes dzwoni po trenerach z licencją. Telefon parzy.',
+          onChoose: () => {
+            const id = Selectors.licensedCoachFor(Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel));
+            if (!id) { Engine.addLog('📜 Nikt z licencją nie chce przyjść. Zostaje stary trener – i kara.', 'event'); return; }
+            if (gameState.coach.id !== 'mirek') { Engine.money('Odprawa: ' + Selectors.coach().name, -Engine.severance()); Engine.applyEffects({ lockerRoom: -3 }); }
+            const o = Selectors.coachOffer(DATA.coaches[id]);
+            Engine.money('Podpis trenera: ' + DATA.coaches[id].name, -o.sign);
+            Engine.setCoach(id);
+            gameState.coach.figurehead = null;
+            Engine.alert('📜', 'Nowy trener z licencją', DATA.coaches[id].name + ' (' + DATA.coaches[id].title + ') przejmuje drużynę. Wymóg licencyjny spełniony.', 'good');
+          },
+        },
+        {
+          label: 'Trener „na papierze” z licencją, prowadzi nasz',
+          hint: () => { const req = Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel); return 'Figurant z ' + DATA.coachLicenses[req] + ' za ' + Utils.formatMoney(Math.round(30 * req * Selectors.econ())) + '/tydz., DNA w dół, ok. 25% szans na aferę w mediach'; },
+          effects: {},
+          log: 'Na ławce siedzi pan z licencją i krzyżówką. Drużynę i tak prowadzi nasz trener.',
+          onChoose: () => {
+            const req = Selectors.coachLicenseReq(gameState.coach.licenseFor || gameState.club.leagueLevel);
+            gameState.coach.figurehead = { license: req, weekly: Math.round(30 * req * Selectors.econ()) };
+            Engine.shiftDNA(-2);
+            if (Math.random() < 0.25) { Engine.applyEffects({ fans: -5 }); Engine.addScandal('trener-figurant na ławce'); Engine.alert('📰', 'Afera z trenerem-figurantem', 'Media: „licencja na ławce, trener w kapciach”. Kibice -5%.', 'bad'); }
+          },
+        },
+      ],
+    },
     cutEuroStadium: {
       id: 'cutEuroStadium',
       euro: true,
@@ -1977,16 +2059,15 @@ const DATA = {
           onChoose: () => { const p = Selectors.callPlayer(); if (p) p.wage += Selectors.raiseAmount(); },
         },
         {
-          label: 'Skrzynka piwa i kiełbasa na zgodę',
-          hint: () => { const o = Selectors.beerOdds(Selectors.callPlayer()); return '-' + Utils.formatMoney(Selectors.beerCost()) + ', ok. ' + Math.round(o.ok * 100) + '% że wystarczy, ' + Math.round(o.scandal * 100) + '% ryzyko afery w mediach'; },
+          label: 'Skrzynka piwa i kiełbasa',
+          hint: () => { const o = Selectors.beerOdds(Selectors.callPlayer()); return '-' + Utils.formatMoney(Selectors.beerCost()) + ': ' + Math.round(o.ok * 100) + '% sukces, inaczej afera (szatnia -8%)'; },
           effects: {},
           log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes zawiózł skrzynkę i pęto kiełbasy pod dom „' + p.nick + '”.' : 'Skrzynka pojechała w ciemno.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.beerDeal('„' + p.nick + '”', p);
-            if (res === 'ok') Engine.addLog('🍺 „' + p.nick + '” przyjął skrzynkę i temat podwyżki ucichł. Na razie.', 'event');
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -5 }); Engine.addLog('😒 „' + p.nick + '” odesłał skrzynkę. Foch w szatni. [szatnia -5%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -4 }); Engine.addLog('📰 „' + p.nick + '” wrzucił zdjęcie skrzynki do internetu. Afera! [szatnia -4%]', 'event'); }
+            const res = Engine.beerDeal('„' + p.nick + '”', p, true);   // przy podwyżce: sukces albo afera, bez półśrodków
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +4 }); Engine.addLog('🍺 „' + p.nick + '” machnął ręką na podwyżkę: „Panie Prezesie, za taki klimat to ja gram za darmo!”. [szatnia +4%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '” wrzucił zdjęcie skrzynki do internetu z podpisem „TAK PŁACI KLUB”. Afera obyczajowa, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2881,7 +2962,7 @@ const Engine = {
     let s = 0.45 + avgSkill * 0.13;
     s *= 0.88 + chem * 0.0025;
     s *= 0.94 + gameState.morale.lockerRoom * 0.0012;
-    s *= 1 + Selectors.coach().quality;
+    s *= 1 + Selectors.coach().quality + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;   // kurs podnosi warsztat
     s *= 1 - missing * 0.06;
     if (gameState.debt.strike) s *= 0.9;           // strajk: nie ma na paliwo, nie ma gry
     if (Selectors.rebel()) s *= 0.92;              // bunt gwiazdy: nikt nie podaje do nikogo
@@ -3276,6 +3357,7 @@ const Engine = {
       gameState.stats.promotions++;
       gameState.stats.topLevel = Math.max(gameState.stats.topLevel, newLevel);
       Engine.checkLicense(newLevel);
+      if (!Selectors.coachLicenseOk(newLevel)) { gameState.coach.licenseFor = newLevel; Engine.pushDecision('coachLicense'); }
     } else if (outcome === 'releg' || outcome === 'forced') {
       gameState.stats.relegations++;
     } else if (level >= 2 && Selectors.licenseMissing(level).length) {
@@ -3344,7 +3426,7 @@ const Engine = {
     const euroNext = level === maxLevel && newLevel === maxLevel && outcome !== 'forced' ? Selectors.euroQualFor(pos) : null;
     if (euroNext) summary.euroQual = Selectors.euroQualLabel(euroNext);
 
-    summary.debtNews = (gameState.debtNews || []).filter((d) => !['late', 'caught'].includes(d.kind)).map((d) => d.text).slice(-5);
+    summary.debtNews = (gameState.debtNews || []).filter((d) => ['paidUs', 'stiffedUs', 'recovered', 'ourPaid'].includes(d.kind)).map((d) => d.text).slice(-5);
     gameState.calendar.season++;
     gameState.calendar.round = 0;
     gameState.dark.offersThisSeason = 0;
@@ -3365,8 +3447,9 @@ const Engine = {
 
   /* ----- Negocjacje „na skrzynkę piwa i kiełbasę” ----- */
   // Zwraca 'ok' | 'refuse' | 'scandal' i od razu pokazuje powiadomienie na ekranie
-  beerDeal(who, p) {
+  beerDeal(who, p, binary) {
     const o = Selectors.beerOdds(p);
+    if (binary) { o.scandal += o.refuse; o.refuse = 0; }   // np. przy żądaniu podwyżki: albo przejdzie, albo afera
     const cost = Selectors.beerCost();
     Engine.money('Skrzynka piwa i kiełbasa', -cost);
     gameState.stats.beerDeals = (gameState.stats.beerDeals || 0) + 1;
@@ -3690,7 +3773,7 @@ const Engine = {
   },
 
   checkLicense(level) {
-    const missing = Selectors.licenseMissing(level);
+    const missing = Selectors.licenseMissing(level, true);   // licencję trenera rozstrzyga osobna decyzja po awansie
     const name = DATA.leagueLevels[level].name;
     if (!missing.length) {
       Engine.addLog('📋 Licencja na ' + name + ' przyznana bez uwag. Inspektor ze Związku nawet zjadł kiełbaskę.', 'system');
@@ -4099,7 +4182,18 @@ const Engine = {
   setCoach(id) {
     const c = gameState.coach;
     c.id = id; c.hiredWeek = gameState.calendar.week; c.carpetBoost = 0; c.boringStreak = 0; c.lastReport = '';
+    c.license = DATA.coaches[id] ? DATA.coaches[id].license || 0 : 0;   // licencja nowego trenera (kurs podnosi ją później)
     c.weekly = Selectors.coachOffer(DATA.coaches[id]).weekly;
+  },
+
+  // Kurs trenerski poza awansem (z zakładki Trener)
+  coachCourse() {
+    const req = Selectors.coachLicenseReq();
+    const cost = Selectors.courseCost(req);
+    if (Selectors.coachLicenseOk() || gameState.coach.id === 'mirek' || gameState.finance.budget < cost) return;
+    Engine.money('Kurs trenerski ' + DATA.coachLicenses[req], -cost);
+    if (Math.random() < 0.85) { gameState.coach.license = req; gameState.coach.figurehead = null; Engine.alert('🎓', 'Licencja zdobyta!', Selectors.coach().name + ': ' + DATA.coachLicenses[req] + '.', 'good'); }
+    else Engine.alert('📕', 'Oblany egzamin', Selectors.coach().name + ' nie zdał kursu. Pieniądze przepadły.', 'bad');
   },
 
   hireCoach(id) {
@@ -4643,19 +4737,17 @@ const Engine = {
     ec.blockedUntil = gameState.calendar.week + 20;           // nikt im nie pożyczy przez 20 tygodni
     const s = gameState.season;
     s.strength[name] = Math.max(0.8, (s.strength[name] || Selectors.rival(name).strength) - 0.2);   // zawodnicy bez wypłat odchodzą
-    const row = s.table[name];
-    if (row) row.pts = Math.max(0, row.pts - 3);              // Związek odbiera punkty za zaległości
     if (!gameState.league.fireSale.includes(name)) gameState.league.fireSale.push(name);
     if (gameState.transfer.open) Engine.addFireSale(name);
-    Engine.debtEvent(name, 'default', '🚨', name + ' NIEWYPŁACALNY!', 'Trzy niezapłacone raty, bank umarza ' + Utils.formatMoney(lost) + ' i wpisuje klub na czarną listę. Związek odbiera 3 punkty, zawodnicy bez wypłat – wyprzedaż na giełdzie.', 'bad');
-    Engine.xPost('portal', name + ' NIEWYPŁACALNY! Komornik zajął busa i kosiarkę. Związek odbiera 3 punkty. 📉⚖️');
+    Engine.debtEvent(name, 'default', '🚨', name + ' NIEWYPŁACALNY!', 'Bank umarza ' + Utils.formatMoney(lost) + ' i wpisuje klub na czarną listę.', 'bad');
     // nasza pożyczka dla tego klubu: odzyskujemy tylko część
     gameState.loans.given = gameState.loans.given.filter((loan) => {
       const b = DATA.borrowers[loan.id];
       if (!b || b.club !== name) return true;
       const part = Math.round(loan.returns * 0.25);
       Engine.money('Odzysk długu (upadłość): ' + b.name, part);
-      Engine.alert('🧾', 'Nasza pożyczka w ' + name, 'Klub niewypłacalny – syndyk oddał tylko ' + Utils.formatMoney(part) + ' z ' + Utils.formatMoney(loan.returns) + '.', 'bad');
+      Engine.alert('🧾', 'Odzysk naszej pożyczki', name + ' niewypłacalny – syndyk oddał tylko ' + Utils.formatMoney(part) + ' z ' + Utils.formatMoney(loan.returns) + '.', 'bad');
+      gameState.debtNews.push({ kind: 'recovered', week: gameState.calendar.week, text: '🧾 Odzysk z ' + name + ': ' + Utils.formatMoney(part) });
       return false;
     });
   },
@@ -4673,7 +4765,9 @@ const Engine = {
     }
   },
   debtEvent(club, kind, icon, title, text, tone) {
+    // Długi innych klubów nie generują powiadomień – widać je tylko w Tabela → Kasa
     gameState.debtNews.push({ club, kind, week: gameState.calendar.week, text: icon + ' ' + title });
+    return;
     // ostrzeżenia o tym samym klubie najwyżej raz na 12 tygodni – ważne wieści (spłata, upadłość) zawsze
     const ec = Engine.clubEco(club);
     if (tone === 'warn') {
@@ -4737,6 +4831,7 @@ const Engine = {
   // Rozliczają bieżący tydzień, a na końcu przesuwają kalendarz.
   weeklyHooks: [
     function openReport() {
+      gameState.alerts = [];   // nowy tydzień = czysty ekran (stare powiadomienia znikają)
       gameState.report = { week: gameState.calendar.week, lines: [], homeMatch: false, result: null };
     },
     function rollFlavor() {
@@ -4763,9 +4858,6 @@ const Engine = {
           Engine.addLog('⚖️ Wydział Dyscypliny OZPN ukarał klub za „zadziorny” wpis na X: ' + Utils.formatMoney(fine) + '.', 'event');
         }
       }
-    },
-    function expireAlerts() {
-      gameState.alerts = (gameState.alerts || []).filter((a) => gameState.calendar.week - a.week < 1);
     },
     function leagueEconomy() {
       Engine.leagueEconomyTick();
@@ -4831,7 +4923,10 @@ const Engine = {
         Engine.money('Rata: ' + lender.name, -loan.rate);
         if (lender.club) Engine.clubEco(lender.club).cash += loan.rate;
         loan.remaining--;
-        if (loan.remaining === 0) Engine.addLog('✅ Spłacono ostatnią ratę – ' + lender.name + '. Na pożegnanie postawił flaszkę.', 'finance');
+        if (loan.remaining === 0) {
+          Engine.alert('✅', 'Pożyczka spłacona', 'Ostatnia rata dla: ' + lender.name + '. Klub nic już nie jest winien. Na pożegnanie postawił flaszkę.', 'good');
+          gameState.debtNews.push({ kind: 'ourPaid', week: gameState.calendar.week, text: '✅ Spłaciliśmy pożyczkę: ' + lender.name });
+        }
       });
       L.taken = L.taken.filter((l) => l.remaining > 0);
 
@@ -4949,7 +5044,13 @@ const Selectors = {
   mediaStrategy: () => gameState.x.strategy || 'neutral',
   strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
-  coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)),
+  coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)) + (gameState.coach.figurehead ? gameState.coach.figurehead.weekly : 0),
+  coachLicense: () => Math.max(gameState.coach.license != null ? gameState.coach.license : (Selectors.coach().license || 0), Selectors.coach().license || 0),
+  coachLicenseReq: (level = gameState.club.leagueLevel) => DATA.coachLicenseReq[level] || 0,
+  // Licencja spełniona przez trenera albo przez „trenera na papierze” (figuranta)
+  coachLicenseOk: (level = gameState.club.leagueLevel) => Math.max(Selectors.coachLicense(), gameState.coach.figurehead ? gameState.coach.figurehead.license : 0) >= Selectors.coachLicenseReq(level),
+  courseCost: (to) => Math.round(DATA.coachCourseCost[to] * Math.max(1, Selectors.econ() / 4)),
+  licensedCoachFor: (req) => Object.keys(DATA.coaches).filter((id) => id !== 'mirek' && id !== gameState.coach.id && (DATA.coaches[id].license || 0) >= req).sort((a, b) => DATA.coaches[a].sign - DATA.coaches[b].sign)[0] || null,
   scoutTier: () => DATA.scoutTiers[gameState.scouting.tier] || DATA.scoutTiers[0],
   raiseAmount: () => Math.max(15, Math.round(15 * Selectors.econ() / 5) * 5),
   passatSellAmount: () => Math.round(1200 * Selectors.econ() / 100) * 100,
@@ -4963,7 +5064,7 @@ const Selectors = {
     const e = Selectors.econ();
     return { warn: CONFIG.debtWarn * e, bailiff: CONFIG.debtBailiff * e, gameOver: CONFIG.debtGameOver * e };
   },
-  licenseMissing: (level) => {
+  licenseMissing: (level, skipCoach) => {
     const up = gameState.stadium.upgrades;
     const miss = [];
     if (level === 2 && !up.boiler && !up.roller) miss.push('Bojler albo Walec');
@@ -4975,6 +5076,7 @@ const Selectors = {
       const u = DATA.upgrades[id];
       if (u.licenseLevel && level >= u.licenseLevel && !up[id]) miss.push(u.label);
     });
+    if (!skipCoach && !Selectors.coachLicenseOk(level)) miss.push('Trener z licencją ' + DATA.coachLicenses[Selectors.coachLicenseReq(level)]);
     const needCap = DATA.licenseCapacity[level] || 0;
     if ((gameState.stadium.level || 0) < needCap) miss.push('Trybuny: min. ' + DATA.stadiumLevels[needCap].capacity + ' miejsc');
     return miss;
@@ -5652,6 +5754,7 @@ const UI = {
   alertsBar(onlyTop) {
     const list = (gameState.alerts || []).filter((a) => !onlyTop || a.top).slice(0, 2);
     if (!list.length) return '';
+    list.forEach((a) => { a.seen = true; });   // pokazane = zniknie przy następnej akcji
     const edge = { good: 'border-l-grass', warn: 'border-l-amber-400', bad: 'border-l-stamp', info: 'border-l-sky-500' };
     return `
     <div class="fixed inset-x-0 top-2 ${onlyTop ? 'z-[90]' : 'z-[60]'} flex justify-center pointer-events-none px-2">
@@ -5667,7 +5770,7 @@ const UI = {
           </button>
           <button data-action="dismiss-alert" data-id="${a.id}" class="flex-shrink-0 w-7 h-7 -mr-1 rounded-md text-paper-400 active:bg-desk-700" aria-label="Zamknij">✕</button>
         </div>`).join('')}
-        ${!onlyTop && gameState.alerts.length > 2 ? `<button data-action="dismiss-alert" data-id="all" class="pointer-events-auto block mx-auto text-[11px] text-paper-300 bg-desk-800/90 rounded-full px-3 py-1">+${gameState.alerts.length - 2} · zamknij wszystkie</button>` : ''}
+
       </div>
     </div>`;
   },
@@ -5995,7 +6098,7 @@ const UI = {
           ${sm.loanEnd && sm.loanEnd.length ? list('🔁 Koniec wypożyczeń – wracają do siebie', sm.loanEnd, '') : ''}
           ${sm.loanBack && sm.loanBack.length ? list('📥 Wracają z wypożyczeń', sm.loanBack, '') : ''}
           ${sm.growth && sm.growth.length ? list('📈 Rozwój młodych', sm.growth, '') : ''}
-          ${sm.debtNews && sm.debtNews.length ? list('💸 Długi w lidze – kto spłacił, kto padł', sm.debtNews, '') : ''}
+          ${sm.debtNews && sm.debtNews.length ? list('💸 Nasze pożyczki', sm.debtNews, '') : ''}
           ${list('🌱 Nowi w kadrze', sm.newcomers, 'Brak nowych – szatnia pełna.')}
         </div>
       </div>
@@ -6527,9 +6630,8 @@ const UI = {
       return { name, cash: ec.cash, credit: Selectors.clubCredit(name), owed: ec.loan ? ec.loan.remaining * ec.loan.rate : 0, status };
     }).sort((a, b) => b.cash - a.cash);
     const big = rows.length > 12;
-    const news = (gameState.debtNews || []).slice(-2).reverse().map((d) => Utils.escape(d.text)).join(' · ');
     return `<p class="text-[11px] text-paper-400 mb-1 leading-snug">${big ? 'Kasa i wiarygodność klubów.' : 'Kasa klubów według plotek z powiatu. Bogaci inwestują w skład, zadłużeni słabną; w dołku każdy bierze pożyczkę – ile dostanie, zależy od kondycji i historii spłat.'} ✅ spłacił · ⚠️ zalega · 💀 niewypłacalny</p>
-      ${news ? `<p class="text-[11px] text-paper-200 mb-1 truncate">📰 ${news}</p>` : ''}
+
       <section class="paper py-0.5 mb-2 overflow-hidden">
         <table class="w-full ${big ? 'text-[11px]' : 'text-[12px]'}">
           <tr class="text-[10px] uppercase text-ink-700"><th class="text-left pl-2">Klub</th><th class="text-right">Kasa</th><th class="text-center">Zdolność</th><th class="text-right pr-2">Dług</th></tr>
@@ -6604,7 +6706,7 @@ const UI = {
         const testLineup = (() => { const prev = c.id; c.id = id; const l = Engine.pickLineup([]); const ch = Engine.chemistry(l); c.id = prev; return ch; })();
         const offer = Selectors.coachOffer(co);
         return UI.row(`${Utils.escape(co.name)} <span class="font-normal text-ink-700">– ${Utils.escape(co.title)}</span>`,
-          `<b>${st.label}</b> („${st.motto}”) · podpis ${Utils.formatMoney(offer.sign)} · <b>${Utils.formatMoney(offer.weekly)}/tydz.</b><br>${Utils.escape(co.desc)}<br>Przewidywana chemia z naszą kadrą: <b>${testLineup}%</b> (${Selectors.chemLabel(testLineup)})`,
+          `<b>${st.label}</b> · 📜 <b>${DATA.coachLicenses[co.license || 0]}</b>${(co.license || 0) < Selectors.coachLicenseReq() ? ' <span class="text-stamp">(za mało na tę ligę)</span>' : ''} · podpis ${Utils.formatMoney(offer.sign)} · <b>${Utils.formatMoney(offer.weekly)}/tydz.</b> · chemia z kadrą: <b>${testLineup}%</b>`,
           UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < offer.sign));
       }).join('');
       return segs + intro + UI.panel('Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market);
@@ -6655,6 +6757,7 @@ const UI = {
     ]) + UI.panel('Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
       <p class="text-[12px] leading-snug mb-1.5">${Utils.escape(coach.desc)}</p>
       <p class="text-[11px] text-ink-700 mb-1.5">„${style.motto}” · ${coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach'}</p>
+      <p class="text-[11.5px] mb-1.5">📜 Licencja: <b>${DATA.coachLicenses[Selectors.coachLicense()]}</b> · wymagana w lidze: <b>${DATA.coachLicenses[Selectors.coachLicenseReq()]}</b>${Selectors.coachLicenseOk() ? ' <span class="text-grass font-bold">✓</span>' : ' <span class="text-stamp font-bold">brak!</span>'}${gameState.coach.figurehead ? ' · figurant: ' + DATA.coachLicenses[gameState.coach.figurehead.license] : ''}${!Selectors.coachLicenseOk() && gameState.coach.id !== 'mirek' ? ' ' + UI.smallBtn('coach-course', '', '🎓 Kurs ' + DATA.coachLicenses[Selectors.coachLicenseReq()] + ' (' + Utils.formatMoney(Selectors.courseCost(Selectors.coachLicenseReq())) + ')', gameState.finance.budget < Selectors.courseCost(Selectors.coachLicenseReq())) : ''}</p>
       <div class="flex justify-between text-[12px]"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span>${chem}%</span></div>
       ${UI.bar(chem, chemColor)}
       <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
@@ -7257,7 +7360,7 @@ const Actions = {
     if (o && o.type === 'match' && sm && !sm.seen) gameState.ui.overlay = { type: sm.playoff && !sm.playoffSeen ? 'playoff' : 'season' };
     else if (o && o.type === 'playoff' && sm) { sm.playoffSeen = true; gameState.ui.overlay = { type: 'season' }; }
     else if (o && o.type === 'transfer') gameState.ui.overlay = null;
-    else if (t.open && !t.shown && (!sm || sm.seen) && !gameState.pendingDecisions.includes('veteranStaff')) {
+    else if (t.open && !t.shown && (!sm || sm.seen) && !gameState.pendingDecisions.some((id) => ['veteranStaff', 'coachLicense'].includes(id))) {
       t.shown = true;
       gameState.ui.transferView = Selectors.transferOffers().length ? 'offers' : 'buy';
       gameState.ui.overlay = { type: 'transfer' };
@@ -7323,6 +7426,7 @@ const Actions = {
   'build-stadium'()  { Engine.buildStadium(); App.commit(); },
 
   'hire-coach'(el)   { Engine.hireCoach(el.dataset.id); App.commit(); },
+  'coach-course'()   { Engine.coachCourse(); App.commit(); },
   'fire-coach'(el) {
     const coach = Selectors.coach();
     const cold = el.dataset.mode === 'cold';
@@ -7387,6 +7491,9 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
   const handler = Actions[el.dataset.action];
+  // Powiadomienia znikają same przy kolejnej akcji (nowe, powstałe w tej akcji, zostają do następnej)
+  // (znikają tylko te, które gracz już widział – świeże z tygodnia czekają, aż zamknie ekran meczu)
+  if (handler && gameState.alerts && gameState.alerts.length && !['dismiss-alert', 'open-alert'].includes(el.dataset.action)) gameState.alerts = gameState.alerts.filter((a) => !a.seen);
   if (handler) handler(el, e);
 });
 
