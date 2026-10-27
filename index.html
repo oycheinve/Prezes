@@ -353,12 +353,18 @@ const DATA = {
   /* ----- Sztab pomocniczy ----- */
   staffSlots: {
     kierownik: { label: 'Kierownik drużyny',          icon: '📋' },   // ukryty poziom: mniej nieobecności na meczach
-    asystent:  { label: 'Asystent od rozgrzewki',     icon: '📣' },   // ukryty poziom: szybszy rozwój młodych
+    asystent:  { label: 'Asystent trenera',           icon: '📣' },   // mnożnik jakości trenera + rozwój młodych
     masazysta: { label: 'Masażysta z maścią końską',  icon: '💆' },
-    fizjo:     { label: 'Fizjoterapeuta',             icon: '🩹' },   // ukryty poziom: mniej i krótsze kontuzje
+    fizjo:     { label: 'Fizjoterapeuta',             icon: '🩹' },   // mniej i krótsze kontuzje, regeneracja po meczach w tygodniu
+    skaut:     { label: 'Skaut transferowy',          icon: '🔭' },   // okazje cenowe i perełki na giełdzie między sezonami
   },
   // Kandydaci do sztabu: poziom (1–5) jest ukryty – gracz widzi tylko opis i pensję
   staffPool: {
+    skaut: [
+      { name: 'Kibic z kajetem i lornetką', wage: 30, chem: 0, lockerBase: 0, level: 1, desc: 'Jeździ po meczach okolicznych lig. Czasem trafi okazję.' },
+      { name: 'Były piłkarz z kontaktami w całym województwie', wage: 90, chem: 0, lockerBase: 0, level: 3, desc: 'Wie, kto jest tani, bo klub ma długi. I kto naprawdę umie grać.' },
+      { name: 'Analityk z bazą danych i dronem', wage: 170, chem: 1, lockerBase: 0, level: 5, desc: 'Statystyki, wideo, raporty. Znajduje perełki, zanim inni o nich usłyszą.' },
+    ],
     kierownik: [
       { name: 'Pan Tadeusz – emerytowany sierżant', wage: 70, chem: 4, lockerBase: 0, level: 3, desc: 'Lista obecności, zbiórka 10:00, kto się spóźni – biega dookoła remizy.' },
       { name: 'Szwagier Zbyszek z kalendarzem w telefonie', wage: 35, chem: 2, lockerBase: 0, level: 1, desc: 'Ma przypomnienia w telefonie. Wyłączone.' },
@@ -388,6 +394,7 @@ const DATA = {
     asystent: null,
     masazysta: null,
     fizjo: null,
+    skaut: null,
   },
 
   /* ----- Kadra startowa (ręcznie, dla klimatu) -----
@@ -2375,15 +2382,22 @@ const DATA = {
         if (!r) return '';
         return '„Prezesie, kolana już nie te. ' + r.apps + ' meczów, ' + r.goals + ' goli dla tego klubu… Ale pomogę w sztabie za symboliczną dychę. ' +
           'Mogę nosić siatkę z piłkami, rozgrzewać chłopaków, krzyczeć z ławki. Byle przy drużynie.” ' +
-          (Selectors.freeStaffSlot() ? '' : '(Wszystkie miejsca w sztabie zajęte – zastąpi osobę z najmniejszym wpływem na drużynę.)');
+          '(Obejmie wybraną funkcję – jeśli jest zajęta, obecna osoba odejdzie.)';
       },
       options: [
         {
-          label: 'Bierzemy do sztabu za dychę!',
-          hint: () => '10 zł/tydz., szatnia +' + DATA.veteranStaff.lockerBase + ' do bazowego nastroju, kibice +3%',
+          label: 'Asystent trenera',
+          hint: () => { const r = Selectors.currentRetiree(); return r ? 'Poziom ' + Selectors.veteranLevel(r) + ': trener ×' + (1 + Selectors.veteranLevel(r) * 0.15).toFixed(2) + ' skuteczności, szatnia +' + DATA.veteranStaff.lockerBase + ', kibice +3%' : ''; },
           effects: { fans: +3, lockerRoom: +5 },
-          log: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ' dołącza do sztabu! Szatnia wiwatuje, kibice skandują jego ksywę.' : ''; },
-          onChoose: () => Engine.hireVeteranStaff(),
+          log: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ' zostaje asystentem trenera! Szatnia wiwatuje, kibice skandują jego ksywę.' : ''; },
+          onChoose: () => Engine.hireVeteranStaff('asystent'),
+        },
+        {
+          label: 'Kierownik drużyny',
+          hint: () => { const r = Selectors.currentRetiree(); return r ? 'Poziom ' + Selectors.veteranLevel(r) + ': mniej nieobecności, szatnia +' + DATA.veteranStaff.lockerBase + ', kibice +3%' : ''; },
+          effects: { fans: +3, lockerRoom: +5 },
+          log: () => { const r = Selectors.currentRetiree(); return r ? Selectors.playerName(r) + ' zostaje kierownikiem drużyny. Lista obecności w jego rękach.' : ''; },
+          onChoose: () => Engine.hireVeteranStaff('kierownik'),
         },
         {
           label: 'Pożegnanie z kwiatami i tortem',
@@ -3464,7 +3478,9 @@ const Engine = {
     md.ticketNext = null;
     if (shop.markupNext && DATA.merchMarkups[shop.markupNext]) { shop.markup = shop.markupNext; changes.push('sklep: ' + DATA.merchMarkups[shop.markup].label.split(' – ')[0]); }
     shop.markupNext = null;
-    const fans = Utils.clamp(Math.round(m.fans * 0.6), -8, 8);   // miesięczna stabilizacja: łagodniej i z limitem w obie strony
+    // wyniki zmieniają wyrozumiałość: przy passie kibice łatwiej łykają drożyznę, w kryzysie – wszystko boli bardziej
+    const tolerance = m.fans < 0 ? Utils.clamp(2 - Selectors.formFactor() * 1.2, 0.4, 1.6) : 1;
+    const fans = Utils.clamp(Math.round(m.fans * 0.6 * tolerance), -8, 8);   // miesięczna stabilizacja: łagodniej i z limitem w obie strony
     if (fans) Engine.applyEffects({ fans });
     const sum = m.tickets + m.merch + m.gastro;
     if (sum || fans || changes.length) {
@@ -3521,7 +3537,9 @@ const Engine = {
     let s = 0.45 + avgSkill * 0.13;
     s *= 0.88 + chem * 0.0025;
     s *= 0.94 + gameState.morale.lockerRoom * 0.0012;
-    s *= 1 + Selectors.coach().quality + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;   // kurs podnosi warsztat
+    // asystent mnoży jakość trenera i sam dokłada swoje; kurs podnosi warsztat
+    s *= 1 + Selectors.coach().quality * Selectors.assistantMult() + Selectors.staffLevel('asystent') * 0.012 + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;
+    s *= 1 - Selectors.fatiguePenalty();
     if (Selectors.coachTrait('hardTraining')) s *= 1.04;
     if (Selectors.coachTrait('discipline')) s *= 1.03;
     s *= 1 - missing * 0.06;
@@ -3631,8 +3649,8 @@ const Engine = {
     lineup.forEach((p) => {
       const pitchRisk = fixture.home && gameState.stadium.pitch < 30 ? 1.3 : 1;   // kretowisko łamie kostki
       const ageRisk = (p.age >= 32 ? 1.3 : 1) * (p.fragile ? 1.6 : 1) * (Selectors.coachTrait('hardTraining') ? 1.5 : 1);
-      if (Math.random() < 0.025 * (1 - fizjo * 0.14) * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk) {
-        const severe = Math.random() < 0.15 * (1 - fizjo * 0.12);   // poważny uraz: więzadła, złamanie
+      if (Math.random() < 0.025 * (1 - fizjo * 0.17) * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk * (1 + Selectors.fatiguePenalty() * 4)) {
+        const severe = Math.random() < 0.15 * (1 - fizjo * 0.15);   // poważny uraz: więzadła, złamanie
         const base = severe ? Utils.randInt(5, 9) : Utils.randInt(1, 4);
         p.injured = Math.max(1, base - Math.floor(fizjo / 2) - (severe && fizjo >= 4 ? 2 : 0));
         p.injuryLabel = severe ? Utils.rand(['zerwane więzadło', 'złamana kość śródstopia', 'uszkodzona łąkotka']) : Utils.rand(['naciągnięty mięsień', 'skręcona kostka', 'stłuczenie', 'naderwany przywodziciel']);
@@ -3990,9 +4008,9 @@ const Engine = {
     });
     retiring.forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
-      if (p.favorite || p.legend) {
+      if (Selectors.isClubIcon(p)) {   // o posadę proszą tylko prawdziwe legendy klubu
         gameState.retirees.push(p);
-        summary.toStaff.push(Selectors.playerName(p) + ' (' + p.age + ' l.)' + (p.legend ? ' 🏆' : ' ⭐'));
+        summary.toStaff.push(Selectors.playerName(p) + ' (' + p.age + ' l.) 🏆');
       } else {
         summary.retired.push(Selectors.playerName(p) + ' (' + p.age + ' l.)');
         Engine.addLog('👋 ' + Selectors.playerName(p) + ' (' + p.age + ' l.) kończy karierę. „Kolana mówią dość, żona mówi dość, ja mówię dość.”', 'event');
@@ -4317,6 +4335,7 @@ const Engine = {
     const final = c.idx === DATA.cupRounds.length - 1;
     const home = !final && (oppLvl > lvl ? false : oppLvl < lvl ? Math.random() < 0.5 : Math.random() < 0.5);   // gospodarzem zwykle niżej notowany
     const m = Engine.playoffMatch(oppS, home);
+    gameState.midweekWeek = gameState.calendar.week;
     let won = m.gf > m.ga, pens = '';
     if (m.gf === m.ga) { const pen = Engine.penalties(oppS); won = pen.won; pens = pen.score; }
     const e = Selectors.econ();
@@ -4404,6 +4423,7 @@ const Engine = {
     else due = Selectors.euroKolejka(st.kolejka) === kolejka;
     if (!due) return;
     const box = { title: C.icon + ' ' + C.name + ' · ' + st.label, legs: [], verdict: '', money: 0 };
+    gameState.midweekWeek = gameState.calendar.week;
     if (gameState.lastMatch) gameState.lastMatch.euro = box;
     Engine.applyEffects({ fans: +2 });
     const opp = Engine.euroOpponent(eu.stage);
@@ -4958,6 +4978,7 @@ const Engine = {
     gameState.transfer = { open: true, season: gameState.calendar.season, market, loanMarket, bought: 0, sold: 0, shown: false, news: [] };   // sezon już przestawiony na nowy
     (gameState.league.fireSale || []).forEach((name) => Engine.addFireSale(name));
     gameState.league.fireSale = [];
+    Engine.scoutBargains();  // skaut wynajduje okazje cenowe i perełki
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -5193,22 +5214,16 @@ const Engine = {
     }
   },
 
-  hireVeteranStaff() {
+  // Legenda obejmuje realną funkcję w sztabie (asystent albo kierownik) – poziom wynika z kariery
+  hireVeteranStaff(slot = 'asystent') {
     const p = gameState.retirees.shift();
     if (!p) return;
-    let slot = Selectors.freeStaffSlot();
-    if (!slot) {
-      // brak miejsca: weteran zastępuje osobę z najmniejszym wpływem
-      slot = Object.keys(gameState.staff).sort((a, b) => {
-        const v = (m) => (m ? m.chem + m.lockerBase : -1);
-        return v(gameState.staff[a]) - v(gameState.staff[b]);
-      })[0];
-      Engine.addLog(gameState.staff[slot].name + ' ustępuje miejsca w sztabie zasłużonemu weteranowi.', 'event');
-    }
+    const cur = gameState.staff[slot];
+    if (cur && cur.kind !== 'volunteer') Engine.addLog(cur.name + ' ustępuje miejsca w sztabie legendzie klubu.', 'event');
     const v = DATA.veteranStaff;
     gameState.staff[slot] = {
-      name: Selectors.playerName(p), kind: 'veteran', wage: v.wage, chem: v.chem, lockerBase: v.lockerBase, level: 3,
-      desc: (p.legend ? 'Legenda klubu' : 'Ulubieniec Trybun') + ', ' + p.apps + ' meczów, ' + p.goals + ' goli. Teraz: ' + DATA.staffSlots[slot].label.toLowerCase() + '.',
+      name: Selectors.playerName(p), kind: 'veteran', wage: Math.round(v.wage * Selectors.econ()), chem: v.chem, lockerBase: v.lockerBase, level: Selectors.veteranLevel(p),
+      desc: 'Legenda klubu: ' + p.apps + ' meczów, ' + p.goals + ' goli. Teraz: ' + DATA.staffSlots[slot].label.toLowerCase() + '.',
     };
     Engine.queueRetirementDecision();
   },
@@ -5734,6 +5749,26 @@ const Engine = {
     if (!gameState.league.fireSale.includes(name)) gameState.league.fireSale.push(name);
     if (gameState.transfer.open) Engine.addFireSale(name);
     Engine.debtEvent(name, 'default', '🚨', name + ' NIEWYPŁACALNY!', 'Bank umarza ' + Utils.formatMoney(lost) + ' i wpisuje klub na czarną listę.', 'bad');
+  },
+  // Skaut transferowy: lepsi zawodnicy w okazyjnych cenach (klub sprzedającego ma kłopoty, kontrakt się kończy…)
+  scoutBargains() {
+    const l = Selectors.staffLevel('skaut');
+    const t = gameState.transfer;
+    if (!l || !t.open) return;
+    const bonus = Selectors.levelSkillBonus(), e = Selectors.econ();
+    const found = [];
+    for (let i = 0; i < Selectors.scoutBargainCount(); i++) {
+      const lift = Math.floor(l / 2);
+      const p = Engine.makePlayer({ ageMin: 18, ageMax: 29, skillMin: 5 + bonus + lift, skillMax: 8 + bonus + lift, pos: Utils.rand(['DEF', 'MID', 'FWD', 'MID']) });
+      if (p.age <= 21 && Math.random() < l * 0.08) Engine.markTalent(p);
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      const discount = 0.3 + l * 0.04 + Utils.randRange(-0.05, 0.05);
+      p.fee = Math.max(20, Math.round((50 + p.skill * 28) * e * (1 - discount) / 10) * 10);
+      p.bargain = Math.round(discount * 100);
+      t.market.unshift(Engine.fakeHistory(p, Engine.otherClubName(0)));
+      found.push(Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ')');
+    }
+    if (found.length) t.news = ['🔭 Skaut wynalazł okazje: ' + found.join(', ')].concat(t.news || []).slice(0, 4);
   },
   // Zawodnicy klubu w upadłości trafiają na giełdę taniej
   addFireSale(name) {
@@ -6268,6 +6303,7 @@ const Selectors = {
     if (ps && ps.apps >= 5 && ps.avg != null && ps.avg >= 7) pros.push('Świetny zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
     if (ps && ps.apps >= 5 && ps.avg != null && ps.avg < 5.6) cons.push('Słaby zeszły sezon (nota ' + Selectors.ratingText(ps.avg) + ')');
     if (ps && ps.apps < 5) cons.push('Mało grał w zeszłym sezonie');
+    if (p.bargain) pros.push('Okazja wyszukana przez skauta – ok. ' + p.bargain + '% poniżej ceny rynkowej');
     if (p.fireSale) pros.push('Wyprzedaż – klub ' + (p.fromClub || '') + ' niewypłacalny, cena ok. 45% niższa');
     if (ps && (p.pos === 'FWD' || p.pos === 'MID') && ps.apps && ps.goals / ps.apps >= 0.35) pros.push('Skuteczny pod bramką (' + ps.goals + ' goli)');
     if (p.wage >= avgWage * 1.6) cons.push('Wysoka pensja (' + p.wage + ' zł/tydz.)');
@@ -6282,7 +6318,7 @@ const Selectors = {
     return { pros: pros.slice(0, 3), cons: cons.slice(0, 3) };
   },
   loanOutFee: (p) => Math.max(10, Math.round(Selectors.sellPrice(p) * 0.25 / 10) * 10),
-  sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * (p.listed ? 1.15 : 1) * Selectors.econ() / 10) * 10),   // lista transferowa: kupcy wiedzą, +15%
+  sellPrice: (p) => Math.max(20, Math.round((p.skill * 35 - Math.max(0, p.age - 29) * 15 + (p.talent ? 60 : 0)) * (p.listed ? 1.15 : 1) * (1 + Selectors.directorSellBonus()) * Selectors.econ() / 10) * 10),   // lista +15%, dyrektor negocjuje lepiej   // lista transferowa: kupcy wiedzą, +15%
   cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
   cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
   // Ukryty poziom osoby w sztabie (0 = wakat); starsze zapisy bez poziomu = przeciętny
@@ -6389,6 +6425,29 @@ const Selectors = {
     return Utils.clamp(c, 0.05, 0.8);
   },
   temperLabel: (p) => { const t = p.temper != null ? p.temper : 0.4; return t >= 0.7 ? '🔪 przecinak (często kartki)' : t >= 0.45 ? '💢 ostry w odbiorze' : t <= 0.2 ? '🎩 dżentelmen (rzadko kartki)' : '🙂 spokojny'; },
+  // Ikona klubu: legenda z długim stażem albo ogromną liczbą meczów
+  isClubIcon: (p) => p.legend && (p.seasons >= 6 || p.apps >= 100),
+  veteranLevel: (p) => Utils.clamp(2 + Math.floor((p.apps || 0) / 80) + (p.goals >= 40 ? 1 : 0), 2, 5),
+  // Sztab: realne i mierzalne efekty każdej roli
+  assistantMult: () => 1 + Selectors.staffLevel('asystent') * 0.15,          // mnożnik jakości trenera
+  fatiguePenalty: () => {
+    // mecz w środku tygodnia (puchar, Europa) męczy – dobry fizjoterapeuta przyspiesza regenerację
+    const mw = gameState.midweekWeek;
+    if (!mw || gameState.calendar.week - mw > 1) return 0;
+    return 0.06 * (1 - Selectors.staffLevel('fizjo') * 0.18);
+  },
+  directorSellBonus: () => (gameState.director && gameState.director.hired ? gameState.director.hired.level * 0.08 : 0),
+  staffEffect: (slot) => {
+    const l = Selectors.staffLevel(slot);
+    if (!l) return '';
+    if (slot === 'asystent') return 'Trener ×' + Selectors.assistantMult().toFixed(2) + ' skuteczności, +' + (l * 1.2).toFixed(1) + '% siły, szybszy rozwój młodych';
+    if (slot === 'fizjo') return 'Kontuzje -' + Math.round(l * 17) + '%, krótsze leczenie, zmęczenie po meczach w tygodniu -' + Math.round(l * 18) + '%';
+    if (slot === 'kierownik') return 'Nieobecności na meczach -' + Math.round(l * 12) + '%';
+    if (slot === 'skaut') return 'Okazje na giełdzie: ' + Selectors.scoutBargainCount() + ' zawodn. taniej o ok. ' + Math.round((0.3 + l * 0.04) * 100) + '%';
+    if (slot === 'masazysta') return 'Lepsza atmosfera w szatni';
+    return '';
+  },
+  scoutBargainCount: () => { const l = Selectors.staffLevel('skaut'); return l ? Math.ceil(l / 2) : 0; },
   refusalAcceptChance: (p) => {
     let c = 0.5 + (gameState.morale.lockerRoom - 50) * 0.012;
     if (p && (p.favorite || p.legend)) c += 0.1;
@@ -6566,7 +6625,6 @@ const Storage = {
     if (!state.u19) { const prev = gameState; gameState = state; Engine.u19Init(); gameState = prev; }   // Krok 13.35: akademia U19 w starych zapisach
     // Krok 13.26: bez skautingu – szkółka przechodzi do obiektów, skaut ze sztabu odchodzi
     if (!saved.academy && state.scouting && state.scouting.youthUpgrades) state.academy.level = (state.scouting.youthUpgrades.dresy ? 1 : 0) + (state.scouting.youthUpgrades.wfista ? 1 : 0);
-    if (state.staff) delete state.staff.skaut;
     if (state.activeTab === 'scouting') state.activeTab = 'desk';
     state.pendingDecisions = state.pendingDecisions.filter((id) => id !== 'derbySecurity');
     // Stadion z pojemnością (Krok 13.17): starsze zapisy dostają trybuny wymagane w obecnej lidze
@@ -7255,7 +7313,7 @@ const UI = {
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -7923,7 +7981,7 @@ const UI = {
       const modeBtns = cur ? UI.segs('director-mode', d.mode, [['manual', '🙋 Sam kupuję'], ['auto', '🧑‍💼 Dyrektor kupuje']]) : '';
       return segs + UI.panel('🧑‍💼 Dyrektor Sportowy', cur ? cur.name + ' · ' + (d.mode === 'auto' ? 'w oknie transferowym sam kupuje pod potrzeby składu, styl trenera i budżet' : 'czeka na polecenia – transfery robisz sam') : 'Wakat. Transfery robisz sam na giełdzie.',
         modeBtns + `${(d.log || []).length ? '<ul class="text-[11.5px] text-ink-700 mt-1.5 space-y-0.5">' + d.log.slice(0, 3).map((x) => '<li class="truncate">• ' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}` + UI.h4('Kandydaci') + rows)
-        + `<p class="text-[10.5px] text-paper-400 leading-snug">W trybie automatycznym dyrektor wydaje do ok. ${30 + (cur ? cur.level * 7 : 0)}% wolnej kasy (zostawia rezerwę). Słabszy dyrektor częściej się myli.</p>`;
+        + `<p class="text-[10.5px] text-paper-400 leading-snug">${cur ? '💰 Sprzedaż zawodników: +' + Math.round(Selectors.directorSellBonus() * 100) + '% dzięki negocjacjom dyrektora. ' : 'Dyrektor podnosi kwoty ze sprzedaży zawodników (+8% na poziom). '}W trybie automatycznym wydaje do ok. ${30 + (cur ? cur.level * 7 : 0)}% wolnej kasy; im lepszy, tym trafniej kupuje.</p>`;
     }
 
     if (view === 'market') {
@@ -7948,12 +8006,13 @@ const UI = {
         const pool = DATA.staffPool[slot] || [];
         const canHireExt = !m || m.kind === 'volunteer';
         const key = 'staff-' + slot;
-        if (openSlot && openSlot !== slot) {
-          // inna sekcja otwarta – ta tylko jako jedna linijka (stuknięcie ją otwiera)
+        if (openSlot !== slot) {
+          // zwinięta rola: nazwisko i realny efekt w dwóch linijkach (stuknięcie otwiera szczegóły i kandydatów)
+          const eff = m ? Selectors.staffEffect(slot) : '';
           return `
         <details data-fold="${key}" class="border-b border-paper-300 last:border-0">
-          <summary class="flex items-center justify-between gap-2 h-8 text-[12px] cursor-pointer select-none">
-            <span class="truncate"><span class="text-ink-700">${def.icon} ${def.label}:</span> <b>${m ? Utils.escape(m.name) : 'wakat'}</b></span><span class="fold-chevron text-ink-700">⌄</span>
+          <summary class="flex items-center justify-between gap-2 py-1 text-[12px] cursor-pointer select-none">
+            <span class="min-w-0"><span class="block truncate"><span class="text-ink-700">${def.icon} ${def.label}:</span> <b>${m ? Utils.escape(m.name) : 'wakat'}</b></span>${openSlot ? '' : `<span class="block text-[10.5px] truncate ${eff ? 'text-grass font-semibold' : 'text-ink-700'}">${eff ? '⚡ ' + eff : m ? 'wsparcie atmosfery' : 'stuknij, by zatrudnić'}</span>`}</span><span class="fold-chevron text-ink-700">⌄</span>
           </summary>
         </details>`;
         }
@@ -7961,7 +8020,7 @@ const UI = {
         <div class="py-1.5 border-b border-paper-300 last:border-0">
           <div class="text-[10px] uppercase tracking-wide text-ink-700 font-medium">${def.icon} ${def.label}</div>
           ${m ? UI.row(`${m.kind === 'veteran' ? '🏅 ' : ''}${Utils.escape(m.name)}`,
-            `${Utils.escape(m.desc)} · ${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}`,
+            `${Selectors.staffEffect(slot) ? '<b class="text-grass">⚡ ' + Selectors.staffEffect(slot) + '</b><br>' : ''}${Utils.escape(m.desc)} · ${m.wage ? Utils.formatMoney(m.wage) + '/tydz.' : 'społecznie'}${m.chem ? ' · chemia +' + m.chem : ''}${m.lockerBase ? ' · atmosfera +' + m.lockerBase : ''}`,
             m.kind === 'volunteer' ? '' : UI.smallBtn('fire-staff', `data-slot="${slot}"`, 'Zwolnij', false, 'stamp'), '!py-0.5 !border-0', true)
             : '<div class="text-[12px] italic text-ink-700">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
           <details data-fold="${key}" class="mt-1" ${folds[key] ? 'open' : ''}>
@@ -7974,8 +8033,8 @@ const UI = {
           </details>
         </div>`;
       }).join('');
-      return segs + (openSlot ? '' : intro) + UI.panel('Sztab Pomocniczy', openSlot ? '' : 'Kogo zatrudnisz, ten pracuje – jedni lepiej, drudzy gorzej. Ile są warci, wyjdzie w praniu (mniej kontuzji, szybszy rozwój młodych, lepsze raporty skautów, mniej nieobecnych).', staffRows + `
-        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Gdy Ulubieniec lub Legenda (35+) kończy karierę, zgłosi się w podsumowaniu sezonu.</p>`);
+      return segs + (openSlot ? '' : intro) + UI.panel('Sztab Pomocniczy', openSlot ? '' : 'Każda rola daje realny efekt (⚡) – im lepszy fachowiec, tym mocniejszy. Stuknij rolę, by zobaczyć kandydatów.', staffRows + `
+        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Tylko legendy klubu (długi staż) proszą po karierze o posadę w sztabie.</p>`);
     }
 
     return segs + intro + UI.tiles([
