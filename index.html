@@ -7936,18 +7936,21 @@ const Selectors = {
     return Object.keys(T).map((team) => ({ team, ...T[team] })).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || b.s - a.s);
   },
   // 13.73: europejski mecz w tygodniu danej kolejki (do terminarza)
-  euroAt: (k) => {
-    if (!Selectors.euroLive()) return null;
+  // 13.75: kalendarz bieżącej fazy pucharu (znane terminy: faza ligowa do końca, oba mecze dwumeczu, finał)
+  euroSchedule: () => {
+    if (!Selectors.euroLive()) return [];
     const eu = gameState.euro, st = DATA.euro.stages[eu.stage], C = DATA.euro.comps[eu.comp];
-    if (eu.tie) return k === eu.tie.k + 1 ? { C, label: st.label + ' · rewanż', where: 'u siebie', opp: eu.tie.opp.name } : null;
+    const out = [];
+    if (eu.tie) return [{ k: eu.tie.k + 1, C, label: st.label + ' · rewanż', where: 'u siebie', opp: eu.tie.opp.name, next: true }];
     if (eu.stage === 'LP') {
-      const i = eu.lp ? eu.lp.played : 0;
-      if (Selectors.euroKolejka(st.kolejki[i]) !== k) return null;
-      return { C, label: (i + 1) + '. kolejka fazy ligowej', where: i % 2 === 0 ? 'u siebie' : 'wyjazd', opp: Engine.euroNextOpp().name };
+      for (let i = eu.lp ? eu.lp.played : 0; i < C.lpGames; i++) out.push({ k: Selectors.euroKolejka(st.kolejki[i]), C, label: (i + 1) + '. kolejka fazy ligowej', where: i % 2 === 0 ? 'u siebie' : 'wyjazd', opp: i === (eu.lp ? eu.lp.played : 0) ? Engine.euroNextOpp().name : 'losowanie UEFA', next: i === (eu.lp ? eu.lp.played : 0) });
+      return out;
     }
-    if (Selectors.euroKolejka(st.kolejka) !== k) return null;
-    return { C, label: st.label + (st.tie ? ' · 1. mecz' : ''), where: st.tie ? 'wyjazd' : 'finał', opp: Engine.euroNextOpp().name };
+    const k = Selectors.euroKolejka(st.kolejka), opp = Engine.euroNextOpp().name;
+    if (st.tie) return [{ k, C, label: st.label + ' · 1. mecz', where: 'wyjazd', opp, next: true }, { k: k + 1, C, label: st.label + ' · rewanż', where: 'u siebie', opp, next: false }];
+    return [{ k, C, label: st.label, where: 'finał', opp, next: true }];
   },
+  euroAt: (k) => Selectors.euroSchedule().find((x) => x.k === k) || null,
   euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34)),
   // Kwalifikacja z miejsca w Ekstraklasie: 1. el. LM (mistrzowska), 2. el. LM (ligowa), 3. el. LE, 4. el. LKE
   euroQualFor: (pos) => ({ 1: { comp: 'UCL', path: 'champ' }, 2: { comp: 'UCL', path: 'league' }, 3: { comp: 'UEL', path: 'league' }, 4: { comp: 'UECL', path: 'league' } }[pos] || null),
@@ -9664,6 +9667,30 @@ const UI = {
         ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>`;
   },
 
+  // 13.75: karta meczu europejskiego w terminarzu – rywal, dostępność kadry, przycisk rozegrania najbliższego tygodnia
+  euroFixtureCard(eur, i) {
+    const eu = gameState.euro;
+    const T = eu.lpTable || {};
+    const s = T[eur.opp] ? T[eur.opp].s : (eu.nextOpp && eu.nextOpp.opp && eu.nextOpp.opp.name === eur.opp ? eu.nextOpp.opp.s : null);
+    const level = s == null ? 'rywal poznamy w losowaniu' : s >= 3.45 ? 'gigant Europy' : s >= 3.15 ? 'europejska czołówka' : s >= 2.85 ? 'solidny europejski klub' : 'skromny mistrz małej ligi';
+    const inj = gameState.squad.filter((p) => !p.loan && p.injured > 0);
+    const sus = gameState.squad.filter((p) => !p.loan && p.suspended > 0);
+    const risk = gameState.squad.filter((p) => !p.loan && (p.yellows || 0) % 4 === 3);
+    const nm = (l) => l.slice(0, 3).map((p) => Utils.escape(Selectors.shortName(p))).join(', ') + (l.length > 3 ? ' +' + (l.length - 3) : '');
+    const soon = i === gameState.calendar.round && Selectors.isMatchWeek();   // ten tydzień gramy (nie w okresie przygotowawczym)
+    const pre = i === gameState.calendar.round && !Selectors.isMatchWeek();
+    return `<li class="-mx-1 px-2 py-1.5 rounded-md bg-paper-200 border border-sky-500/40 text-[11.5px] leading-snug space-y-0.5">
+      <div><b>${eur.C.icon} ${Utils.escape(eur.C.name)}</b> · ${Utils.escape(eur.label)} · tydzień ${eur.k}. kolejki</div>
+      <div>⚔️ ${Utils.escape(eur.opp)} – ${level}${eur.where === 'finał' ? ' · neutralny stadion' : ''}</div>
+      <div>🚑 Kontuzje: ${inj.length ? nm(inj) : 'brak'} · 🟥 Pauzy: ${sus.length ? nm(sus) : 'brak'}</div>
+      ${risk.length ? `<div class="text-amber-700">🟨 Na granicy pauzy (3 żółte): ${nm(risk)}</div>` : ''}
+      <div class="text-ink-700">Mecz w środku tygodnia męczy kadrę – dobry fizjoterapeuta skraca regenerację.</div>
+      ${pre ? `<div class="text-sky-700 font-semibold">⏳ Liga i europejski wieczór ruszają za ${CONFIG.preseasonWeeks + 1 - gameState.calendar.week} tyg. – zdążysz z rotacją i leczeniem.</div>` : ''}
+      ${soon ? (Engine.canAdvanceWeek() ? `<button data-action="next-week" class="btn-press w-full h-8 mt-1 rounded-md bg-sky-600 text-white text-[12px] font-bold">▶ Rozegraj tydzień: liga + ${Utils.escape(eur.C.short)}</button>`
+        : `<button data-action="switch-tab" data-tab="desk" data-view="decisions" class="btn-press w-full h-8 mt-1 rounded-md bg-paper-300 text-ink-900 text-[12px] font-bold">🔒 Najpierw sprawy na Biurku – potem gramy</button>`) : ''}
+    </li>`;
+  },
+
   // 13.74: tabela fazy ligowej europejskiego pucharu (skrócona: czołówka, strefy i nasze okolice)
   euroTableView() {
     const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
@@ -9765,10 +9792,18 @@ const UI = {
       const f = Selectors.fixtureAt(i);
       upcoming.push(`<li class="flex gap-2"><span class="w-8 text-ink-700">K${i + 1}</span><span class="w-16 text-ink-700">${f.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? '<span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
       const eur = Selectors.euroAt(i + 1);
-      if (eur) upcoming.push(`<li class="flex gap-2 rounded bg-sky-500/15 -mx-1 px-1"><span class="w-8 text-ink-700 whitespace-nowrap">${eur.C.icon}</span><span class="w-16 text-ink-700 truncate">${eur.where}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(eur.opp)}</b><span class="text-[10.5px] text-ink-700 truncate max-w-[40%]">${Utils.escape(eur.C.short + ' · ' + eur.label)}</span></li>`);
+      if (eur) {
+        const key = 'e' + eur.k, open = gameState.ui.fixInfo === key;
+        upcoming.push(`<li><button data-action="fixture-info" data-key="${key}" class="w-full flex gap-2 rounded bg-sky-500/15 -mx-1 px-1 text-left ${open ? 'ring-1 ring-sky-500' : ''}"><span class="w-8 text-ink-700 whitespace-nowrap">${eur.C.icon}</span><span class="w-16 text-ink-700 truncate">${eur.where}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(eur.opp)}</b><span class="text-[10.5px] text-ink-700 truncate max-w-[40%]">${Utils.escape(eur.C.short + ' · ' + eur.label)} ›</span></button></li>`);
+        if (open) upcoming.push(UI.euroFixtureCard(eur, i));
+      }
       const cup = Selectors.cupAt(i + 1);
       if (cup && cup.next) upcoming.push(`<li class="flex gap-2 rounded bg-amber-glow/20 -mx-1 px-1"><span class="w-8 text-ink-700 whitespace-nowrap">🏆</span><span class="w-16 text-ink-700 truncate">${cup.next.final ? 'Narodowy' : cup.next.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(cup.next.opp)}</b><span class="text-[10.5px] text-ink-700 whitespace-nowrap">PP · ${Utils.escape(cup.R.label.split(' – ')[0])} · śr.</span></li>`);
     }
+    // dalsze europejskie terminy (poza oknem 6 kolejek)
+    const lastShown = Math.min(gameState.calendar.round + 6, gameState.season.rounds.length);
+    const later = Selectors.euroSchedule().filter((x) => x.k > lastShown);
+    if (later.length) upcoming.push(`<li class="text-[11px] text-sky-700 truncate">${later[0].C.icon} Dalej w Europie: ${later.map((x) => 'K' + x.k + (x.where === 'u siebie' ? ' (dom)' : x.where === 'wyjazd' ? ' (wyj.)' : '')).join(', ')}</li>`);
     const cupLast = gameState.cup && gameState.cup.season === gameState.calendar.season && gameState.cup.history[0];
     return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', (results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>') + (cupLast ? `<p class="text-[11.5px] text-ink-700 mt-1 truncate">🏆 Puchar Polski · ${Utils.escape(cupLast)}</p>` : ''), UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
       + UI.panel('📅 Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-[12px] space-y-0.5">${upcoming.join('')}</ul>` : '<p class="text-[12px]">Koniec sezonu.</p>');
@@ -10607,8 +10642,10 @@ const Actions = {
     if (confirm('Sprzedać ' + Selectors.playerName(p) + ' za ' + Utils.formatMoney(Selectors.sellPrice(p)) + '?' + warn)) { Engine.sellTransfer(p.id); App.commit(); }
   },
 
+  'fixture-info'(el) { gameState.ui.fixInfo = gameState.ui.fixInfo === el.dataset.key ? null : el.dataset.key; App.commit(); },
   'next-week'() {
     const week = gameState.calendar.week;
+    gameState.ui.fixInfo = null;
     if (Engine.nextWeek()) {
       if (gameState.screen === 'game' && gameState.lastMatch && gameState.lastMatch.week === week) gameState.ui.overlay = { type: 'match' };
       gameState.activeTab = 'desk';
