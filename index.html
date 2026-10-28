@@ -3425,7 +3425,7 @@ function createInitialState() {
       startError: '',
       startQuote: null,
       // Stan formularza rejestracyjnego (ekran startowy)
-      form: { prefix: 'LZS', customPrefix: '', town: '', character: 'rural', colors: 'gy', stadium: '', stadiumEdited: false, president: '' },
+      form: { prefix: 'LZS', customPrefix: '', town: '', character: 'rural', colors: 'gy', stadium: '', stadiumEdited: false, president: '', region: '' },
       lastLogId: 0,
       seenFeedId: 0,            // licznik nowych postów na zakładce Wirtualny X
       seenScoutKey: '',         // raport Szwagra już obejrzany
@@ -3498,7 +3498,8 @@ const Engine = {
     if (card.character === 'suburban') gameState.finance.budget += 500;
     if (card.character === 'rural') gameState.morale.lockerRoom += 5;
 
-    gameState.club.region = Utils.randInt(0, DATA.cupRegions.length - 1);   // województwo klubu: grupa III ligi i wojewódzki PP
+    // Województwo klubu (wybrane w karcie albo losowe): grupa III ligi i wojewódzki Puchar Polski
+    gameState.club.region = card.region !== '' && card.region != null && DATA.cupRegions[+card.region] ? +card.region : Utils.randInt(0, DATA.cupRegions.length - 1);
     Engine.newSeason();
     gameState.weather = Utils.rand(DATA.weather);
     // Kadra startowa: te same role i charaktery, ale nazwiska i ksywy losowane z dużej puli – każdy klub inny
@@ -7500,6 +7501,8 @@ const Selectors = {
   establishedFactor: () => { const since = gameState.club.levelSince; if (since == null) return 1; const y = gameState.calendar.season - since; return y <= 0 ? 0.75 : y === 1 ? 0.88 : 1; },
   revEcon: () => Selectors.econ() * Selectors.establishedFactor(),
   tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.revEcon() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) / 5) * 5 : 0),
+  voivodeship: (i = gameState.club.region) => { const r = DATA.cupRegions[i]; return r ? r[0].replace(/ki$/, 'kie') : '–'; },
+  groupLabel: (g = Selectors.leagueGroup()) => ['I (mazowiecko-podlasko-warmińsko-łódzka)', 'II (wielkopolsko-pomorsko-kujawska)', 'III (śląsko-dolnośląsko-opolsko-lubuska)', 'IV (małopolsko-podkarpacko-lubelsko-świętokrzyska)'][g],
   // Pula klubów ligi; III liga – grupa wg województwa klubu (I: Mazowsze/Podlasie/Warmia/Łódzkie, II: Wielkopolska/Pomorze/Kujawy, III: Śląsk/Dolny Śląsk/Opolskie/Lubuskie, IV: Małopolska/Podkarpacie/Lubelskie/Świętokrzyskie)
   leagueGroup: () => { const r = gameState.club.region != null ? gameState.club.region : 1; return [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] || 0; },
   leaguePool: (level) => { const L = DATA.leagueLevels[level]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
@@ -7888,13 +7891,18 @@ const UI = {
                 ${input('town', f.town, 'Miejscowość / nazwa własna, np. Świbie, Chrząstawa', 30)}
                 <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border border-paper-400 rounded-lg bg-amber-glow hover:brightness-110 text-ink-900 text-sm font-bold">🎲 Wylosuj kultowy klub</button>
               `)}
-              ${section('II', 'Charakter miejscowości', `<div class="grid grid-cols-1 gap-2">${characterCards}</div>`)}
-              ${section('III', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
-              ${section('IV', 'Obiekt sportowy', `
+              ${section('II', 'Województwo', `
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">${[0, 1, 2, 3].map((g) => `<div class="space-y-1"><div class="text-[10.5px] uppercase tracking-wide text-ink-700 font-semibold">III liga · gr. ${['I', 'II', 'III', 'IV'][g]}</div>${DATA.cupRegions.map((r, i) => ({ r, i })).filter((x) => [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][x.i] === g).map((x) => `<button data-action="form-set" data-field="region" data-value="${x.i}" class="btn-press w-full px-2 py-1 border border-paper-400 rounded-md text-[12.5px] text-left ${String(f.region) === String(x.i) ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 text-ink-900'}">${Utils.escape(Selectors.voivodeship(x.i))}</button>`).join('')}</div>`).join('')}</div>
+                <button data-action="form-set" data-field="region" data-value="" class="btn-press mt-2 px-3 py-1 border border-paper-400 rounded-md text-[12.5px] ${f.region === '' ? 'bg-ink-900 text-paper-100' : 'bg-paper-200'}">🎲 Losowo</button>
+                <p class="text-xs text-ink-700 mt-1">Decyduje o grupie III ligi po awansie i o tym, w którym województwie grasz regionalny Puchar Polski (finał na stadionie regionu).</p>
+              `)}
+              ${section('III', 'Charakter miejscowości', `<div class="grid grid-cols-1 gap-2">${characterCards}</div>`)}
+              ${section('IV', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
+              ${section('V', 'Obiekt sportowy', `
                 ${input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60)}
                 <p class="text-xs text-ink-700 mt-1">Nazwę może później zmienić Sponsor Tytularny. Puste pole = nazwa domyślna.</p>
               `)}
-              ${section('V', 'Imię / ksywa Prezesa', `
+              ${section('VI', 'Imię / ksywa Prezesa', `
                 ${input('president', f.president, 'Prezes', 30)}
                 <p class="text-xs text-ink-700 mt-1">Jak mówią na Ciebie w gminie: „Prezes Janusz”, „Prezes Mirek”… Pojawi się w pismach, telefonach i w protokole.</p>
               `)}
@@ -9149,7 +9157,7 @@ const UI = {
     const segs = UI.subSegs('table', view, [['table', '📊 Tabela'], ['fixtures', '📅 Terminarz'], ['stats', '★ Staty'], ['money', '💼 Kasa']].concat(gameState.euro ? [['euro', '🇪🇺 Europa']] : []));
     const pv = Selectors.seasonPreview();
     const bigLeague = Selectors.leagueSize() > 12;
-    const title = `<p class="text-[11px] text-paper-400 mb-1">${Selectors.leagueName()} · Sezon ${gameState.calendar.season}${bigLeague ? '' : ' · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.'}</p>
+    const title = `<p class="text-[11px] text-paper-400 mb-1">${Selectors.leagueName()}${gameState.club.leagueLevel === 5 ? ' · Grupa ' + Selectors.groupLabel() : ''} · Sezon ${gameState.calendar.season}${gameState.club.leagueLevel < 5 ? ' · woj. ' + Selectors.voivodeship() : ''}${bigLeague ? '' : ' · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.'}</p>
       <div class="rounded-lg bg-desk-800 px-2.5 py-1 mb-1 text-[11px] text-paper-200 leading-snug">📰 <b>Prognoza:</b> ${pv.pos}. miejsce · <span class="text-amber-glow">${'★'.repeat(pv.stars)}${'☆'.repeat(5 - pv.stars)}</span> · kurs na awans <b>${pv.odds}</b>${bigLeague ? '' : `<br><span class="italic text-paper-400">${pv.quote}</span>`}</div>`;
     if (view === 'fixtures') return segs + title + UI.fixturesView();
     if (view === 'stats') return segs + UI.teamStatsCard();
@@ -9951,7 +9959,7 @@ const Actions = {
     if (DATA.rivals.some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail('Taki klub już gra w tej B-klasie! Wymyśl coś innego, bo Związek się pogubi.');
     const existing = Storage.load();
     if (existing && existing.club.name && !confirm('W szufladzie jest zapis klubu ' + existing.club.name + '. Nowa prezesura go nadpisze. Kontynuować?')) return;
-    Engine.startGame({ name, town: f.town.trim(), character: f.character, colors: f.colors, stadium: f.stadium, president: f.president });
+    Engine.startGame({ name, town: f.town.trim(), character: f.character, colors: f.colors, stadium: f.stadium, president: f.president, region: f.region });
     App.commit();
     window.scrollTo(0, 0);
   },
