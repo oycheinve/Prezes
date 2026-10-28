@@ -2421,6 +2421,13 @@ const DATA = {
           log: () => { const p = gameState.u19.graduates[0]; return p ? Selectors.playerName(p) + ' odchodzi z akademii. Dostał na pożegnanie dres klubowy.' : ''; },
           onChoose: () => Engine.graduate(false),
         },
+        {
+          label: '📤 Kontrakt i wypożyczenie na sezon',
+          hint: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Pensję płaci klub wypożyczający · regularna gra, wróci silniejszy' + (Selectors.potential(p) > p.skill ? '' : ' (sufit już osiągnięty)') : ''; },
+          effects: {},
+          log: () => { const p = gameState.u19.graduates[0]; return p ? Selectors.playerName(p) + ' podpisuje kontrakt i jedzie na roczne wypożyczenie.' : ''; },
+          onChoose: () => Engine.graduateLoan(),
+        },
       ],
     },
     veteranStaff: {
@@ -3262,6 +3269,7 @@ function createInitialState() {
     monthly: { fans: 0, tickets: 0, merch: 0, gastro: 0 },
     budka: { level: 1, prices: {}, cheapMeat: 0, last: {} },   // budka: ceny pozycji menu, tanie mięso od rzeźnika
     echoes: [],                 // odłożone skutki decyzji ze scenek
+    u19Loans: [],               // juniorzy na wypożyczeniu: { player, club, until }
     u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
@@ -4502,13 +4510,29 @@ const Engine = {
       p.age++; p.u19Apps = 0; p.u19Goals = 0; p.u19Assists = 0; p.u19Yellows = 0; p.u19Reds = 0; p.u19RatingSum = 0; p.u19RatingN = 0;   // nowy sezon juniorów
     });
     u.form = [];
+    // Juniorzy wracają z wypożyczeń – starsi o rok, ograni w seniorach
+    const back = [];
+    gameState.u19Loans = (gameState.u19Loans || []).filter((l) => {
+      if (l.until > gameState.calendar.season) return true;
+      const p = l.player;
+      const apps = Utils.randInt(12, 20);
+      const gw = { GK: 0, DEF: 0.05, MID: 0.15, FWD: 0.35 }[p.pos];
+      p.u19Prev = { season: gameState.calendar.season, apps, goals: Math.round(apps * gw * Utils.randRange(0.5, 1.5)), assists: Math.round(apps * (p.pos === 'MID' ? 0.18 : 0.08) * Utils.randRange(0.5, 1.5)),
+        avg: Math.round(Utils.randRange(6, 7.4) * 10) / 10, yellows: Utils.randInt(0, 4), reds: Math.random() < 0.08 ? 1 : 0, loanClub: l.club };
+      const gain = Engine.develop(p, apps * 1.5, true) + (Math.random() < 0.4 ? Engine.develop(p, apps, true) : 0);
+      p.age++;
+      u.squad.push(p);
+      back.push(p.nick + (gain ? ' +' + gain : ''));
+      if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + ' (wypożyczenie juniora: ' + l.club + ')');
+      return false;
+    });
     const grads = u.squad.filter((p) => p.age >= 19);   // decyzja o nich zapada po okienku transferowym
     const young = u.squad.length - grads.length;
     const A = Selectors.academy();
     const n = Math.min(Math.max(0, 16 - young), Math.max(A.cands + Selectors.u19Lvl('recruiter'), 12 - young));   // nabór utrzymuje co najmniej 12 juniorów
     const fresh = [];
     for (let i = 0; i < n; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); u.squad.push(p); fresh.push(p.nick + (p.talent ? ' 💎' : '')); }
-    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą (decyzja po okienku): ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '');
+    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą (decyzja po okienku): ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '') + (back.length ? ' · wracają z wypożyczeń: ' + back.join(', ') : '');
     Engine.u19NewSeason();
   },
 
@@ -4526,6 +4550,20 @@ const Engine = {
         delete p.watch; delete p.u19Apps;
         gameState.squad.push(p);
       } else if (p.talent) Engine.applyEffects({ fans: -3 });
+    }
+    if (u && u.graduates.length) Engine.pushDecision('u19Graduate');
+  },
+
+  // 19-latek z kontraktem, ale na rok do innego klubu – wraca do pierwszej drużyny po sezonie
+  graduateLoan() {
+    const u = gameState.u19;
+    const p = u && u.graduates.shift();
+    if (p) {
+      p.wage = Selectors.gradWage(p);
+      delete p.watch; delete p.u19Apps;
+      const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : -1);
+      gameState.loansOut.push({ player: p, club, until: gameState.calendar.season });
+      Engine.addLog('📤 ' + Selectors.playerName(p) + ' wypożyczony na sezon do ' + club + '. Wróci do pierwszej drużyny.', 'decision');
     }
     if (u && u.graduates.length) Engine.pushDecision('u19Graduate');
   },
@@ -4568,6 +4606,22 @@ const Engine = {
       Engine.loanOut(p.id);
       const l = gameState.loansOut[gameState.loansOut.length - 1];
       dir.windowLoans.push({ name: Selectors.playerName(p), pos: DATA.positions[p.pos].label, ovr: Selectors.ovr(p), fee, club: l && l.player.id === p.id ? l.club : '' });
+    }
+    // 3) Utalentowani juniorzy bez miejsca w kadrze – na wypożyczenie, żeby grali i rośli
+    const u = gameState.u19;
+    if (u) {
+      const done = dir.windowLoans.filter((x) => x.junior).length;
+      const jMax = (lvl >= 3 ? 3 : lvl >= 2 ? 2 : 1) - done;
+      u.squad.filter((p) => p.age >= 17 && p.age < 19 && (p.talent || Selectors.potentialStars(p) >= 3))
+        .sort((a, b) => Selectors.potential(b) - Selectors.potential(a)).slice(0, Math.max(0, jMax)).forEach((p) => {
+          if (u.squad.length <= 11) return;   // juniorzy muszą mieć z kim grać
+          const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : -1);
+          u.squad = u.squad.filter((x) => x.id !== p.id);
+          delete p.watch; delete p.watchClub;   // na wypożyczeniu nikt go nie podkradnie
+          gameState.u19Loans = (gameState.u19Loans || []).concat([{ player: p, club, until: t.season }]);
+          dir.windowLoans.push({ name: Selectors.playerName(p), pos: DATA.positions[p.pos].label + ' · U19', ovr: Selectors.ovr(p), fee: 0, club, junior: true });
+          Engine.addLog('📤 Dyrektor wypożycza juniora ' + Selectors.playerName(p) + ' (' + p.age + ' l.) do ' + club + ' – sezon regularnej gry w seniorach.', 'decision');
+        });
     }
     if (Selectors.transferBanned()) { dir.log = ['Ban transferowy – tylko sprzedaż i wypożyczenia.'].concat(dir.log || []).slice(0, 4); return; }
     let budget = Math.max(0, gameState.finance.budget - 500 * e) * (0.3 + lvl * 0.07);
@@ -7688,7 +7742,7 @@ const UI = {
           <div class="min-w-0"><div class="text-[9.5px] uppercase tracking-wide text-paper-400">📈 Szacowany sufit</div><div class="text-[13px] font-bold ${verdict[1]}">${verdict[0]}</div></div>
           <div class="text-right"><div class="text-[13px] text-amber-glow leading-none">${'★'.repeat(stars)}<span class="text-paper-400">${'☆'.repeat(5 - stars)}</span></div><div class="text-[11.5px] font-bold mt-0.5">OVR ${lo === hi ? hi : lo + '–' + hi}</div></div>
         </div>
-        <div class="text-[9.5px] uppercase tracking-wide text-paper-400 mt-2">Liga U19 · sezon ${st.season || gameState.calendar.season - 1}</div>
+        <div class="text-[9.5px] uppercase tracking-wide text-paper-400 mt-2">${st.loanClub ? '📤 Wypożyczenie · ' + Utils.escape(st.loanClub) : 'Liga U19'} · sezon ${st.season || gameState.calendar.season - 1}</div>
         <div class="grid grid-cols-5 gap-1 mt-0.5 text-center">
           ${stat('Mecze', st.apps)}${stat('Gole', st.goals)}${stat('Asysty', st.assists)}${stat('Śr. nota', st.avg != null ? UI.ratingBadge(st.avg) : '–')}${stat('Kartki', '<span class="text-[12px]">🟨' + st.yellows + ' 🟥' + st.reds + '</span>')}
         </div>
@@ -7723,7 +7777,7 @@ const UI = {
   cutsceneOverlay(d) {
     // Scenki z wieloma opcjami (np. 6 sposobów na podwyżkę) w wersji zwartej – wszystko na jednym ekranie
     const visible = d.options.filter((o) => !o.show || o.show());
-    const compact = visible.length >= 5;
+    const compact = visible.length >= 5 || (d.u19Card && visible.length >= 3);   // karta juniora + 3 opcje = wersja zwarta
     const opts = d.options.map((o, i) => (o.show && !o.show() ? '' : `
       <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
         class="btn-press w-full text-left ${compact ? 'px-3 py-1.5' : 'px-3.5 py-2.5'} rounded-xl bg-desk-800 border border-desk-600 active:bg-desk-700">
@@ -7965,7 +8019,7 @@ const UI = {
   // Raport Dyrektora Sportowego po zamknięciu okienka: kogo kupił i za ile
   directorReportOverlay(r) {
     const sells = r.sells || [], loans = r.loans || [];
-    const many = r.buys.length + sells.length + loans.length > 5;
+    const many = r.buys.length + sells.length + loans.length >= 4;
     const line = (b, sub, money, tone) => `
       <div class="rounded-xl bg-desk-800 px-3 ${many ? 'py-1' : 'py-2'} flex items-center gap-2">
         <span class="inline-block min-w-[26px] px-1 rounded text-[11px] leading-[18px] font-extrabold text-center bg-ink-900 text-paper-100">${b.ovr}</span>
@@ -7975,10 +8029,10 @@ const UI = {
     const h = (t) => `<div class="text-[10px] uppercase tracking-wide text-paper-400 font-semibold mt-2 mb-1">${t}</div>`;
     const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + ' · pensja ' + b.wage + ' zł/tydz.', Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
       + (sells.length ? h('💸 Sprzedani') + sells.map((b) => line(b, Utils.escape(b.pos) + ' · ' + Utils.escape(b.why || ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '')
-      + (loans.length ? h('📤 Wypożyczeni na rozwój') + loans.map((b) => line(b, Utils.escape(b.pos) + (b.club ? ' → ' + Utils.escape(b.club) : ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '');
+      + (loans.length ? h('📤 Wypożyczeni na rozwój') + loans.map((b) => line(b, Utils.escape(b.pos) + (b.club ? ' → ' + Utils.escape(b.club) : ''), b.junior ? '🌱 rozwój' : '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '');
     return UI.overlayFrame(`
-      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-6 text-paper-100 flex flex-col justify-center">
-        <div class="text-center text-[52px] leading-none">🧑‍💼</div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 ${many ? 'py-3' : 'py-6'} text-paper-100 flex flex-col justify-center">
+        <div class="text-center ${many ? 'text-[40px]' : 'text-[52px]'} leading-none">🧑‍💼</div>
         <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-3">Okno transferowe zamknięte</div>
         <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">Raport Dyrektora Sportowego</h2>
         <div class="text-center text-[12px] text-paper-400 mt-0.5">${Utils.escape(r.name)} · sezon ${r.season}</div>
@@ -8436,6 +8490,7 @@ const UI = {
     }).join('');
     return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
+      + ((gameState.u19Loans || []).length ? `<p class="text-[10.5px] text-paper-300 leading-snug truncate">📤 Na wypożyczeniu: ${gameState.u19Loans.map((l) => Utils.escape(Selectors.shortName(l.player)) + ' → ' + Utils.escape(l.club)).join(', ')}</p>` : '')
       + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Niezabezpieczone perełki mogą zostać podkradzione po okienku transferowym.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
   },
 
