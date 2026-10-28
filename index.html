@@ -629,15 +629,28 @@ const DATA = {
   ],
 
   // Puchar Polski: kluby z niższych lig zaczynają od rund okręgowych; [min, max] – poziom ligi rywala; k – kolejka (przy 34)
-  cupRounds: [
-    { label: 'I runda – szczebel okręgowy', opp: [1, 4], k: 2 },
-    { label: 'II runda – szczebel wojewódzki', opp: [1, 5], k: 4 },
-    { label: '1/32 finału', opp: [3, 7], k: 7 },
-    { label: '1/16 finału', opp: [4, 8], k: 10 },
-    { label: '1/8 finału', opp: [5, 8], k: 14 },
-    { label: 'Ćwierćfinał', opp: [6, 8], k: 19 },
-    { label: 'Półfinał', opp: [7, 8], k: 24 },
-    { label: 'FINAŁ na Stadionie Narodowym', opp: [7, 8], k: 30 },
+  // Puchar Polski jak w PZPN: szczebel regionalny (strefa → województwo) i centralny z finałem na PGE Narodowym
+  cupRegional: [
+    { label: 'Strefa – I runda',        opp: [1, 3], k: 2 },
+    { label: 'Strefa – II runda',       opp: [1, 4], k: 5 },
+    { label: 'Finał strefy',            opp: [2, 4], k: 9 },
+    { label: 'Ćwierćfinał wojewódzki',  opp: [3, 4], k: 13 },
+    { label: 'Półfinał wojewódzki',     opp: [3, 4], k: 18 },
+    { label: 'FINAŁ WOJEWÓDZKI',        opp: [3, 4], k: 24, final: true, venue: 'region' },
+  ],
+  cupCentral: [
+    { label: '1/32 finału',             opp: [4, 8], k: 7 },
+    { label: '1/16 finału',             opp: [4, 8], k: 10 },
+    { label: '1/8 finału',              opp: [5, 8], k: 14 },
+    { label: 'Ćwierćfinał',             opp: [6, 8], k: 19 },
+    { label: 'Półfinał',                opp: [7, 8], k: 24 },
+    { label: 'FINAŁ – PGE Narodowy',    opp: [7, 8], k: 30, final: true, venue: 'narodowy' },
+  ],
+  cupRegions: [
+    ['Dolnośląski', 'Tarczyński Arena Wrocław'], ['Mazowiecki', 'Stadion Polonii Warszawa'], ['Wielkopolski', 'Enea Stadion Poznań'], ['Śląski', 'Stadion Śląski w Chorzowie'],
+    ['Małopolski', 'Stadion Cracovii'], ['Pomorski', 'Polsat Plus Arena Gdańsk'], ['Łódzki', 'Stadion ŁKS Łódź'], ['Lubelski', 'Arena Lublin'], ['Podkarpacki', 'Stadion Stali Mielec'],
+    ['Zachodniopomorski', 'Stadion Pogoni Szczecin'], ['Kujawsko-Pomorski', 'Stadion Zawiszy Bydgoszcz'], ['Warmińsko-Mazurski', 'Stadion Stomilu Olsztyn'],
+    ['Podlaski', 'Stadion Miejski w Białymstoku'], ['Świętokrzyski', 'Suzuki Arena Kielce'], ['Opolski', 'Stadion Odry Opole'], ['Lubuski', 'Stadion w Zielonej Górze'],
   ],
   // Kartki: mnożnik stylu trenera (laga i „oranie boiska” = dużo fauli, bezpieczna gra techniczna = mało)
   cardStyle: { off: 1.2, bal: 0.75, def: 1.5 },
@@ -679,6 +692,7 @@ const DATA = {
     roof:   { label: 'Zadaszenie na 30 krzesełek', cost: 1500, licenseLevel: 4, desc: 'Wiata z blachy falistej. Chroni do 30 widzów przed deszczem – mniejszy spadek frekwencji w ulewę.' },
     lights:     { label: 'Oświetlenie z demobilu (4 maszty)', cost: 6000, licenseLevel: 5, attendance: 1.1, desc: 'Maszty po starym lotnisku wojskowym. Mecze wieczorem, +10% widzów. Rachunek za prąd pani Halinka ukrywa.' },
     stand:      { label: 'Trybuna na 500 krzesełek', cost: 15000, licenseLevel: 6, attendance: 1.2, desc: 'Prawdziwa trybuna z krzesełkami w barwach klubu (dwa kolory, bo trzeciego zabrakło). +20% widzów.' },
+    var:        { label: 'System VAR (wóz i monitory)', cost: 90000, licenseLevel: 7, blocksPromotion: true, desc: 'Wóz z powtórkami, monitor przy linii i sędzia w słuchawkach. Od I ligi obowiązkowy – bez niego Związek nie da licencji na awans.' },
     monitoring: { label: 'Monitoring i bramki obrotowe', cost: 40000, licenseLevel: 7, attendance: 1.1, desc: 'Kamery, kołowrotki, identyfikatory. Zadym już nie ma – nawet na derbach. +10% widzów (lubią czuć się ważni).' },
     // Rozbudowa klubu na lata (bez wymogów licencyjnych)
     toilets:    { group: 'fans', label: 'Toi-toi ×4 zamiast krzaków', cost: 500, attendance: 1.03, promo: 2, desc: 'Koniec z biegami w pokrzywy. Rodziny z dziećmi wreszcie przychodzą.' },
@@ -691,6 +705,7 @@ const DATA = {
     irrigation: { group: 'team', label: 'Nawadnianie murawy', cost: 5000, pitchRegen: 3, desc: 'Zraszacze na czujniku. Murawa odrasta szybciej co tydzień.' },
     training:   { group: 'team', label: 'Boisko treningowe ze sztuczną trawą', cost: 12000, lockerBase: 3, pitchRegen: 2, promo: 2, desc: 'Treningi poza główną płytą – murawa odpoczywa, chłopaki trenują w każdą pogodę.' },
     academyHall:{ group: 'team', label: 'Hala dla szkółki', cost: 20000, promo: 6, desc: 'Zimą dzieciaki nie biegają po śniegu. Gmina dumna, sponsorzy zachwyceni.' },
+    tvcams:     { group: 'fans', label: 'Kamery telewizyjne (4 stanowiska)', cost: 6000, tv: true, promo: 4, desc: 'Podesty i okablowanie pod transmisje. Po każdym meczu wpływają pieniądze za prawa TV – im wyższa liga, tym więcej.' },
     vip:        { group: 'fans', label: 'Loża VIP dla sponsorów', cost: 25000, promo: 8, attendance: 1.05, desc: 'Fotele, catering i widok na całe boisko. Najlepsi sponsorzy pytają o nią najpierw.' },
   },
 
@@ -3056,11 +3071,11 @@ const DATA = {
   // Szkółka juniorów: obiekt do rozbudowy; im wyższy poziom, tym lepsi kandydaci w selekcji po sezonie
   academyLevels: [
     { name: 'Klepisko za szkołą i dwie piłki lekarskie', cost: 0,      cands: 3, skill: [1, 3], room: 0, talent: 0.04 },
-    { name: 'Dresy i pachołki z przetargu',              cost: 800,    cands: 3, skill: [2, 3], room: 1, talent: 0.08 },
-    { name: 'Trener-emeryt od WF-u na pół etatu',        cost: 2500,   cands: 4, skill: [2, 4], room: 1, talent: 0.14 },
-    { name: 'Gminna Akademia z Orlikiem',                cost: 8000,   cands: 4, skill: [3, 4], room: 2, talent: 0.22 },
-    { name: 'Akademia z internatem i dietetykiem',       cost: 30000,  cands: 5, skill: [3, 5], room: 3, talent: 0.3 },
-    { name: 'Certyfikowana Akademia PZPN (5 gwiazdek)',  cost: 100000, cands: 5, skill: [4, 6], room: 4, talent: 0.4 },
+    { name: 'Dresy i pachołki z przetargu',              cost: 1500,   weeks: 4,  cands: 3, skill: [2, 3], room: 1, talent: 0.07 },
+    { name: 'Trener-emeryt od WF-u na pół etatu',        cost: 6000,   weeks: 8,  cands: 4, skill: [2, 4], room: 1, talent: 0.12 },
+    { name: 'Gminna Akademia z Orlikiem',                cost: 20000,  weeks: 14, cands: 4, skill: [3, 4], room: 2, talent: 0.18 },
+    { name: 'Akademia z internatem i dietetykiem',       cost: 70000,  weeks: 22, cands: 5, skill: [3, 5], room: 3, talent: 0.26 },
+    { name: 'Certyfikowana Akademia PZPN (5 gwiazdek)',  cost: 220000, weeks: 34, cands: 5, skill: [4, 6], room: 4, talent: 0.35 },
   ],
   // Unikalne plusy i minusy młodzików (wylosowane przy selekcji)
   youthTraits: {
@@ -3372,7 +3387,7 @@ function createInitialState() {
     stadium: {
       baseName: 'Boisko Gminne przy Remizie',
       pitch: CONFIG.startPitch, // 0-100
-      upgrades: { roller: false, boiler: false, roof: false, lights: false, stand: false, monitoring: false },
+      upgrades: { roller: false, boiler: false, roof: false, lights: false, stand: false, monitoring: false, var: false, tvcams: false },
       level: 0,                 // poziom rozbudowy trybun (DATA.stadiumLevels)
       tiers: {},                // kolejne poziomy obiektów (DATA.upgradeTiers): id → liczba ulepszeń
     },
@@ -3967,7 +3982,7 @@ const Engine = {
     const derbyTag = rival.derby ? ' (🔥 KOSA)' : '';
     let extra = '';
     if (result === 'W' && oppS > ourS && chaos >= 0.5) extra = ' SENSACJA NA BŁOCIE! Faworyt utonął w kałużach.';
-    Engine.addLog((cup ? '🏆 Puchar Polski (' + cup.round + ')' : '⚽ Kolejka ' + kolejka) + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
+    Engine.addLog((cup ? '🏆 ' + (cup.comp || 'Puchar Polski') + ' (' + cup.round + ')' : '⚽ Kolejka ' + kolejka) + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
 
     // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
@@ -3976,7 +3991,7 @@ const Engine = {
     goals.sort((a, b) => a.min - b.min);
     gameState.lastMatch = {
       week: gameState.calendar.week, key: gameState.calendar.week + (cup ? 'c' : ''), kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
-      cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral } : null,
+      cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral, comp: cup.comp || 'Puchar Polski', venue: cup.venue ? cup.venue.name : null } : null,
       weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra, cards: cards.map((c) => ({ min: c.min, us: c.us, card: c.card, name: c.name })),
     };
@@ -4049,12 +4064,13 @@ const Engine = {
     Engine.updateBadges();
 
     // --- Pieniądze z dnia meczowego ---
-    if (cup && cup.neutral) {   // finał na Narodowym: udział w zysku z biletów
-      const att = Math.round(Utils.randRange(18000, 30000));
+    if (cup && cup.neutral) {   // finał na neutralnym stadionie: udział w zysku z biletów
+      const v = cup.venue || { name: 'PGE Narodowy, Warszawa', att: [40000, 58000] };
+      const att = Math.round(Utils.randRange(v.att[0], v.att[1]));
       const share = Math.round(att * DATA.tickets[gameState.matchday.ticket].price * 0.15);
-      Engine.money('Finał PP: udział w biletach', share);
+      Engine.money('Finał: udział w biletach', share);
       gameState.lastMatch.attendance = att;
-      gameState.lastMatch.money.push({ label: 'Udział w biletach (Stadion Narodowy)', amount: share });
+      gameState.lastMatch.money.push({ label: 'Udział w biletach (' + v.name + ')', amount: share });
     } else if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
     else {
       const fuel = -Utils.randInt(50, 90);
@@ -4062,6 +4078,11 @@ const Engine = {
       if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
     }
 
+    const tv = Selectors.tvIncome();
+    if (tv) {   // kamery telewizyjne: prawa do transmisji z każdego meczu
+      Engine.money('Prawa TV' + (cup ? ' (puchar)' : ''), tv);
+      gameState.lastMatch.money.push({ label: '📺 Prawa do transmisji', amount: tv });
+    }
     if (cup) {   // mecz pucharowy gotowy – liga i jej kalendarz zostają nietknięte
       const cm = gameState.lastMatch;
       gameState.lastMatch = leagueSnap.lastMatch;
@@ -4168,12 +4189,14 @@ const Engine = {
     const hungover = [];
     const rated = lineup.map((p) => {
       const goals = scorerCount[p.id] || 0;
-      let r = 6 + { W: 0.7, D: 0.1, L: -0.6 }[result] + (p.skill - avgSkill) * 0.25 + noise();
-      r += goals * 1.2;
+      let r = 6 + { W: 0.5, D: 0, L: -0.5 }[result] + (p.skill - avgSkill) * 0.2 + noise();
+      r += goals ? 1.2 + (goals - 1) * 0.9 : 0;
       if (p.pos === 'GK' || p.pos === 'DEF') r += ga === 0 ? 0.8 : -0.25 * Math.max(0, ga - 1);
       if (p.pos === 'FWD' && goals === 0) r -= 0.3;
       if (p.tag === 'freekick' && goals) r += 0.3;
       if (p.tag === 'party' && Math.random() < 0.3) { r -= 2.5; hungover.push(p); }
+      if (r > 7.5) r = 7.5 + (r - 7.5) * 0.7;   // wysokie noty trudno zdobyć: 9+ to wybitny mecz, 10.0 – występ życia
+      if (r > 9) r = 9 + (r - 9) * 0.4;
       r = Math.round(Utils.clamp(r, 1, 10) * 10) / 10;
       p.lastRating = r;
       p.formHistory = (p.formHistory || []).concat(r).slice(-5);   // forma: noty z 5 ostatnich meczów
@@ -4191,7 +4214,7 @@ const Engine = {
     if (lm) {
       if (result === 'L') {
         const n = { first: Utils.rand(DATA.names.first), nick: Utils.rand(DATA.names.nick), last: Utils.rand(DATA.names.last) };
-        const r = Math.round(Utils.clamp(Utils.randRange(7.3, 8.4) + (ga - gf) * 0.25, 7, 9.6) * 10) / 10;
+        const r = Math.round(Utils.clamp(Utils.randRange(7.1, 8.1) + (ga - gf) * 0.2, 6.8, 9.4) * 10) / 10;
         const pos = Utils.rand(ga >= 2 ? ['napastnik', 'napastnik', 'pomocnik'] : ['pomocnik', 'obrońca', 'bramkarz', 'napastnik']);
         lm.mvp = { name: n.first + ' „' + n.nick + '” ' + n.last, r, rival: true, team: lm.rival, role: pos };
       } else lm.mvp = { name: Selectors.playerName(best.p), r: best.r, rival: false, team: Selectors.clubDisplayName(), role: DATA.positions[best.p.pos].label.toLowerCase() };
@@ -4226,6 +4249,8 @@ const Engine = {
     const summary = {
       season: gameState.calendar.season, league: leagueName, pos, w: r.wins, d: r.draws, l: r.losses, gf: r.goalsFor, ga: r.goalsAgainst,
       scorer: topScorer && topScorer.seasonGoals > 0 ? { name: Selectors.playerName(topScorer), goals: topScorer.seasonGoals } : null,
+      assister: (() => { const a = gameState.squad.slice().sort((x, y) => (y.seasonAssists || 0) - (x.seasonAssists || 0))[0]; return a && a.seasonAssists ? { name: Selectors.shortName(a), n: a.seasonAssists } : null; })(),
+      seasonMvp: (() => { const minApps = Math.max(3, Math.round((gameState.season.rounds.length || 18) * 0.4)); const m = gameState.squad.filter((x) => (x.seasonRatingCount || 0) >= minApps).sort((x, y) => Selectors.avgRating(y) - Selectors.avgRating(x))[0]; return m ? { name: Selectors.shortName(m), avg: Math.round(Selectors.avgRating(m) * 100) / 100 } : null; })(),
       retired: [], toStaff: [], newcomers: [], left: [], loanBack: [], loanEnd: [], growth: [], seen: false,
       predicted: gameState.season.preview ? gameState.season.preview.pos : null,
       verdict,
@@ -4251,7 +4276,11 @@ const Engine = {
       Engine.addLog('⚖️ PRZYMUSOWA DEGRADACJA! Wydział Dyscypliny za aferę korupcyjną zsyła klub do ligi niżej: ' + DATA.leagueLevels[newLevel].name + '.', 'system');
       Engine.xPost('portal', club + ' zdegradowany za korupcję! Czarny Passat odjechał, a klub razem z nim – ligę niżej. 🚗💨');
     } else if (promoted && level < maxLevel) {
-      if (gameState.season.promotionBan) {
+      if (newLevel === level && level + 1 >= DATA.upgrades.var.licenseLevel && !gameState.stadium.upgrades.var && !gameState.season.promotionBan) {
+        outcome = 'licBlock';   // brak VAR – licencja na I ligę i wyżej nie zostanie przyznana
+        Engine.addLog('🚫 Awans wywalczony na boisku, ale bez systemu VAR Związek odmawia licencji na ' + DATA.leagueLevels[level + 1].name + '. Zostajemy w lidze: ' + leagueName + '.', 'system');
+        Engine.xPost('portal', 'Awans bez VAR-u? Nie w tym kraju. ' + club + ' zostaje w ' + leagueName + ' przez brak wozu z powtórkami. 📺🚫');
+      } else if (gameState.season.promotionBan) {
         outcome = 'banned';
         Engine.addLog('🚫 Awans wywalczony na boisku, ale Wydział Dyscypliny trzyma zakaz awansu po aferze. Zostajemy w lidze: ' + leagueName + '.', 'system');
         Engine.xPost('sukces', 'Awans? Hahaha. Nie z tymi reklamówkami. 🤡🚫');
@@ -4366,7 +4395,7 @@ const Engine = {
     gameState.squad.forEach((p) => { p.euroSeasonApps = 0; });
     let euroNext = level === maxLevel && newLevel === maxLevel && outcome !== 'forced' ? Selectors.euroQualFor(pos) : null;
     if (!euroNext && level === maxLevel && newLevel === maxLevel && gameState.cup && gameState.cup.won && gameState.cup.season === gameState.calendar.season) euroNext = { comp: 'UEL', path: 'cup' };   // zdobywca Pucharu Polski
-    if (gameState.cup && gameState.cup.season === gameState.calendar.season) summary.cup = gameState.cup.won ? '🏆 Zdobywca Pucharu Polski!' : 'Puchar Polski: ' + (gameState.cup.history[0] || 'bez meczów').replace(/ ❌$/, '');
+    if (gameState.cup && gameState.cup.season === gameState.calendar.season) summary.cup = gameState.cup.won ? '🏆 Zdobywca Pucharu Polski!' : gameState.cup.wonRegional ? '🏆 ' + Selectors.cupName() + ' – za rok szczebel centralny!' : Selectors.cupName() + ': ' + (gameState.cup.history[0] || 'bez meczów').replace(/ ❌$/, '');
     if (euroNext) summary.euroQual = Selectors.euroQualLabel(euroNext);
 
     summary.debtNews = (gameState.debtNews || []).filter((d) => ['paidUs', 'stiffedUs', 'recovered', 'ourPaid'].includes(d.kind)).map((d) => d.text).slice(-5);
@@ -4722,21 +4751,26 @@ const Engine = {
     }
     if (Selectors.transferBanned()) { dir.log = ['Ban transferowy – tylko sprzedaż i wypożyczenia.'].concat(dir.log || []).slice(0, 4); return; }
     let budget = Math.max(0, gameState.finance.budget - 500 * e) * (0.3 + lvl * 0.07);
-    const need = { GK: 2, DEF: 6, MID: 6, FWD: 4 };
-    gameState.squad.forEach((p) => { need[p.pos]--; });
     const style = Selectors.coach().style;
     const bought = [];
-    for (let k = 0; k < (lvl >= 2 ? 3 : 2); k++) {
+    // Analiza formacji: braki ilościowe i słabe ogniwa w wyjściowej jedenastce na każdej pozycji
+    const needs = Selectors.squadNeeds();
+    const noise = Math.max(0, 4 - lvl) * 3;   // słabszy dyrektor częściej się myli
+    for (let k = 0; k < (lvl >= 3 ? 3 : 2); k++) {
       if (gameState.squad.length >= CONFIG.maxSquad) break;
       const pool = t.market.filter((p) => p.fee <= budget && p.fee <= gameState.finance.budget);
       if (!pool.length) break;
-      const score = (p) => Selectors.ovr(p) + (need[p.pos] > 0 ? 8 : -4) + Engine.profileFit(p, style) * 4 - p.fee / (60 * e) + (p.age <= 23 ? 2 : 0) + Utils.randRange(-1, 1) * (4 - lvl) * 4;
+      const gainOf = (p) => Selectors.ovr(p) - needs[p.pos].weakest;
+      const score = (p) => needs[p.pos].score + gainOf(p) * (1 + lvl * 0.25) + Engine.profileFit(p, style) * (2 + lvl) - p.fee / (60 * e) + (p.age <= 23 ? 2 : 0) + Utils.randRange(-1, 1) * noise;
       const best = pool.sort((a, b) => score(b) - score(a))[0];
-      if (Selectors.ovr(best) < Selectors.teamOvr() - 6 && need[best.pos] <= 0) break;   // nie kupuje zapchajdziur
+      const n = needs[best.pos];
+      if (!n.short && gainOf(best) < (lvl >= 3 ? 2 : -3)) break;   // nie kupuje zapchajdziur – lepszy dyrektor jest bardziej wybredny
       const fee = best.fee;
+      const why = n.short ? 'łata dziurę: brak ' + n.short + ' (' + DATA.positions[best.pos].label.toLowerCase() + ')' : gainOf(best) > 0 ? 'wzmocnienie: +' + gainOf(best) + ' OVR względem najsłabszego w składzie' : 'zmiennik';
       Engine.buyTransfer(best.id);
-      dir.windowBuys = (dir.windowBuys || []).concat([{ id: best.id, name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage }]);
-      budget -= fee; need[best.pos]--;
+      dir.windowBuys = (dir.windowBuys || []).concat([{ id: best.id, name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage, why }]);
+      budget -= fee;
+      Object.assign(needs, Selectors.squadNeeds());
       bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
     }
     const moves = dir.windowSells.length + dir.windowLoans.length;
@@ -4749,33 +4783,41 @@ const Engine = {
   /* ----- Puchar Polski ----- */
   cupSetup() {
     const lvl = gameState.club.leagueLevel;
-    const start = lvl <= 3 ? 0 : lvl <= 5 ? 2 : 3;   // niżej – od rund okręgowych, Ekstraklasa od 1/16
-    gameState.cup = { season: gameState.calendar.season, idx: start, start, alive: true, won: false, history: [], earned: 0 };
+    if (gameState.club.region == null) gameState.club.region = Utils.randInt(0, DATA.cupRegions.length - 1);   // województwo klubu
+    const season = gameState.calendar.season;
+    // Szczebel centralny: III liga wzwyż albo zdobywca wojewódzkiego PP z poprzedniego sezonu
+    const central = lvl >= 5 || gameState.cupQualified === season;
+    const start = central ? 0 : lvl >= 3 ? 1 : 0;   // okręgówka i IV liga wchodzą od II rundy strefy
+    gameState.cup = { season, path: central ? 'central' : 'regional', idx: start, start, alive: true, won: false, wonRegional: false, history: [], earned: 0 };
+    if (central && lvl < 5) Engine.addLog('🏆 Jako zdobywca ' + Selectors.cupRegion()[0] + 'ego Pucharu Polski gramy w tym sezonie w ogólnopolskim Pucharze Polski!', 'system');
     Engine.cupDraw();
   },
   // Losowanie rywala na najbliższą rundę – od razu trafia do terminarza
   cupDraw() {
     const c = gameState.cup;
-    const R = c && DATA.cupRounds[c.idx];
+    const R = c && Selectors.cupRounds(c)[c.idx];
     if (!R || !c.alive) { if (c) c.next = null; return null; }
     const lvl = gameState.club.leagueLevel;
     const oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], lvl - 2), Math.min(R.opp[1], Math.max(R.opp[0], lvl + 2))), 1, 8);
     const L = DATA.leagueLevels[oppLvl];
     const opp = L.pool ? Utils.rand(L.pool.filter((n) => !gameState.league.rivals.some((r) => r.name === n)).concat(L.pool).slice(0, 30)) : Utils.rand(DATA.rivals).name;
-    const final = c.idx === DATA.cupRounds.length - 1;
+    const final = !!R.final;
     c.next = { idx: c.idx, opp, oppLvl, oppS: Math.round(L.rivalBase * Utils.randRange(0.9, 1.1) * 100) / 100, final, home: !final && (oppLvl > lvl ? false : Math.random() < 0.5) };
     return c.next;
   },
   cupWeek(kolejka) {
     const c = gameState.cup;
     if (!c || !c.alive || c.season !== gameState.calendar.season) return;
-    const R = DATA.cupRounds[c.idx];
+    const R = Selectors.cupRounds(c)[c.idx];
     if (!R || Selectors.euroKolejka(R.k) !== kolejka) return;
     const lvl = gameState.club.leagueLevel;
+    const regional = c.path === 'regional';
+    const cname = Selectors.cupName(c);
+    const venue = R.venue === 'narodowy' ? { name: 'PGE Narodowy, Warszawa', att: [40000, 58000] } : R.venue === 'region' ? { name: Selectors.cupRegion()[1], att: [3000, 9000] } : null;
     const nx = c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw();   // rywal wylosowany wcześniej – widoczny w terminarzu
     const { opp, oppLvl, oppS, final, home } = nx;
     gameState.midweekWeek = gameState.calendar.week;   // zmęczenie po meczu w środku tygodnia
-    const m = Engine.playMatchday({ opp, oppS, home: final ? false : home, neutral: final, hype: 1.1 + c.idx * 0.12, round: R.label, oppLeague: DATA.leagueLevels[oppLvl].name });
+    const m = Engine.playMatchday({ opp, oppS, home: final ? false : home, neutral: final, venue, comp: cname, hype: 1.1 + c.idx * 0.12, round: R.label, oppLeague: DATA.leagueLevels[oppLvl].name });
     gameState.cupMatch = m;
     let won = m.gf > m.ga, pens = '';
     if (m.gf === m.ga) { const pen = Engine.penalties(oppS); won = pen.won; pens = pen.score; }
@@ -4784,12 +4826,19 @@ const Engine = {
       legs: [{ label: final ? 'Finał' : 'Mecz', opp, home: final ? true : home, neutral: final, gf: m.gf, ga: m.ga, pens, goals: m.goals, cards: m.cards, att: m.att, income: m.income, tactic: m.tactic }], verdict: '', money: 0 };
     c.history.unshift(R.label + ': ' + opp + ' ' + m.gf + ':' + m.ga + (pens ? ' (k. ' + pens + ')' : '') + (won ? ' ✅' : ' ❌'));
     if (won) {
-      const prize = Math.round(300 * e * (1 + c.idx * 0.6));
-      Engine.money('Puchar Polski: premia za ' + R.label, prize);
-      m.money.push({ label: 'Premia PP za awans', amount: prize });
+      const prize = Math.round((regional ? 150 : 300) * e * (1 + c.idx * (regional ? 0.4 : 0.6)));
+      Engine.money(cname + ': premia za ' + R.label, prize);
+      m.money.push({ label: 'Premia za awans (' + (regional ? 'WPP' : 'PP') + ')', amount: prize });
       c.earned += prize; box.money += prize;
-      Engine.applyEffects({ fans: final ? +15 : +2 });
-      if (final) {
+      Engine.applyEffects({ fans: final ? (regional ? +8 : +15) : +2 });
+      if (final && regional) {   // wojewódzki PP: trofeum i przepustka do szczebla centralnego
+        c.alive = false; c.wonRegional = true; c.next = null;
+        gameState.cupQualified = gameState.calendar.season + 1;
+        Engine.addTrophy('🏆', cname, 'ppw');
+        box.verdict = '🏆 ' + cname.toUpperCase() + '! Awans do ogólnopolskiego Pucharu Polski w przyszłym sezonie.';
+        Engine.alert('🏆', cname + '!', 'Finał na: ' + venue.name + '. Trofeum w gablocie, a w przyszłym sezonie gramy w Pucharze Polski z ligowcami – droga na PGE Narodowy otwarta!', 'good', true);
+        Engine.xPost('portal', Selectors.clubDisplayName() + ' zdobywa ' + cname + ' na ' + venue.name + '! Za rok szczebel centralny. 🏆');
+      } else if (final) {
         c.alive = false; c.won = true; c.next = null;
         Engine.addTrophy('🏆', 'Puchar Polski', 'pp');
         box.verdict = '🏆 PUCHAR POLSKI W GABLOCIE!';
@@ -4798,12 +4847,12 @@ const Engine = {
       } else {
         c.idx++;
         const d = Engine.cupDraw();
-        box.verdict = '✅ Awans! Dalej: ' + DATA.cupRounds[c.idx].label + (d ? ' – ' + d.opp : '');
+        box.verdict = '✅ Awans! Dalej: ' + Selectors.cupRounds(c)[c.idx].label + (d ? ' – ' + d.opp : '');
       }
     } else {
       c.alive = false;
       c.next = null;
-      box.verdict = '❌ Odpadamy z Pucharu Polski (' + R.label + ').';
+      box.verdict = '❌ Odpadamy z rozgrywek: ' + cname + ' (' + R.label + ').';
     }
     m.cupInfo.verdict = box.verdict;
     m.cupInfo.pens = pens;
@@ -5537,6 +5586,8 @@ const Engine = {
     const perGame = { GK: 0, DEF: 0.04, MID: 0.12, FWD: 0.3 }[p.pos] * (0.6 + p.skill / 10);
     p.prevSeason = { apps, goals: Math.round(apps * perGame * Utils.randRange(0.6, 1.4)), avg: Math.round(Utils.clamp(4.8 + p.skill * 0.22 + Utils.randRange(-0.6, 0.6), 3, 9.5) * 10) / 10 };
     p.fromClub = club;
+    const lv = DATA.leagueLevels.findIndex((L) => L && L.pool && L.pool.includes(club));
+    p.fromLevel = lv > 0 ? lv : gameState.club.leagueLevel;   // poziom rozgrywkowy poprzedniego klubu
     return p;
   },
 
@@ -5868,14 +5919,26 @@ const Engine = {
 
   /* ----- Szkółka ----- */
 
+  // Rozbudowa szkółki trwa: pieniądze od razu, efekt dopiero po zakończeniu budowy
   buildAcademy() {
+    const A = gameState.academy;
+    if (A.building) return;
     const next = DATA.academyLevels[Selectors.academyLevel() + 1];
     if (!next || gameState.finance.budget < next.cost) return;
-    Engine.money('Szkółka: ' + next.name, -next.cost);
-    gameState.academy.level = Selectors.academyLevel() + 1;
+    Engine.money('Szkółka (budowa): ' + next.name, -next.cost);
+    A.building = { level: Selectors.academyLevel() + 1, ready: gameState.calendar.week + (next.weeks || 4) };
+    Engine.addLog('🏗️ Ruszyła rozbudowa szkółki: ' + next.name + '. Potrwa ok. ' + (next.weeks || 4) + ' tyg.', 'finance');
+  },
+  academyTick() {
+    const A = gameState.academy;
+    if (!A || !A.building || gameState.calendar.week < A.building.ready) return;
+    A.level = A.building.level;
+    A.building = null;
+    const L = DATA.academyLevels[A.level];
     Engine.shiftDNA(+3);
     Engine.applyEffects({ fans: +2 });
-    Engine.addLog('🎽 Rozbudowa szkółki: ' + next.name + '. Na selekcji po sezonie pojawią się lepsi chłopcy. [kibice +2%]', 'finance');
+    Engine.alert('🎽', 'Szkółka rozbudowana', L.name + ' gotowa. Lepsi kandydaci na selekcji i w naborze do U19 (perełki: ' + Math.round(L.talent * 100) + '%).', 'good');
+    Engine.addLog('🎽 Szkółka rozbudowana: ' + L.name + '. [kibice +2%]', 'finance');
   },
   // Selekcja po sezonie: kilku kandydatów na różnych pozycjach, z różnym sufitem i własnymi plusami/minusami
   prepareYouthPick() {
@@ -6724,6 +6787,9 @@ const Engine = {
     function academy() {
       if (Selectors.isMatchWeek()) Engine.u19Poachers();
     },
+    function academyBuild() {
+      Engine.academyTick();
+    },
     function exiles() {
       if (gameState.calendar.week > CONFIG.preseasonWeeks) Engine.exileTick();   // skruszeni zesłańcy
     },
@@ -7252,11 +7318,31 @@ const Selectors = {
   // Popyt na pozycję: cena względem „uczciwej” – za drogo kolejka znika, tanio schodzi szybciej
   budkaDemand: (id) => Utils.clamp(Math.pow(DATA.budka.items[id].base / Math.max(1, Selectors.budkaPrice(id)), 1.7), 0.12, 1.8),
   budkaPriceIndex: () => { const m = Selectors.budkaMenu(); return m.reduce((s, id) => s + Selectors.budkaPrice(id), 0) / Math.max(1, m.reduce((s, id) => s + DATA.budka.items[id].base, 0)); },
+  // Dziury w składzie: ilu brakuje na pozycji i jak słaby jest najsłabszy z wyjściowej jedenastki
+  squadNeeds: () => {
+    const min = { GK: 2, DEF: 6, MID: 6, FWD: 4 }, xi = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
+    const team = Selectors.teamOvr();
+    const out = {};
+    Object.keys(min).forEach((pos) => {
+      const list = gameState.squad.filter((p) => p.pos === pos && !p.loan && !p.exiled).map((p) => Selectors.ovr(p)).sort((a, b) => b - a);
+      const short = Math.max(0, min[pos] - list.length);
+      const starters = list.slice(0, xi[pos]);
+      const weakest = starters.length < xi[pos] ? 0 : starters[starters.length - 1];
+      const avg = starters.length ? starters.reduce((a, b) => a + b, 0) / starters.length : 0;
+      out[pos] = { short, weakest, avg: Math.round(avg), score: short * 12 + Math.max(0, team - avg) * 1.5 };
+    });
+    return out;
+  },
+  // Prawa TV za mecz (po zainstalowaniu kamer): rosną z ligą
+  tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.econ() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) / 5) * 5 : 0),
+  cupRounds: (c = gameState.cup) => (c && c.path === 'regional' ? DATA.cupRegional : DATA.cupCentral),
+  cupName: (c = gameState.cup) => (c && c.path === 'regional' ? Selectors.cupRegion()[0] + ' Puchar Polski' : 'Puchar Polski'),
+  cupRegion: () => { const i = gameState.club.region != null ? gameState.club.region : 0; return DATA.cupRegions[i] || DATA.cupRegions[0]; },
   // Mecz pucharowy po danej kolejce ligowej (środa), jeśli jesteśmy w grze
   cupAt: (kolejka) => {
     const c = gameState.cup;
     if (!c || !c.alive || c.season !== gameState.calendar.season) return null;
-    const R = DATA.cupRounds[c.idx];
+    const R = Selectors.cupRounds(c)[c.idx];
     if (!R || Selectors.euroKolejka(R.k) !== kolejka) return null;
     return { R, next: c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw() };
   },
@@ -7745,7 +7831,7 @@ const UI = {
     const money = m.money.map((l) => `<div class="flex justify-between gap-2 text-[12.5px]"><span class="text-paper-300 truncate">${Utils.escape(l.label)}</span><b class="whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</b></div>`).join('');
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-3 text-paper-100">
-        <div class="text-center text-[11px] uppercase tracking-wider ${m.cupInfo ? 'text-amber-glow font-semibold' : 'text-paper-400'}">${m.cupInfo ? '🏆 Puchar Polski · ' + Utils.escape(m.cupInfo.round) + ' · ' + (m.cupInfo.neutral ? 'Stadion Narodowy' : m.home ? 'u siebie' : 'wyjazd') : 'Kolejka ' + m.kolejka + ' · ' + (m.home ? 'u siebie' : 'wyjazd')}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
+        <div class="text-center text-[11px] uppercase tracking-wider ${m.cupInfo ? 'text-amber-glow font-semibold' : 'text-paper-400'}">${m.cupInfo ? '🏆 ' + Utils.escape(m.cupInfo.comp || 'Puchar Polski') + ' · ' + Utils.escape(m.cupInfo.round) + ' · ' + (m.cupInfo.neutral ? Utils.escape(m.cupInfo.venue || 'stadion neutralny') : m.home ? 'u siebie' : 'wyjazd') : 'Kolejka ' + m.kolejka + ' · ' + (m.home ? 'u siebie' : 'wyjazd')}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
         <div class="text-center text-[11px] text-paper-400 mt-0.5">${m.weatherIcon} ${Utils.escape(m.weatherLabel)}${m.cupInfo ? ' · rywal: ' + Utils.escape(m.cupInfo.oppLeague) : ''}</div>
         <div class="flex items-center gap-2 mt-5">
           ${m.home ? side(ourCrest, name, '') : side(theirCrest, m.rival, '')}
@@ -8069,7 +8155,7 @@ const UI = {
     const verdict = {
       title: ['🏆 MISTRZ POLSKI', 'text-amber-glow'], promo: ['⬆️ AWANS', 'text-grass'], podium: ['🥉 Podium', 'text-grass'], mid: ['Utrzymanie', 'text-paper-200'],
       euro: ['🇪🇺 EUROPEJSKIE PUCHARY', 'text-amber-glow'], poLost: ['💔 Przegrany baraż o awans', 'text-paper-200'], poSafe: ['😮‍💨 Utrzymanie w barażach', 'text-grass'],
-      releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
+      releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], licBlock: ['🚫 Awans zablokowany: brak VAR', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
     }[sm.outcome] || ['Koniec sezonu', 'text-paper-200'];
     const list = (title, items, empty) => `
       <div class="rounded-xl bg-desk-800 px-3 py-2">
@@ -8095,6 +8181,10 @@ const UI = {
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10px] uppercase text-paper-400">Bramki</div><b class="text-[15px]">${sm.gf}:${sm.ga}</b></div>
           <div class="rounded-xl bg-desk-800 py-2 min-w-0 px-1"><div class="text-[10px] uppercase text-paper-400">Król strzelców</div><b class="text-[12px] block truncate">${sm.scorer ? Utils.escape(sm.scorer.name.split(' ').slice(1).join(' ')) + ' · ' + sm.scorer.goals : '–'}</b></div>
         </div>
+        ${sm.assister || sm.seasonMvp ? `<div class="grid grid-cols-2 gap-1.5 mt-1.5 text-center">
+          <div class="rounded-xl bg-desk-800 py-1.5 min-w-0 px-1"><div class="text-[10px] uppercase text-paper-400">🅰️ Najlepszy asystent</div><b class="text-[12px] block truncate">${sm.assister ? Utils.escape(sm.assister.name) + ' · ' + sm.assister.n : '–'}</b></div>
+          <div class="rounded-xl bg-desk-800 py-1.5 min-w-0 px-1"><div class="text-[10px] uppercase text-paper-400">⭐ MVP sezonu (nota)</div><b class="text-[12px] block truncate">${sm.seasonMvp ? Utils.escape(sm.seasonMvp.name) + ' · ' + sm.seasonMvp.avg.toFixed(2) : '–'}</b></div>
+        </div>` : ''}
         <div class="space-y-1.5 mt-3">
           ${list('👋 Kończą karierę', sm.retired, 'Wszyscy grają dalej. Kolana trzymają.')}
           ${sm.left && sm.left.length ? list('🚪 Odchodzą (zapowiedzieli w sezonie)', sm.left, '') : ''}
@@ -8150,7 +8240,7 @@ const UI = {
             <ul class="rounded-lg bg-stamp/15 px-2 py-1 space-y-0.5">${pc.cons.map((x) => `<li class="text-[11px] text-paper-100 leading-snug">➖ ${Utils.escape(x)}</li>`).join('') || '<li class="text-[11px] text-paper-400">brak wyraźnych minusów</li>'}</ul>
           </div>` : ''; })()}
           <div class="text-[11px] text-paper-200 mt-1">📈 Potencjał: <b class="text-amber-glow">${UI.potentialText(p)}</b>${p.age <= 23 && Selectors.potential(p) > p.skill ? ' · rośnie najszybciej, gdy regularnie gra' : ''}</div>
-          <div class="text-[10.5px] text-paper-400 mt-0.5">${ps ? 'Zeszły sezon' + (p.fromClub ? ' w ' + Utils.escape(p.fromClub) : '') : 'Bieżący sezon'} · profil: ${DATA.profiles[p.profile].label}${p.apps ? ' · w klubie: ' + p.apps + ' m, ' + p.goals + ' g' : ''}${p.loan ? ' · wypożyczenie z ' + Utils.escape(p.loan.from) + ' do końca sezonu' : ''}</div>
+          <div class="text-[10.5px] text-paper-400 mt-0.5">${ps ? 'Zeszły sezon' + (p.fromClub ? ' w ' + Utils.escape(p.fromClub) : '') + (p.fromLevel ? ' (' + DATA.leagueLevels[p.fromLevel].name + ')' : '') : 'Bieżący sezon'} · profil: ${DATA.profiles[p.profile].label}${p.apps ? ' · w klubie: ' + p.apps + ' m, ' + p.goals + ' g' : ''}${p.loan ? ' · wypożyczenie z ' + Utils.escape(p.loan.from) + ' do końca sezonu' : ''}</div>
           ${buttons ? `<div class="flex gap-1.5 mt-2 justify-end">${buttons}</div>` : ''}
         </div>
       </details>`;
@@ -8227,7 +8317,7 @@ const UI = {
         <b class="text-[13.5px] ${tone} whitespace-nowrap">${money}</b>${b.id ? '<span class="text-paper-400 text-[14px]">›</span>' : ''}
       </${b.id ? 'button' : 'div'}>`;
     const h = (t) => `<div class="text-[10px] uppercase tracking-wide text-paper-400 font-semibold mt-2 mb-1">${t}</div>`;
-    const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + ' · pensja ' + b.wage + ' zł/tydz.', Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
+    const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + (b.why ? ' · ' + Utils.escape(b.why) : ' · pensja ' + b.wage + ' zł/tydz.'), Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
       + (sells.length ? h('💸 Sprzedani') + sells.map((b) => line(b, Utils.escape(b.pos) + ' · ' + Utils.escape(b.why || ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '')
       + (loans.length ? h('📤 Wypożyczeni na rozwój') + loans.map((b) => line(b, Utils.escape(b.pos) + (b.club ? ' → ' + Utils.escape(b.club) : ''), b.junior ? '🌱 rozwój' : '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '');
     return UI.overlayFrame(`
@@ -8687,8 +8777,8 @@ const UI = {
       const folds = gameState.ui.folds || {};
       const al = Selectors.academyLevel();
       const baseRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(a.cost)}</span>`,
-        'nabór ' + a.cands + '/sezon · sufit +' + a.room + ' · 💎 ' + Math.round(a.talent * 100) + '%',
-        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? UI.smallBtn('build-academy', '', 'Buduj', budget < a.cost) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+        'nabór ' + a.cands + '/sezon · sufit +' + a.room + ' · 💎 ' + Math.round(a.talent * 100) + '% · budowa ' + (a.weeks || 0) + ' tyg.',
+        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', budget < a.cost)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
       const staffGroup = (role, title, effect) => {
         const cur = u[role];
         const rows = DATA.u19Staff[role].map((c, i) => UI.row(Utils.escape(c.name), 'poziom ' + c.level + ' · ' + Utils.formatMoney(Math.round(c.wage * Selectors.econ())) + '/tydz.',
@@ -8729,7 +8819,7 @@ const UI = {
   trophyArt(t) {
     const name = t.name || '';
     const lvlOf = (s) => { const i = DATA.leagueLevels.findIndex((L) => L && s.includes(L.name)); return i > 0 ? i : 0; };
-    const kind = t.kind || (name.startsWith('Awans') ? 'medal' : name === 'Puchar Polski' ? 'pp' : name.startsWith('Mistrzostwo Polski') ? 'title' : name.startsWith('Mistrzostwo') ? 'title' : name.startsWith('Puchar ') ? 'euro' : 'title');
+    const kind = t.kind || (name.startsWith('Awans') ? 'medal' : name === 'Puchar Polski' ? 'pp' : / Puchar Polski$/.test(name) ? 'ppw' : name.startsWith('Mistrzostwo Polski') ? 'title' : name.startsWith('Mistrzostwo') ? 'title' : name.startsWith('Puchar ') ? 'euro' : 'title');
     const lvl = t.kind ? (t.lvl || 1) : name.startsWith('Mistrzostwo Polski') ? 8 : lvlOf(name) || 1;
     // metal: brąz → srebro → złoto; Ekstraklasa z biało-czerwoną wstęgą
     const M = [null, ['#c98a4b', '#7a4a1f'], ['#d9dee4', '#8b95a1'], ['#7fc8a0', '#2f6f4c'], ['#9cc3ff', '#3d5f97'], ['#e8b86b', '#8a5a1c'], ['#f2d36b', '#9a7a14'], ['#ffe27a', '#a97f00'], ['#ffe9a0', '#b8860b']][Utils.clamp(lvl, 1, 8)];
@@ -8739,6 +8829,7 @@ const UI = {
       const roman = ['', 'B', 'A', 'KO', 'IV', 'III', 'II', 'I', 'E'][Utils.clamp(lvl, 1, 8)];
       return `<svg viewBox="0 0 40 50" width="38" height="48">${grad(M[0], M[1])}<path d="M10 0h8l4 16h-8zM30 0h-8l-4 16h8z" fill="${lvl >= 8 ? '#d23c3c' : lvl >= 5 ? '#1e4fa3' : '#2f8f4c'}"/><path d="M14 0h3l3 14h-3z" fill="#fff" opacity=".8"/><circle cx="20" cy="32" r="13" fill="url(#${g})" stroke="${M[1]}" stroke-width="1.5"/><circle cx="20" cy="32" r="9.5" fill="none" stroke="${M[1]}" stroke-width=".8" stroke-dasharray="2 1.5"/><text x="20" y="35.5" text-anchor="middle" font-size="${roman.length > 2 ? 7.5 : 9.5}" font-weight="800" fill="${M[1]}">${roman}</text></svg>`;
     }
+    if (kind === 'ppw') return `<svg viewBox="0 0 40 50" width="38" height="48">${grad('#eaf4ff', '#4f7bb0')}<path d="M10 7h20c0 10-4 17-10 19-6-2-10-9-10-19z" fill="url(#${g})" stroke="#3d5f97"/><path d="M10 9c-5 0-5 9 1 10M30 9c5 0 5 9-1 10" fill="none" stroke="#4f7bb0" stroke-width="1.8"/><path d="M17 26h6v9h-6z" fill="#4f7bb0"/><path d="M12 35h16v6H12z" fill="#1d2f57"/><path d="M15 13h10v3H15z" fill="#fff"/><path d="M15 16h10v3H15z" fill="#d23c3c"/><rect x="12" y="42" width="16" height="3" fill="#111"/></svg>`;
     if (kind === 'pp') return `<svg viewBox="0 0 40 50" width="38" height="48">${grad('#f4f1ff', '#7a6fb0')}<path d="M8 6h24c0 12-4 20-12 22C12 26 8 18 8 6z" fill="url(#${g})" stroke="#5a4f90"/><path d="M8 9C2 9 2 19 10 20M32 9c6 0 6 10-2 11" fill="none" stroke="#7a6fb0" stroke-width="2"/><path d="M17 28h6v9h-6z" fill="#7a6fb0"/><path d="M11 37h18v6H11z" fill="#3b2f73"/><path d="M14 13l6-4 6 4-6 8z" fill="#d23c3c" opacity=".85"/><rect x="11" y="44" width="18" height="3" fill="#2a2155"/></svg>`;
     if (kind === 'euro') return `<svg viewBox="0 0 40 50" width="38" height="48">${grad('#e6f0ff', '#6a86b8')}<path d="M10 4h20l-2 16c-1 6-4 9-8 9s-7-3-8-9z" fill="url(#${g})" stroke="#4a6696"/><path d="M10 6C1 6 3 22 12 21M30 6c9 0 7 16-2 15" fill="none" stroke="#6a86b8" stroke-width="2.4"/><path d="M17 29h6v8h-6z" fill="#6a86b8"/><path d="M10 37h20v8H10z" fill="#1d2f57"/><text x="20" y="18" text-anchor="middle" font-size="9" fill="#ffd54a">★</text></svg>`;
     // puchar mistrzowski: kształt zależny od szczebla
@@ -8781,7 +8872,7 @@ const UI = {
     const count = (pred) => all.filter(pred).length;
     const cup = gameState.cup;
     const cupLine = cup && cup.season === gameState.calendar.season
-      ? (cup.won ? '🏆 Zdobyty w tym sezonie!' : cup.alive ? 'W grze · następna runda: <b>' + DATA.cupRounds[cup.idx].label + '</b>' : 'Odpadliśmy: ' + Utils.escape(cup.history[0] || ''))
+      ? (cup.won ? '🏆 Zdobyty w tym sezonie!' : cup.wonRegional ? '🏆 Wojewódzki PP zdobyty – za rok szczebel centralny!' : cup.alive ? 'W grze · następna runda: <b>' + Selectors.cupRounds(cup)[cup.idx].label + '</b>' : 'Odpadliśmy: ' + Utils.escape(cup.history[0] || ''))
       : 'Nowa edycja wystartuje z sezonem.';
     const tiles = shown.map((t) => `
       <div class="rounded-lg bg-gradient-to-b from-paper-100 to-paper-300 border border-paper-300 px-1.5 pt-1.5 pb-1 text-center">
@@ -8795,7 +8886,7 @@ const UI = {
       UI.tile('Awanse', String(count((t) => t.name.startsWith('Awans'))), 'medale za awans'),
     ]) + UI.panel('🏆 Gablotka w gabinecie prezesa', 'Każde trofeum zostaje tu na zawsze. Pani Halinka przeciera je co piątek.',
       (tiles ? `<div class="grid grid-cols-4 gap-1">${tiles}</div>${all.length > 12 ? '<p class="text-[10.5px] text-ink-700 mt-1">…i ' + (all.length - 12) + ' starszych trofeów na zapleczu.</p>' : ''}` : '<p class="text-[12px] italic text-ink-700">Gablotka pusta. Na razie stoi w niej tylko proporczyk z turnieju halowego z 1987 roku.</p>'))
-      + UI.panel('🏆 Puchar Polski · sezon ' + gameState.calendar.season, '', `<p class="text-[12px] leading-snug">${cupLine}</p>${cup && cup.history.length ? '<ul class="text-[11.5px] text-ink-700 mt-1 space-y-0.5">' + cup.history.slice(0, 3).map((x) => '<li class="truncate">' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}`);
+      + UI.panel('🏆 ' + Utils.escape(Selectors.cupName()) + ' · sezon ' + gameState.calendar.season, cup && cup.path === 'regional' ? 'Szczebel regionalny: strefa → województwo (finał: ' + Utils.escape(Selectors.cupRegion()[1]) + '). Zwycięzca gra za rok w PP centralnym.' : 'Szczebel centralny – Wielki Finał na PGE Narodowym.', `<p class="text-[12px] leading-snug">${cupLine}</p>${cup && cup.history.length ? '<ul class="text-[11.5px] text-ink-700 mt-1 space-y-0.5">' + cup.history.slice(0, 3).map((x) => '<li class="truncate">' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}`);
   },
 
   clubDashboard() {
@@ -9537,7 +9628,7 @@ const UI = {
     const al = Selectors.academyLevel();
     const youthRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(a.cost)}</span>`,
       a.cands + ' kandydatów na selekcji · sufit +' + a.room + ' · szansa na 💎 ' + Math.round(a.talent * 100) + '%',
-      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < a.cost) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < a.cost)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
     const youthGroup = `
       <details data-fold="st-youth" class="mt-1.5" ${folds['st-youth'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
