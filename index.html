@@ -3335,9 +3335,40 @@ const Engine = {
     return parts.length ? ' [' + parts.join(', ') + ']' : '';
   },
 
-  addScandal(reason) {
+  addScandal(reason, quiet) {
     gameState.club.scandals += 1;
+    gameState.season.scandals = (gameState.season.scandals || 0) + 1;
     Engine.addLog('📰 Skandal w kartotece klubu: ' + reason + ' (łącznie: ' + gameState.club.scandals + ').', 'event');
+    if (!quiet) Engine.crisis('scandal', '📰', 'AFERA W KLUBIE!', reason.charAt(0).toUpperCase() + reason.slice(1) + '.');
+  },
+  // Pełnoekranowy komunikat kryzysowy (afera, zerwany sponsor, wyrok, bunt gwiazd) – zatrzymuje grę do reakcji prezesa
+  crisis(kind, icon, title, line) {
+    const q = gameState.crisisQueue || (gameState.crisisQueue = []);
+    const w = gameState.calendar.week;
+    const same = q.find((c) => c.kind === kind && c.week === w);
+    if (same) { if (!same.lines.includes(line)) same.lines = same.lines.concat([line]).slice(-5); return; }
+    q.push({ kind, icon, title, week: w, lines: [line] });
+    gameState.crisisQueue = q.slice(-4);
+  },
+  crisisAnswer(choice) {
+    const c = (gameState.crisisQueue || []).shift();
+    if (!c) return;
+    const e = Selectors.econ();
+    if (c.kind === 'scandal' && choice === 'apology') {
+      const cost = Math.round(150 * e * Math.min(3, c.lines.length) / 10) * 10;
+      Engine.money('Oświadczenie i przeprosiny (PR)', -cost);
+      Engine.applyEffects({ fans: +2 });
+      Engine.shiftDNA(+1);
+      Engine.addLog('📢 Prezes wydaje oświadczenie i przeprasza. Agencja PR z powiatu liczy ' + Utils.formatMoney(cost) + '. [kibice +2%]', 'decision');
+    } else if (c.kind === 'scandal' && choice === 'attack') {
+      Engine.applyEffects({ fans: +1, lockerRoom: +2 });
+      Engine.shiftDNA(-2);
+      if (Selectors.hasRealSponsor()) gameState.sponsor.strikes = (gameState.sponsor.strikes || 0) + 1;
+      Engine.addLog('⚔️ Prezes atakuje media: „Nagonka na nasz klub!”. Szatnia i ultrasi kiwają głowami, sponsor marszczy brwi.', 'decision');
+    } else if (c.kind === 'sponsor' && choice === 'sponsor') {
+      gameState.activeTab = 'finance';
+      gameState.ui.sub = Object.assign({}, gameState.ui.sub, { finance: 'sponsor' });
+    }
   },
 
   /* ----- Decyzje ----- */
@@ -3397,6 +3428,7 @@ const Engine = {
     Engine.cupSetup();   // nowa edycja Pucharu Polski
     s.promotionBan = false;
     s.forcedRelegation = false;
+    s.scandals = 0;
     gameState.league.rivals.forEach((r) => {
       const prev = s.strength[r.name] || r.strength;
       // lekki dryf siły między sezonami, ale z powrotem w stronę „charakteru” klubu
@@ -3668,6 +3700,11 @@ const Engine = {
       const scorer = Utils.weightedPick(lineup, w);
       scorer.goals++; scorer.seasonGoals++;
       scorerCount[scorer.id] = (scorerCount[scorer.id] || 0) + 1;
+      if (Math.random() < 0.75) {   // asysta: najczęściej pomocnik albo skrzydłowy, nigdy sam strzelec
+        const mates = lineup.filter((x) => x !== scorer);
+        const assist = mates.length && Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
+        if (assist) { assist.assists = (assist.assists || 0) + 1; assist.seasonAssists = (assist.seasonAssists || 0) + 1; }
+      }
     }
     const scorers = Object.entries(scorerCount).map(([id, n]) => {
       const p = gameState.squad.find((x) => x.id === id);
@@ -3898,7 +3935,7 @@ const Engine = {
   },
 
   endSeason() {
-    const verdict = Engine.stingVerdict();   // wyrok w sprawie sprzedanych meczów – zanim policzymy tabelę
+    const verdict = Engine.stingVerdict() || Engine.seasonDiscipline();   // wyrok w sprawie sprzedanych meczów albo kara za serię afer – zanim policzymy tabelę
     if (gameState.screen === 'gameover') return;
     const pos = Selectors.standings().findIndex((row) => row.team === US) + 1;
     const r = gameState.record;
@@ -3995,8 +4032,8 @@ const Engine = {
     // Starzenie, staż, legendy, emerytury
     const retiring = [];
     gameState.squad.forEach((p) => {
-      p.prevSeason = { apps: p.seasonApps, goals: p.seasonGoals, avg: Selectors.avgRating(p) };   // do okna transferowego
-      p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0; p.seasonRatingSum = 0; p.seasonRatingCount = 0;
+      p.prevSeason = { apps: p.seasonApps, goals: p.seasonGoals, assists: p.seasonAssists || 0, avg: Selectors.avgRating(p) };   // do okna transferowego
+      p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0; p.seasonAssists = 0; p.seasonRatingSum = 0; p.seasonRatingCount = 0;
       p.yellows = 0; p.seasonYellows = 0; p.seasonReds = 0; p.suspended = 0;   // kartki zerują się z nowym sezonem
       // młodzi rosną do swojego potencjału – tym szybciej, im więcej grali (Perełki i dobry asystent pomagają)
       const gain = p.loan ? 0 : Engine.develop(p, p.prevSeason.apps, false);
@@ -4026,6 +4063,8 @@ const Engine = {
       if (p.favorite) Engine.applyEffects({ fans: -8 });
       Engine.addLog('🚪 ' + Selectors.playerName(p) + ' odchodzi do ' + p.wantsOut + ', jak zapowiadał.' + (p.favorite ? ' Kibice wściekli – odszedł Ulubieniec Trybun! [kibice -8%]' : ''), 'event');
     });
+    // Bolesny spadek: kluczowi zawodnicy nie chcą grać niżej – odchodzą albo żądają transferu
+    if (outcome === 'releg' || outcome === 'forced') Engine.relegationRevolt(summary, DATA.leagueLevels[newLevel].name);
     Engine.queueRetirementDecision();
 
     // Szkółka: 2 juniorów; Były Ligowiec ściąga kogoś lepszego
@@ -4123,6 +4162,7 @@ const Engine = {
     return 'refuse';
   },
   buyTransferBeer(id) {
+    if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.market.find((x) => x.id === id);
     if (!p || p.beerTried || !Selectors.beerAllowed() || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.beerCost()) return;
@@ -4310,7 +4350,33 @@ const Engine = {
     if (!dir || !dir.hired || dir.mode !== 'auto' || !t.open) return;
     const lvl = dir.hired.level;
     const e = Selectors.econ();
-    if (dir.windowSeason !== t.season) { dir.windowSeason = t.season; dir.windowBuys = []; }   // zakupy tego okienka – do raportu
+    if (dir.windowSeason !== t.season) { dir.windowSeason = t.season; dir.windowBuys = []; dir.windowSells = []; dir.windowLoans = []; }   // ruchy tego okienka – do raportu
+    dir.windowSells = dir.windowSells || []; dir.windowLoans = dir.windowLoans || [];
+    const team = Selectors.teamOvr();
+    const keep = (p) => p.id === gameState.star.playerId || p.legend || p.favorite || p.loan;
+    const posCount = (pos) => gameState.squad.filter((x) => x.pos === pos).length;
+    const minPos = { GK: 2, DEF: 5, MID: 5, FWD: 3 };
+    // 1) Sprzedaż niechcianych: żądający transferu, słabi i starzy ponad potrzeby pozycji
+    const sellCands = gameState.squad.filter((p) => !keep(p) && (p.demandOut || Selectors.ovr(p) <= team - 7 || (p.age >= 32 && Selectors.ovr(p) < team)))
+      .sort((a, b) => (b.demandOut ? 1 : 0) - (a.demandOut ? 1 : 0) || Selectors.ovr(a) - Selectors.ovr(b));
+    const sellMax = (lvl >= 3 ? 3 : lvl >= 2 ? 2 : 1) - dir.windowSells.length;
+    for (const p of sellCands.slice(0, Math.max(0, sellMax))) {
+      if (gameState.squad.length <= CONFIG.minSquad + 1 || (!p.demandOut && posCount(p.pos) <= minPos[p.pos])) continue;
+      const price = Selectors.sellPrice(p);
+      const row = { name: Selectors.playerName(p), pos: DATA.positions[p.pos].label, ovr: Selectors.ovr(p), fee: price, why: p.demandOut ? 'żądał transferu' : p.age >= 32 ? 'wiek' : 'za słaby' };
+      Engine.sellTransfer(p.id);
+      dir.windowSells.push(row);
+    }
+    // 2) Wypożyczenia młodych bez szans na grę – ograją się gdzie indziej
+    const loanCands = gameState.squad.filter((p) => !keep(p) && p.age <= 21 && Selectors.potential(p) > p.skill && Selectors.ovr(p) <= team - 4);
+    for (const p of loanCands.slice(0, Math.max(0, (lvl >= 2 ? 2 : 1) - dir.windowLoans.length))) {
+      if (gameState.squad.length <= CONFIG.minSquad + 1 || posCount(p.pos) <= minPos[p.pos]) continue;
+      const fee = Selectors.loanOutFee(p);
+      Engine.loanOut(p.id);
+      const l = gameState.loansOut[gameState.loansOut.length - 1];
+      dir.windowLoans.push({ name: Selectors.playerName(p), pos: DATA.positions[p.pos].label, ovr: Selectors.ovr(p), fee, club: l && l.player.id === p.id ? l.club : '' });
+    }
+    if (Selectors.transferBanned()) { dir.log = ['Ban transferowy – tylko sprzedaż i wypożyczenia.'].concat(dir.log || []).slice(0, 4); return; }
     let budget = Math.max(0, gameState.finance.budget - 500 * e) * (0.3 + lvl * 0.07);
     const need = { GK: 2, DEF: 6, MID: 6, FWD: 4 };
     gameState.squad.forEach((p) => { need[p.pos]--; });
@@ -4329,7 +4395,8 @@ const Engine = {
       budget -= fee; need[best.pos]--;
       bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
     }
-    const msg = bought.length ? 'Kupił: ' + bought.join('; ') : 'Nie znalazł nikogo wartego tych pieniędzy.';
+    const moves = dir.windowSells.length + dir.windowLoans.length;
+    const msg = (bought.length ? 'Kupił: ' + bought.join('; ') : 'Nie znalazł nikogo wartego tych pieniędzy do kupienia.') + (moves ? ' Sprzedał: ' + dir.windowSells.length + ', wypożyczył: ' + dir.windowLoans.length + '.' : '');
     dir.log = [msg].concat(dir.log || []).slice(0, 4);
     t.news = ['🧑‍💼 Dyrektor: ' + msg].concat(t.news || []).slice(0, 4);
     Engine.alert('🧑‍💼', 'Dyrektor Sportowy w oknie transferowym', msg, bought.length ? 'good' : 'info');
@@ -4928,6 +4995,34 @@ const Engine = {
     gameState.star.slumpUntil = Math.max(gameState.star.slumpUntil || 0, gameState.calendar.week + weeks);
   },
 
+  relegationRevolt(summary, league) {
+    const team = Selectors.teamOvr();
+    const keys = gameState.squad.filter((p) => !p.loan && !p.legend && Selectors.ovr(p) >= team + 2).sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a)).slice(0, 3);
+    keys.forEach((p) => {
+      const r = Math.random();
+      const name = Selectors.playerName(p);
+      if (r < 0.4 && gameState.squad.length > CONFIG.minSquad) {
+        const fee = Math.max(10, Math.round(Selectors.sellPrice(p) * 0.6 / 10) * 10);
+        const club = Engine.otherClubName(1);
+        gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+        if (p.id === gameState.star.playerId) Engine.endStar(false);
+        Engine.money('Klauzula spadkowa: ' + name, fee);
+        Engine.applyEffects({ lockerRoom: -3, fans: p.favorite ? -6 : -2 });
+        summary.left.push(name + ' → ' + club + ' (klauzula spadkowa)');
+        Engine.crisis('stars', '📉', 'GWIAZDY NIE CHCĄ GRAĆ NIŻEJ', '🚪 ' + name + ' (OVR ' + Selectors.ovr(p) + ') korzysta z klauzuli spadkowej i odchodzi do ' + club + ' za ' + Utils.formatMoney(fee) + '.');
+        Engine.addLog('🚪 ' + name + ' odchodzi po spadku do ' + club + ' (klauzula spadkowa: ' + Utils.formatMoney(fee) + ').', 'event');
+      } else if (r < 0.8) {
+        p.listed = true;
+        p.demandOut = true;
+        Engine.applyEffects({ lockerRoom: -4 });
+        Engine.crisis('stars', '📉', 'GWIAZDY NIE CHCĄ GRAĆ NIŻEJ', '📢 ' + name + ' żąda transferu: „W lidze ' + league + ' nie zagram!”. Jeśli zostanie po okienku – będzie się buntował.');
+        Engine.addLog('📢 ' + name + ' żąda transferu po spadku. Trafia na listę transferową.', 'event');
+      } else {
+        Engine.crisis('stars', '📉', 'GWIAZDY NIE CHCĄ GRAĆ NIŻEJ', '🤝 ' + name + ' zostaje mimo spadku: „Wrócimy razem, prezesie”.');
+      }
+    });
+  },
+
   startRebellion(reason) {
     const st = gameState.star;
     const p = Selectors.starPlayer();
@@ -5023,16 +5118,25 @@ const Engine = {
       Engine.applyEffects({ lockerRoom: -8, fans: -3 });
     }
     Engine.addLog('🔒 Okno transferowe zamknięte. Przyszło: ' + t.bought + ', odeszło: ' + t.sold + '.', 'system');
+    gameState.squad.filter((p) => p.demandOut).forEach((p) => {   // żądał transferu po spadku, a został
+      delete p.demandOut;
+      Engine.applyEffects({ lockerRoom: -5 });
+      Engine.addLog('😤 ' + Selectors.playerName(p) + ' nie dostał transferu i gra „z musu”. Atmosfera w szatni siada. [szatnia -5%]', 'event');
+    });
     // Dyrektor w trybie autonomicznym: raport na ekranie po zamknięciu okienka
     const dir = gameState.director;
     if (dir && dir.hired && dir.mode === 'auto') {
-      const buys = dir.windowSeason === t.season ? (dir.windowBuys || []) : [];
-      gameState.directorReport = { season: t.season, name: dir.hired.name, buys, total: buys.reduce((s, b) => s + b.fee, 0) };
+      const cur = dir.windowSeason === t.season;
+      const buys = cur ? (dir.windowBuys || []) : [];
+      const sells = cur ? (dir.windowSells || []) : [];
+      const loans = cur ? (dir.windowLoans || []) : [];
+      gameState.directorReport = { season: t.season, name: dir.hired.name, buys, sells, loans, total: buys.reduce((s, b) => s + b.fee, 0), income: sells.concat(loans).reduce((s, b) => s + b.fee, 0) };
     }
     Engine.u19WindowVerdict(t.season);
   },
 
   buyTransfer(id) {
+    if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.market.find((x) => x.id === id);
     if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
@@ -5045,6 +5149,7 @@ const Engine = {
   },
 
   loanIn(id) {
+    if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.loanMarket.find((x) => x.id === id);
     if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
@@ -5572,6 +5677,7 @@ const Engine = {
     const e = Selectors.econ();
     const row = gameState.season.table[US];
     let text;
+    const ban = (k) => { gameState.transferBan = { from: gameState.calendar.season, until: gameState.calendar.season + k }; return ' + BAN TRANSFEROWY (' + (k === 1 ? 'najbliższe okienko' : k + ' okienka') + ': zakaz rejestracji nowych zawodników)'; };
     if (n <= 1) {
       if (row) row.pts = Math.max(0, row.pts - 6);
       text = 'Wyrok Związku: -6 punktów w tabeli i upomnienie.';
@@ -5579,18 +5685,36 @@ const Engine = {
       const fine = Math.round(2500 * e);
       if (row) row.pts = Math.max(0, row.pts - 10);
       Engine.money('Kara Wydziału Dyscypliny (recydywa)', -fine);
-      text = 'Wyrok Związku (recydywa): -10 punktów i kara ' + Utils.formatMoney(fine) + '.';
+      text = 'Wyrok Związku (recydywa): -10 punktów i kara ' + Utils.formatMoney(fine) + (Math.random() < 0.4 ? ban(1) : '') + '.';
     } else if (n === 3) {
-      const fine = Math.round(4000 * e);
-      Engine.money('Kara Wydziału Dyscypliny (degradacja)', -fine);
-      gameState.season.forcedRelegation = true;
-      gameState.season.promotionBan = true;
-      text = 'Wyrok Związku (skrajna recydywa): DEGRADACJA o klasę niżej i kara ' + Utils.formatMoney(fine) + '.';
+      if (Math.random() < 0.5) {
+        const fine = Math.round(4000 * e);
+        Engine.money('Kara Wydziału Dyscypliny (degradacja)', -fine);
+        gameState.season.forcedRelegation = true;
+        gameState.season.promotionBan = true;
+        text = 'Wyrok Związku (skrajna recydywa): DEGRADACJA o klasę niżej i kara ' + Utils.formatMoney(fine) + '.';
+      } else {   // alternatywna sankcja: zostajemy w lidze, ale bez wzmocnień
+        const fine = Math.round(6000 * e);
+        Engine.money('Kara Wydziału Dyscypliny (ban transferowy)', -fine);
+        if (row) row.pts = Math.max(0, row.pts - 15);
+        text = 'Wyrok Związku (skrajna recydywa): -15 punktów, kara ' + Utils.formatMoney(fine) + ban(2) + '.';
+      }
     } else {
       Engine.gameOver('Czwarta afera korupcyjna. Związek zawiesza cały zarząd dożywotnio, a prokuratura zabezpiecza reklamówki jako dowody.');
       return 'Zawieszenie zarządu.';
     }
-    Engine.alert('⚖️', 'WYROK ZWIĄZKU', text, 'bad', true);
+    Engine.crisis('verdict', '⚖️', 'WYROK ZWIĄZKU', text);
+    Engine.addLog('⚖️ ' + text, 'system');
+    return text;
+  },
+  // Rozliczenie dyscyplinarne po sezonie bez sprawy korupcyjnej: seria afer = ban transferowy
+  seasonDiscipline() {
+    const n = gameState.season.scandals || 0;
+    if (n < 3 || gameState.dark.caseOpen || Math.random() >= 0.15 * (n - 2)) return null;
+    const s = gameState.calendar.season;
+    gameState.transferBan = { from: s, until: s + 1 };
+    const text = 'Wydział Dyscypliny za ' + n + ' afery w sezonie: BAN TRANSFEROWY na najbliższe okienko (zakaz rejestracji nowych zawodników).';
+    Engine.crisis('verdict', '⚖️', 'KARA ZWIĄZKU', text);
     Engine.addLog('⚖️ ' + text, 'system');
     return text;
   },
@@ -5670,7 +5794,7 @@ const Engine = {
     const s = gameState.sponsor;
     if (!Selectors.hasRealSponsor()) return;   // lokalnego sponsora nie da się zerwać
     const lost = Selectors.sponsor();
-    Engine.alert('🚨', 'SPONSOR ZERWAŁ UMOWĘ!', lost.name + ' odchodzi – klub traci kluczowe źródło finansowania (' + Utils.formatMoney(Selectors.sponsorWeekly(lost)) + '/tydz.). Szukaj nowego w Finanse → Sponsor.', 'bad', true);
+    Engine.crisis('sponsor', '🚨', 'SPONSOR ZERWAŁ UMOWĘ!', lost.name + ' odchodzi – klub traci kluczowe źródło finansowania (' + Utils.formatMoney(Selectors.sponsorWeekly(lost)) + '/tydz.). ' + (logText || '').replace(/^\S+\s/, ''));
     s.burned.push(s.active);
     s.burnedAt[s.active] = gameState.calendar.week;
     s.active = null;
@@ -5829,6 +5953,9 @@ const Engine = {
   // Powiadomienie na ekranie (znika po tygodniu albo po kliknięciu)
   alert(icon, title, text, tone = 'info', top = false) {
     gameState.ui.alertSeq = (gameState.ui.alertSeq || 0) + 1;
+    // Złe wieści z tego samego tygodnia trafiają do otwartego komunikatu kryzysowego zamiast do rogu ekranu
+    const open = tone === 'bad' && (gameState.crisisQueue || []).find((c) => c.week === gameState.calendar.week);
+    if (open) { const l = title + ': ' + text; if (!open.lines.includes(l)) open.lines = open.lines.concat([l]).slice(-5); Engine.addLog(icon + ' ' + title + ' – ' + text, 'finance'); return; }
     gameState.alerts.unshift({ id: gameState.ui.alertSeq, week: gameState.calendar.week, icon, title, text, tone, top });   // top = widoczne także nad giełdą i scenkami
     gameState.alerts = gameState.alerts.slice(0, 4);
     Engine.addLog(icon + ' ' + title + ' – ' + text, 'finance');
@@ -5989,7 +6116,7 @@ const Engine = {
       L.taken.forEach((loan) => {
         const lender = DATA.lenders[loan.id];
         if (gameState.finance.budget < loan.rate) {
-          Engine.addScandal(lender.name + ' rozpowiada po wsi, że klub nie ma na raty');
+          Engine.addScandal(lender.name + ' rozpowiada po wsi, że klub nie ma na raty', true);
           if ((loan.penalties || 0) < 4) {   // utrata płynności: każda nieopłacona rata dokłada kolejną (odsetki karne)
             loan.penalties = (loan.penalties || 0) + 1;
             loan.remaining++;
@@ -6250,6 +6377,7 @@ const Selectors = {
   rebel: () => { const p = Selectors.starPlayer(); return !!(gameState.star.rebel && p && !p.benched); },
   starFee: (p) => Math.round(p.skill * 220 * Selectors.econ() / 10) * 10,
   calmCost: (p) => Math.round(p.skill * 80 * Selectors.econ() / 10) * 10,
+  transferBanned: () => { const b = gameState.transferBan; return !!(b && gameState.calendar.season > b.from && gameState.calendar.season <= b.until); },
   transferOffers: () => gameState.pendingDecisions.filter((id) => DATA.decisions[id] && DATA.decisions[id].transfer),
   // OVR 1–99: klasa zawodnika skorygowana o aktualną formę (noty z ostatnich meczów)
   // Skala: B-klasa ok. 43–61, Ekstraklasa ok. 72–90; krajowy sufit 92 – OVR 93–99 tylko dla gwiazd europejskich pucharów
@@ -6962,6 +7090,7 @@ const UI = {
   overlay() {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
+    if ((gameState.crisisQueue || []).length) return UI.crisisOverlay(gameState.crisisQueue[0]);   // kryzys zatrzymuje grę
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
     if (o && o.type === 'dirReport' && gameState.directorReport) return UI.directorReportOverlay(gameState.directorReport);
     if (o && o.type === 'poach' && gameState.poachReport) return UI.poachOverlay(gameState.poachReport);
@@ -7149,7 +7278,7 @@ const UI = {
           </div>
           <div class="rounded-lg bg-paper-200 px-2 py-1.5 mt-2 text-[12px]">📈 Potencjał: <b>${UI.potentialText(p)}</b>${growth ? '<span class="text-ink-700"> · ' + (t.open ? 'wypożyczenie da regularną grę i szybszy rozwój' : 'bez gry rośnie wolno') + '</span>' : ''}</div>
           <div class="grid grid-cols-4 gap-1.5 mt-2 text-center">
-            ${stat('Mecze', p.seasonApps)}${stat('Gole', p.seasonGoals)}${stat('W klubie', p.apps + ' m')}${stat('Gole kl.', p.goals)}
+            ${stat('Mecze', p.seasonApps)}${stat('Gole', p.seasonGoals)}${stat('Asysty', p.seasonAssists || 0)}${stat('Klub M/G/A', p.apps + '/' + p.goals + '/' + (p.assists || 0))}
           </div>
           <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · wartość: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b>'}</div>
         </div>
@@ -7193,7 +7322,7 @@ const UI = {
           ${UI.profileBadge(p.profile)}
         </div>
         <div class="grid grid-cols-4 gap-2 mt-2 text-center">
-          ${stat('Mecze', last ? ps.apps : p.seasonApps)}${stat('Gole', last ? ps.goals : p.seasonGoals)}${stat('Śr. nota', UI.ratingBadge(last ? ps.avg : Selectors.avgRating(p)))}${stat('Ost. mecz', UI.ratingBadge(p.lastRating))}
+          ${stat('Mecze', last ? ps.apps : p.seasonApps)}${stat('Gole / As.', (last ? ps.goals : p.seasonGoals) + ' / ' + ((last ? ps.assists : p.seasonAssists) || 0))}${stat('Śr. nota', UI.ratingBadge(last ? ps.avg : Selectors.avgRating(p)))}${stat('Ost. mecz', UI.ratingBadge(p.lastRating))}
         </div>
         <div class="text-[10.5px] ${sub} mt-1.5">Sezon ${last ? gameState.calendar.season - 1 + ' (zakończony)' : gameState.calendar.season} · w klubie: ${p.apps} m, ${p.goals} g${Selectors.careerRating(p) != null ? ', śr. ' + Selectors.ratingText(Selectors.careerRating(p)) : ''} · ${p.wage} zł/tydz.</div>
       </div>`;
@@ -7344,7 +7473,9 @@ const UI = {
     const offers = Selectors.transferOffers();
     const view = gameState.ui.transferView || 'buy';
     const budget = gameState.finance.budget;
-    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const banned = Selectors.transferBanned();
+    const full = gameState.squad.length >= CONFIG.maxSquad || banned;
+    const banNote = banned ? `<div class="rounded-xl bg-stamp/20 border border-stamp/50 px-3 py-2 mt-2 text-[12px] text-paper-100 leading-snug">⛔ <b>BAN TRANSFEROWY</b> – Związek zakazał rejestracji nowych zawodników (do sezonu ${gameState.transferBan.until}). Możesz tylko sprzedawać i wypożyczać swoich.</div>` : '';
     const folds = gameState.ui.folds || {};
     const seg = (v, label) => `<button data-action="transfer-view" data-value="${v}" class="btn-press flex-1 h-9 rounded-md text-[12px] truncate px-1 ${view === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`;
     const btn = (action, id, label, disabled, tone) => `<button data-action="${action}" data-id="${id}" ${disabled ? 'disabled' : ''}
@@ -7367,7 +7498,7 @@ const UI = {
         <div class="pb-2.5">
           <p class="text-[12px] italic text-paper-300 leading-snug">„${Utils.escape(p.trait)}”</p>
           <div class="grid grid-cols-4 gap-1 mt-1.5 text-center">
-            ${stat('Mecze', ps ? ps.apps : p.seasonApps)}${stat('Gole', ps ? ps.goals : p.seasonGoals)}${stat('Nota', ps ? Selectors.ratingText(ps.avg) : Selectors.ratingText(Selectors.avgRating(p)))}${stat('Pensja', p.wage + ' zł')}
+            ${stat('Mecze', ps ? ps.apps : p.seasonApps)}${stat('G / A', (ps ? ps.goals : p.seasonGoals) + ' / ' + ((ps ? ps.assists : p.seasonAssists) || 0))}${stat('Nota', ps ? Selectors.ratingText(ps.avg) : Selectors.ratingText(Selectors.avgRating(p)))}${stat('Pensja', p.wage + ' zł')}
           </div>
           <div class="flex justify-between gap-2 text-[11.5px] mt-1.5"><span class="text-paper-200">💰 ${p.loan && p.fee != null ? 'Opłata za wypożyczenie' : 'Cena rynkowa'}: <b class="text-paper-100">${Utils.formatMoney(p.fee != null ? p.fee : (p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)))}</b></span><span class="text-paper-400">OVR ${Selectors.ovr(p)}</span></div>
           ${(() => { const pc = Selectors.prosCons(p); return pc.pros.length || pc.cons.length ? `<div class="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -7400,11 +7531,11 @@ const UI = {
       }).join('') || '<p class="text-[12.5px] text-paper-400 py-2">Wszystkie oferty i żądania rozpatrzone.</p>');
     } else if (view === 'buy') {
       const beer = (p) => (Selectors.beerAllowed() ? btn('buy-beer', p.id, p.beerTried ? '🍺 już próbowano' : '🍺 Skrzynka i kiełbasa · ' + Math.round(Selectors.beerOdds(p).ok * 100) + '%', p.beerTried || full || budget < Selectors.beerCost(), 'bg-desk-700 text-paper-100 border border-desk-600') : '');
-      rows = (Selectors.beerAllowed() ? `<p class="text-[10.5px] text-paper-400 mt-1.5 leading-snug">🍺 Po prowincjonalnemu: skrzynka piwa i wiejska kiełbasa (${Utils.formatMoney(Selectors.beerCost())}) zamiast odstępnego. Może przejść… albo skończyć się aferą w mediach.</p>` : '')
+      rows = banNote + (Selectors.beerAllowed() ? `<p class="text-[10.5px] text-paper-400 mt-1.5 leading-snug">🍺 Po prowincjonalnemu: skrzynka piwa i wiejska kiełbasa (${Utils.formatMoney(Selectors.beerCost())}) zamiast odstępnego. Może przejść… albo skończyć się aferą w mediach.</p>` : '')
         + t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', beer(p) + btn('buy-transfer', p.id, 'Kup za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
         || '<p class="text-[12.5px] text-paper-400 py-2">Giełda pusta – wszyscy już kupieni.</p>';
     } else if (view === 'loan') {
-      rows = '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji, po sezonie wracają do siebie.</p>'
+      rows = banNote + '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji, po sezonie wracają do siebie.</p>'
         + (t.loanMarket.map((p) => card(p, Utils.formatMoney(p.fee), '🔁 ' + Utils.escape(p.loan.from), btn('loan-in', p.id, 'Wypożycz za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
         || '<p class="text-[12.5px] text-paper-400 py-2">Wszyscy chętni już wypożyczeni.</p>')
         + (gameState.loansOut.length ? `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-3">Nasi na wypożyczeniu</div>` + gameState.loansOut.map((l) => `<div class="text-[12px] py-1 text-paper-300">📤 ${Utils.escape(Selectors.playerName(l.player))} → ${Utils.escape(l.club)} (wraca po sezonie ${l.until})</div>`).join('') : '');
@@ -7440,24 +7571,59 @@ const UI = {
 
   // Raport Dyrektora Sportowego po zamknięciu okienka: kogo kupił i za ile
   directorReportOverlay(r) {
-    const rows = r.buys.map((b) => `
-      <div class="rounded-xl bg-desk-800 px-3 py-2 flex items-center gap-2">
+    const sells = r.sells || [], loans = r.loans || [];
+    const many = r.buys.length + sells.length + loans.length > 5;
+    const line = (b, sub, money, tone) => `
+      <div class="rounded-xl bg-desk-800 px-3 ${many ? 'py-1' : 'py-2'} flex items-center gap-2">
         <span class="inline-block min-w-[26px] px-1 rounded text-[11px] leading-[18px] font-extrabold text-center bg-ink-900 text-paper-100">${b.ovr}</span>
-        <div class="min-w-0 flex-1"><div class="text-[13.5px] font-bold truncate">${Utils.escape(b.name)}</div><div class="text-[11px] text-paper-400">${Utils.escape(b.pos)} · pensja ${b.wage} zł/tydz.</div></div>
-        <b class="text-[14px] text-amber-glow whitespace-nowrap">${Utils.formatMoney(b.fee)}</b>
-      </div>`).join('');
+        <div class="min-w-0 flex-1"><div class="text-[13px] font-bold truncate">${Utils.escape(b.name)}</div><div class="text-[10.5px] text-paper-400 truncate">${sub}</div></div>
+        <b class="text-[13.5px] ${tone} whitespace-nowrap">${money}</b>
+      </div>`;
+    const h = (t) => `<div class="text-[10px] uppercase tracking-wide text-paper-400 font-semibold mt-2 mb-1">${t}</div>`;
+    const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + ' · pensja ' + b.wage + ' zł/tydz.', Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
+      + (sells.length ? h('💸 Sprzedani') + sells.map((b) => line(b, Utils.escape(b.pos) + ' · ' + Utils.escape(b.why || ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '')
+      + (loans.length ? h('📤 Wypożyczeni na rozwój') + loans.map((b) => line(b, Utils.escape(b.pos) + (b.club ? ' → ' + Utils.escape(b.club) : ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '');
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-y-auto px-5 py-6 text-paper-100 flex flex-col justify-center">
         <div class="text-center text-[52px] leading-none">🧑‍💼</div>
         <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-3">Okno transferowe zamknięte</div>
         <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">Raport Dyrektora Sportowego</h2>
         <div class="text-center text-[12px] text-paper-400 mt-0.5">${Utils.escape(r.name)} · sezon ${r.season}</div>
-        <div class="space-y-1.5 mt-4">${rows || '<div class="rounded-xl bg-desk-800 px-3 py-3 text-center text-[13px] text-paper-300">„Prezesie, nie znalazłem nikogo wartego tych pieniędzy. Budżet nietknięty.”</div>'}</div>
-        ${r.buys.length ? `<div class="flex justify-between mt-3 px-1 text-[14px]"><span class="text-paper-300">Razem ${r.buys.length} ${r.buys.length === 1 ? 'zawodnik' : 'zawodników'}</span><b class="text-stamp">${Utils.signedMoney(-r.total)}</b></div>` : ''}
+        <div class="space-y-1 mt-2">${rows || '<div class="rounded-xl bg-desk-800 px-3 py-3 mt-2 text-center text-[13px] text-paper-300">„Prezesie, nie znalazłem nikogo wartego tych pieniędzy. Budżet nietknięty.”</div>'}</div>
+        ${rows ? `<div class="flex justify-between mt-3 px-1 text-[13.5px]"><span class="text-paper-300">Wydane ${Utils.formatMoney(r.total)} · wpływy ${Utils.formatMoney(r.income || 0)}</span><b class="${(r.income || 0) - r.total >= 0 ? 'text-grass' : 'text-stamp'}">${Utils.signedMoney((r.income || 0) - r.total)}</b></div>` : ''}
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
         <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">ZROZUMIAŁEM</button>
       </div>`, 'bg-[#0b0f16]');
+  },
+
+  // Komunikat kryzysowy na cały ekran – wymaga reakcji prezesa
+  crisisOverlay(c) {
+    const e = Selectors.econ();
+    const b = (v, label, sub, tone) => `<button data-action="crisis-answer" data-value="${v}" class="btn-press w-full rounded-xl ${tone} px-3 py-2.5 text-left"><div class="text-[14.5px] font-extrabold">${label}</div>${sub ? `<div class="text-[11px] opacity-80 leading-snug">${sub}</div>` : ''}</button>`;
+    const n = Math.min(3, c.lines.length);
+    const btns = c.kind === 'scandal'
+      ? b('apology', '📢 Oświadczenie i przeprosiny', 'Agencja PR: ' + Utils.formatMoney(Math.round(150 * e * n / 10) * 10) + ' · kibice +2% · DNA w górę', 'bg-amber-glow text-ink-900')
+        + b('attack', '⚔️ „To nagonka mediów!”', 'Szatnia +2%, kibice +1% · DNA w dół · sponsor notuje skandal', 'bg-desk-700 text-paper-100 border border-desk-600')
+        + b('silent', '🤐 Bez komentarza', 'Przeczekać burzę – bez kosztów', 'bg-desk-800 text-paper-300 border border-desk-600')
+      : c.kind === 'sponsor'
+        ? b('sponsor', '💼 Szukam nowego sponsora', 'Przejdź do Finanse → Sponsor', 'bg-amber-glow text-ink-900') + b('ok', 'Później', '', 'bg-desk-800 text-paper-300 border border-desk-600')
+        : b('ok', 'ZROZUMIAŁEM', '', 'bg-amber-glow text-ink-900 text-center');
+    const head = { scandal: 'Kryzys wizerunkowy', sponsor: 'Kryzys finansowy', verdict: 'Wydział Dyscypliny', stars: 'Kryzys w szatni' }[c.kind] || 'Kryzys';
+    return `
+    <div class="fixed inset-0 z-[95] flex justify-center bg-black/90">
+      <div class="ov-in w-full max-w-[480px] h-full flex flex-col bg-[#1a0b0d]" style="padding-bottom: env(safe-area-inset-bottom);">
+        <div class="h-1.5 flex-shrink-0 bg-[repeating-linear-gradient(45deg,#d23c3c_0_12px,#1a0b0d_12px_24px)]"></div>
+        <div class="flex-1 min-h-0 overflow-y-auto px-5 py-5 text-paper-100 flex flex-col justify-center">
+          <div class="text-center text-[56px] leading-none">${c.icon}</div>
+          <div class="text-center text-[10.5px] uppercase tracking-[0.25em] text-stamp font-bold mt-3">🚨 ${head} · tydzień ${c.week}</div>
+          <h2 class="text-center text-[24px] font-extrabold tracking-tight mt-1 text-white">${Utils.escape(c.title)}</h2>
+          <ul class="mt-4 space-y-1.5">${c.lines.map((l) => `<li class="rounded-xl bg-stamp/15 border border-stamp/40 px-3 py-2 text-[13px] leading-snug text-paper-100">${Utils.escape(l)}</li>`).join('')}</ul>
+          ${c.kind === 'scandal' ? `<p class="text-center text-[11.5px] text-paper-400 mt-3">Skandale w kartotece: <b class="text-paper-200">${gameState.club.scandals}</b> · sponsorzy i Związek patrzą. Jak reaguje Prezes?</p>` : ''}
+        </div>
+        <div class="flex-shrink-0 px-4 pb-4 pt-2 space-y-1.5">${btns}</div>
+      </div>
+    </div>`;
   },
 
   // Po okienku: inny klub podkradł niezabezpieczoną perełkę z akademii
@@ -8025,8 +8191,8 @@ const UI = {
   // Strzelcy i średnie noty naszej drużyny
   teamStatsCard() {
     const squad = gameState.squad;
-    const scorers = squad.filter((p) => p.seasonGoals > 0 || p.goals > 0)
-      .sort((a, b) => b.seasonGoals - a.seasonGoals || b.goals - a.goals).slice(0, 5);
+    const scorers = squad.filter((p) => p.seasonGoals > 0 || p.goals > 0 || (p.seasonAssists || 0) > 0)
+      .sort((a, b) => b.seasonGoals - a.seasonGoals || (b.seasonAssists || 0) - (a.seasonAssists || 0) || b.goals - a.goals).slice(0, 5);
     const rated = squad.filter((p) => Selectors.avgRating(p) != null)
       .sort((a, b) => Selectors.avgRating(b) - Selectors.avgRating(a) || b.seasonRatingCount - a.seasonRatingCount).slice(0, 5);
     const row = (i, p, right) => `
@@ -8036,15 +8202,15 @@ const UI = {
         ${right}
       </tr>`;
     const scorersHtml = scorers.length ? `<table class="w-full text-[12px]">
-        <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Sezon</th><th class="text-right pl-2">Kariera</th></tr>
-        ${scorers.map((p, i) => row(i, p, `<td class="py-1 text-right font-bold text-[13px]">${p.seasonGoals}</td><td class="py-1 text-right pl-2 text-ink-700">${p.goals}</td>`)).join('')}
+        <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Gole</th><th class="text-right pl-2">Asysty</th><th class="text-right pl-2">Kariera</th></tr>
+        ${scorers.map((p, i) => row(i, p, `<td class="py-1 text-right font-bold text-[13px]">${p.seasonGoals}</td><td class="py-1 text-right pl-2 font-semibold">${p.seasonAssists || 0}</td><td class="py-1 text-right pl-2 text-ink-700 whitespace-nowrap">${p.goals}/${p.assists || 0}</td>`)).join('')}
       </table>` : '<p class="text-[12px] text-ink-700">Nikt jeszcze nie strzelił. Napastnicy twierdzą, że to wina wiatru.</p>';
     const ratedHtml = rated.length ? `<table class="w-full text-[12px]">
         <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Zawodnik</th><th class="text-right">Mecze</th><th class="text-right pl-2">Śr. nota</th></tr>
         ${rated.map((p, i) => row(i, p, `<td class="py-1 text-right text-ink-700">${p.seasonRatingCount}</td><td class="py-1 text-right pl-2">${UI.ratingBadge(Selectors.avgRating(p))}</td>`)).join('')}
       </table>` : '<p class="text-[12px] text-ink-700">Brak not – sezon jeszcze się nie zaczął.</p>';
     return `<p class="text-[11px] text-paper-400 mb-1.5">Sezon ${gameState.calendar.season} · noty od 1.0 do 10.0 wystawia trener po każdym meczu</p>`
-      + UI.panel('⚽ Najlepsi strzelcy klubu', '', scorersHtml)
+      + UI.panel('⚽ Strzelcy i asystenci klubu', '', scorersHtml)
       + UI.panel('⭐ Najwyższa średnia ocen w sezonie', '', ratedHtml);
   },
 
@@ -8156,10 +8322,10 @@ const UI = {
     const sort = gameState.ui.squadSort || 'pos';
     const byPos = (a, b) => DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill;
     const squad = gameState.squad.slice().sort(
-      sort === 'goals' ? (a, b) => b.seasonGoals - a.seasonGoals || b.goals - a.goals || byPos(a, b)
+      sort === 'goals' ? (a, b) => (b.seasonGoals + (b.seasonAssists || 0)) - (a.seasonGoals + (a.seasonAssists || 0)) || b.seasonGoals - a.seasonGoals || byPos(a, b)
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
-    const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_20px_34px_28px] items-center gap-1';
+    const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
     const marks = (p) => (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
@@ -8172,6 +8338,7 @@ const UI = {
         <span class="text-center text-ink-700">${p.age}</span>
         <span class="text-center">${p.seasonApps}</span>
         <span class="text-center font-semibold">${p.seasonGoals}</span>
+        <span class="text-center">${p.seasonAssists || 0}</span>
         <span class="text-right">${UI.ratingBadge(Selectors.avgRating(p))}</span>
         <span class="text-right">${UI.ovrBadge(p)}</span>
       </button>`;
@@ -8184,10 +8351,10 @@ const UI = {
       UI.tile('Baza szatni', Selectors.lockerBaseline() + '%', 'legendy, sztab, bojler'),
     ], 4)
     + (gameState.transfer.open ? `<button data-action="open-transfer" class="btn-press w-full h-9 mb-2 rounded-lg bg-amber-glow text-ink-900 text-[13px] font-bold">🔁 Okno transferowe otwarte do 1. kolejki – wejdź</button>` : '')
-    + UI.segs('squad-sort', sort, [['xi', '⚽ Jedenastka'], ['pos', 'Pozycja'], ['goals', 'Gole'], ['rating', 'Nota']])
+    + UI.segs('squad-sort', sort, [['xi', '⚽ Jedenastka'], ['pos', 'Pozycja'], ['goals', 'G+A'], ['rating', 'Nota']])
     + (sort === 'xi' ? UI.lineupView(lineup, coach) : `<section class="paper overflow-hidden mb-1.5">
         <div class="${cols} h-6 px-1.5 border-l-[3px] border-l-transparent text-[9.5px] uppercase font-semibold text-ink-700 bg-paper-200">
-          <span></span><span>Zawodnik · ${DATA.styles[coach.style].label.toLowerCase()}</span><span class="text-center">Wiek</span><span class="text-center">M</span><span class="text-center">G</span><span class="text-right">Nota</span><span class="text-right">OVR</span>
+          <span></span><span>Zawodnik · ${DATA.styles[coach.style].label.toLowerCase()}</span><span class="text-center">Wiek</span><span class="text-center">M</span><span class="text-center">G</span><span class="text-center">A</span><span class="text-right">Nota</span><span class="text-right">OVR</span>
         </div>
         ${rows}
       </section>
@@ -8682,6 +8849,7 @@ const Actions = {
     } else gameState.ui.overlay = null;
     App.commit();
   },
+  'crisis-answer'(el) { Engine.crisisAnswer(el.dataset.value); App.commit(); },
   'pick-youth'(el) {
     Engine.pickYouth(el.dataset.id || null);
     gameState.ui.overlay = { type: 'youthDone' };
