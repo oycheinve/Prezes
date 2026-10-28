@@ -2504,6 +2504,13 @@ const DATA = {
           onChoose: () => { gameState.star.promised = gameState.calendar.season; const p = Selectors.starPlayer(); if (p) delete p.benched; gameState.star.rebel = false; },
         },
         {
+          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
+          hint: () => { const p = Selectors.starPlayer(); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.), forma i humor w dół, charakter utemperowany · szatnia dostaje nauczkę' + (p.favorite ? ' · kibice -4%' : '') : ''; },
+          effects: {},
+          log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”. ' + Selectors.playerName(p) + ' zabiera torbę bez słowa.' : 'Zesłanie bez zawodnika.'; },
+          onChoose: () => { const p = Selectors.starPlayer(); if (p) Engine.exileToU19(p, 'żądanie transferu'); },
+        },
+        {
           label: 'Zignorować – nie ma mowy, zostajesz',
           hint: 'Gwałtowny bunt w szatni: szatnia -8%, kryzys formy zespołu na 4 tygodnie, potem chemia -15 i słabsza gra, dopóki go nie sprzedasz albo nie uspokoisz',
           effects: { lockerRoom: -8 },
@@ -2541,6 +2548,13 @@ const DATA = {
             if (Math.random() < 0.6) { Engine.endStar(false); Engine.applyEffects({ lockerRoom: +5 }); Engine.addLog('🤝 ' + Selectors.playerName(p) + ' przyjął kopertę i znowu podaje piłkę kolegom. Koniec buntu. [szatnia +5%]', 'event'); }
             else Engine.addLog('😤 ' + Selectors.playerName(p) + ' schował kopertę do kieszeni i… dalej się buntuje.', 'event');
           },
+        },
+        {
+          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
+          hint: () => { const p = Selectors.starPlayer(); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.), forma i humor w dół, charakter utemperowany · szatnia dostaje nauczkę' + (p.favorite ? ' · kibice -4%' : '') : ''; },
+          effects: {},
+          log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”. ' + Selectors.playerName(p) + ' zabiera torbę bez słowa.' : 'Zesłanie bez zawodnika.'; },
+          onChoose: () => { const p = Selectors.starPlayer(); if (p) Engine.exileToU19(p, 'bunt w szatni'); },
         },
         {
           label: 'Przeczekać',
@@ -2645,6 +2659,13 @@ const DATA = {
             else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' odstawił butelkę: „Wolałbym przelew”. [szatnia -2%]', 'event'); }
             else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ': „Butelką mnie nie kupicie”. Wywiad dla mediów, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
+        },
+        {
+          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
+          hint: () => { const p = Selectors.callPlayer(); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.), forma i humor w dół, charakter utemperowany · szatnia dostaje nauczkę' + (p.favorite ? ' · kibice -4%' : '') : ''; },
+          effects: {},
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”. ' + Selectors.playerName(p) + ' zabiera torbę bez słowa.' : 'Zesłanie bez zawodnika.'; },
+          onChoose: () => { const p = Selectors.callPlayer(); if (p) Engine.exileToU19(p, 'awantura o podwyżkę'); },
         },
         {
           label: () => (gameState.club.leagueLevel >= 7 ? 'Szczerze: klubu na to nie stać' : 'Nie ma kasy. Klub to rodzina.'),
@@ -3693,7 +3714,7 @@ const Engine = {
   pickLineup(absentIds = []) {
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
-    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !(p.injured > 0) && !(p.suspended > 0));
+    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !p.exiled && !(p.injured > 0) && !(p.suspended > 0));
     // Obietnica dla „Naszych w Bawarii”: najmłodszy zawodnik musi grać
     const youngest = gameState.dda.youthPromise > 0 ? avail.slice().sort((a, b) => a.age - b.age)[0] : null;
     const score = (p) => {
@@ -4240,6 +4261,7 @@ const Engine = {
       }
     });
     Engine.settleLoans(summary);
+    Engine.endExiles(summary);
     // Zapowiedziane w sezonie odejścia (odmowa podwyżki) – dopiero teraz, między sezonami
     gameState.squad.filter((p) => p.wantsOut).forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
@@ -4405,7 +4427,8 @@ const Engine = {
     if (!u || !u.squad.length) return;
     const me = Selectors.u19Name();
     if (!u.table[me]) Engine.u19NewSeason();
-    const eleven = u.squad.slice().sort((a, b) => b.skill - a.skill).slice(0, 11);
+    const exiles = gameState.squad.filter((p) => p.exiled && !(p.injured > 0));   // zesłani seniorzy grają z juniorami
+    const eleven = exiles.concat(u.squad.slice().sort((a, b) => b.skill - a.skill)).slice(0, 11);
     const filler = Math.max(1, Selectors.academy().skill[0] + Selectors.levelSkillBonus() - 1);   // braki w składzie łata chłopak z rocznika
     const avg = (eleven.reduce((s, p) => s + p.skill, 0) + Math.max(0, 11 - eleven.length) * filler) / 11;
     const ourS = (0.45 + avg * 0.13) * (1 + Selectors.u19Lvl('coach') * 0.04);
@@ -5352,6 +5375,29 @@ const Engine = {
       } else {
         Engine.crisis('stars', '📉', 'GWIAZDY NIE CHCĄ GRAĆ NIŻEJ', '🤝 ' + name + ' zostaje mimo spadku: „Wrócimy razem, prezesie”.');
       }
+    });
+  },
+
+  // Kara dyscyplinarna: awanturnik do końca sezonu gra w U19 za pół pensji
+  exileToU19(p, reason) {
+    if (!p || p.exiled || p.loan) return;
+    p.exiled = { season: gameState.calendar.season, wage: p.wage, reason };
+    p.wage = Math.max(5, Math.round(p.wage / 2 / 5) * 5);   // presja płacowa z pierwszego zespołu zdjęta
+    p.temper = Math.max(0.05, (p.temper != null ? p.temper : 0.4) * 0.6);   // nauczka temperuje charakter
+    p.formHistory = (p.formHistory || []).concat([5, 5]).slice(-5);         // upokorzenie odbija się na formie
+    delete p.benched;
+    if (Math.random() < 0.6) delete p.wantsOut;                               // część buntowników po takiej lekcji zostaje
+    if (p.id === gameState.star.playerId) Engine.endStar(false);             // koniec buntu gwiazdy w pierwszej drużynie
+    Engine.applyEffects({ lockerRoom: +3, fans: p.favorite ? -4 : 0 });
+    Engine.addLog('⬇️ ' + Selectors.playerName(p) + ' zesłany do U19 do końca sezonu (' + reason + '). Pensja ' + p.wage + ' zł/tydz. Reszta szatni nagle bardzo grzeczna. [szatnia +3%' + (p.favorite ? ', kibice -4%' : '') + ']', 'decision');
+  },
+  // Koniec sezonu: zesłani wracają do pierwszej drużyny ze starą pensją
+  endExiles(summary) {
+    gameState.squad.filter((p) => p.exiled).forEach((p) => {
+      p.wage = p.exiled.wage;
+      delete p.exiled;
+      if (summary) summary.loanBack.push(Selectors.playerName(p) + ' ← U19 (koniec kary)');
+      Engine.addLog('⬆️ ' + Selectors.playerName(p) + ' wraca z karnego zesłania w U19. Pokorniejszy.', 'event');
     });
   },
 
@@ -8507,6 +8553,7 @@ const UI = {
     }).join('');
     return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
+      + (gameState.squad.some((p) => p.exiled) ? `<p class="text-[10.5px] text-amber-glow leading-snug truncate">⬇️ Zesłani karnie do końca sezonu: ${gameState.squad.filter((p) => p.exiled).map((p) => Utils.escape(Selectors.shortName(p))).join(', ')}</p>` : '')
       + ((gameState.u19Loans || []).length ? `<p class="text-[10.5px] text-paper-300 leading-snug truncate">📤 Na wypożyczeniu: ${gameState.u19Loans.map((l) => Utils.escape(Selectors.shortName(l.player)) + ' → ' + Utils.escape(l.club)).join(', ')}</p>` : '')
       + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Niezabezpieczone perełki mogą zostać podkradzione po okienku transferowym.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
   },
@@ -8873,7 +8920,7 @@ const UI = {
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
     const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
-    const marks = (p) => (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '');
+    const marks = (p) => (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
     const rows = squad.map((p) => {
