@@ -862,6 +862,50 @@ const DATA = {
     vip:        { group: 'fans', label: 'Loża VIP dla sponsorów', cost: 25000, promo: 8, attendance: 1.05, desc: 'Fotele, catering i widok na całe boisko. Najlepsi sponsorzy pytają o nią najpierw.' },
   },
 
+  // 13.70: nazwy i opisy ulepszeń zależne od szczebla: [amatorski B-klasa–okręgówka/V liga, półzawodowy IV–III liga, zawodowy II liga–Ekstraklasa]
+  // ref – szczebel, dla którego cena bazowa jest „naturalna” (niżej taniej, wyżej drożej)
+  upgradeFlavor: {
+    roller:     { ref: 1, l: ['Walec od rolnika Kazika – równanie kretowisk', 'Kosiarka samojezdna i wał do murawy', 'Park maszyn greenkeepera'],
+                  d: ['Kazik pożycza walec za flaszkę, a chłopaki równają kretowiska grabiami.', 'Prawdziwa kosiarka i wał – murawa wreszcie płaska jak stół.', 'Aeracja, piaskowanie i koszenie w szachownicę jak na Wembley.'], fx: '+30 stanu murawy i szybsza regeneracja co tydzień.' },
+    boiler:     { ref: 1, l: ['Bojler 80 l z marketu', 'Kocioł gazowy i natryski w szatni', 'Szatnia z centralną ciepłą wodą i hydromasażem'],
+                  d: ['Ciepła woda w blaszaku! Koniec z kąpielą w misce.', 'Sześć natrysków i woda, która nie kończy się po trzecim zawodniku.', 'Szatnia jak w hotelu: hydromasaż, sauna, ręczniki z herbem.'], fx: 'Szatnia +8% od razu, bazowy nastrój +10 pkt.' },
+    roof:       { l: ['Wiata z blachy falistej na 30 krzesełek', 'Zadaszenie nad jedną trybuną', 'Pełne zadaszenie trybun z membraną'],
+                  d: ['Blacha od szwagra, słupki z rur kanalizacyjnych.', 'Prawdziwe zadaszenie nad trybuną główną – kibice nie mokną.', 'Membrana nad wszystkimi trybunami, akustyka jak w kotle.'], fx: 'Mniejszy spadek frekwencji w deszcz.' },
+    lights:     { l: ['Oświetlenie z demobilu (4 maszty)', 'Maszty oświetleniowe 800 lx', 'Oświetlenie LED pod transmisje HD'],
+                  d: ['Maszty po starym lotnisku wojskowym. Rachunek za prąd pani Halinka ukrywa.', 'Cztery maszty z certyfikatem – mecze przy sztucznym świetle bez wstydu.', 'LED-y 2000 lx z pokazami świetlnymi przed meczem.'], fx: 'Mecze wieczorem, +10% widzów.' },
+    stand:      { l: ['Trybuna z desek na 500 osób', 'Betonowe ławki dla kibiców (500 miejsc)', 'Nowoczesna trybuna z krzesełkami i skyboxem'],
+                  d: ['Deski z tartaku, gwoździe z Castoramy. Trzyma (chyba).', 'Betonowe stopnie i plastikowe siedziska w barwach klubu.', 'Trybuna z krzesełkami, skyboxem i windą dla prezesa.'], fx: '+20% widzów.' },
+    var:        { l: ['Kolega z telefonem na drabinie (powtórki)', 'Wóz z powtórkami i monitor przy linii', 'System VAR i profesjonalne studio telewizyjne'],
+                  d: ['Nagrywa całe mecze w pionie. Sędzia i tak nie chce oglądać.', 'Wóz z powtórkami, monitor przy linii i sędzia w słuchawkach.', 'Pełny VAR z wozem transmisyjnym i studiem pomeczowym.'], fx: 'Od I ligi obowiązkowy – bez niego Związek nie da licencji na awans.' },
+    monitoring: { l: ['Pan Józek z latarką przy bramie', 'Kamery przemysłowe i kołowrotki', 'Monitoring z rozpoznawaniem twarzy i bramki obrotowe'],
+                  d: ['Zna każdego kibica z imienia, a zadymiarzy z nazwiska.', 'Kamery, kołowrotki, identyfikatory – zadym coraz mniej.', 'Centrum dowodzenia z setką kamer i elektronicznymi biletami.'], fx: '+10% widzów (lubią czuć się ważni).' },
+    toilets:    { ref: 1, l: ['Toi-toi ×4 zamiast krzaków', 'Murowane toalety przy trybunie', 'Sanitariaty z ciepłą wodą w całym obiekcie'],
+                  d: ['Koniec z biegami w pokrzywy.', 'Kafelki, umywalki i mydło w dozowniku.', 'Toalety w każdym sektorze, przewijaki i suszarki.'], fx: 'Rodziny z dziećmi przychodzą chętniej.' },
+    parking:    { ref: 2, l: ['Parking z tłucznia za stodołą', 'Utwardzony parking na 150 aut', 'Parking wielopoziomowy i strefa autokarów'],
+                  d: ['Nikt już nie grzęźnie w błocie pod sklepem.', 'Asfalt, pasy i pan parkingowy w kamizelce.', 'Parking na tysiące aut, autokary gości z osobnym wjazdem.'], fx: '+5% widzów.' },
+    kiosk:      { ref: 2, l: ['Blaszana budka z kiełbaskami u Szwagra', 'Rozbudowa food trucka i murowany kiosk', 'Strefa gastro z cateringiem premium'],
+                  d: ['Grill na kółkach, lodówka i okienko z firanką.', 'Food truck z frytkownicą i murowany kiosk przy wejściu.', 'Kilka punktów gastro, kraftowe piwo i catering na lożach.'], fx: 'Budka sprzedaje o 25% więcej.' },
+    scoreboard: { ref: 3, l: ['Tablica wyników z cyfr na gwoździach', 'Elektroniczna tablica wyników', 'Telebim LED nad trybuną'],
+                  d: ['Chłopak z rocznika 2012 zmienia cyfry na gwoździach.', 'Świecące cyfry i zegar meczu – wygląda poważnie.', 'Telebim z powtórkami i reklamami sponsorów.'], fx: 'Sponsorzy to lubią, sklepik sprzedaje o 10% więcej.' },
+    gym:        { ref: 3, l: ['Siłownia w kontenerze', 'Siłownia z prawdziwym sprzętem', 'Centrum przygotowania motorycznego'],
+                  d: ['Sztangi z odzysku i lustro z demobilu.', 'Atlas, bieżnie i trener przygotowania na pół etatu.', 'Kriokomora, testy wydolnościowe i trenerzy motoryczni.'], fx: 'Szatnia bazowo +4%.' },
+    shop:       { ref: 3, l: ['Kartony z szalikami w szatni', 'Sklep klubowy z witryną', 'Nowoczesny sklep fanshop w galerii'],
+                  d: ['Pani Halinka sprzedaje szaliki z kartonu po bananach.', 'Gadżety za szybą zamiast w kartonie.', 'Fanshop w galerii handlowej i sklep internetowy.'], fx: 'Sklepik sprzedaje o 30% więcej.' },
+    clubhouse:  { ref: 3, l: ['Świetlica klubowa z telewizorem', 'Klubowa kawiarnia przy trybunie', 'Klubowa restauracja z tarasem'],
+                  d: ['Wspólne oglądanie Ligi Mistrzów i kanapa z IKEI.', 'Kawa, ciasto od Koła Gospodyń i telewizor na ścianie.', 'Restauracja z widokiem na murawę i salą konferencyjną.'], fx: 'Szatnia bazowo +5%.' },
+    irrigation: { ref: 3, l: ['Wąż ogrodowy i beczka na deszczówkę', 'Zraszacze na czujniku', 'Podgrzewana murawa z automatycznym nawadnianiem'],
+                  d: ['Pan Heniek podlewa boisko wieczorami z węża.', 'Zraszacze włączają się same o świcie.', 'Podgrzewanie i nawadnianie sterowane z tabletu.'], fx: 'Murawa odrasta szybciej co tydzień.' },
+    training:   { ref: 4, l: ['Łatanie dziur w płocie boiska treningowego', 'Boisko treningowe ze sztuczną trawą', 'Hybrydowa baza treningowa'],
+                  d: ['Treningi na łące za płotem, który wreszcie nie przepuszcza krów.', 'Sztuczna trawa i lampy – treningi w każdą pogodę.', 'Kilka boisk z murawą hybrydową, odnowa i analiza wideo.'], fx: 'Główna płyta odpoczywa, szatnia +3%.' },
+    academyHall:{ ref: 4, l: ['Balon pneumatyczny dla szkółki', 'Hala sportowa dla szkółki', 'Kryte centrum szkolenia młodzieży'],
+                  d: ['Dmuchany balon nad orlikiem – zimą dzieciaki nie biegają po śniegu.', 'Prawdziwa hala z parkietem i szatniami dla roczników.', 'Kryte boisko pełnowymiarowe i internat dla talentów.'], fx: 'Gmina dumna, sponsorzy zachwyceni.' },
+    tvcams:     { ref: 3, l: ['Wypożyczenie polowej kamery VHS', 'Podesty i 4 stanowiska kamer TV', 'Profesjonalny wóz transmisyjny i 12 kamer'],
+                  d: ['Kamera z wesela kuzyna na statywie z miotły.', 'Podesty, okablowanie i realizator z lokalnej telewizji.', 'Realizacja jak w Canal+: kamery na szynach i dron.'], fx: 'Po każdym meczu pieniądze za prawa TV – im wyższa liga, tym więcej.' },
+    vip:        { ref: 5, l: ['Ławka z poduszką dla wójta i sponsora', 'Loża dla sponsorów z kawą', 'Strefa VIP i catering premium'],
+                  d: ['Poduszka z herbem i termos z kawą.', 'Zamknięta loża, ekspres do kawy i widok na całe boisko.', 'Loże biznesowe, hostessy i catering z restauracji.'], fx: 'Najlepsi sponsorzy pytają o nią najpierw.' },
+  },
+  academyRef: [0, 1, 2, 4, 6, 8],   // szczebel „naturalny” dla poziomów szkółki
+
   // Zwykłe komunikaty tygodniowe. effects opcjonalne.
   weeklyFlavor: [
     { text: 'Pan Heniek skosił boisko kosiarką od szwagra. Wyszło w paski, ale tylko z jednej strony.' },
@@ -5435,7 +5479,7 @@ const Engine = {
       const owned = Object.keys(gameState.stadium.upgrades).filter((k) => gameState.stadium.upgrades[k]);
       if (owned.length && Math.random() < 0.35) {
         const id = Utils.rand(owned);
-        const u = DATA.upgrades[id];
+        const u = { label: Selectors.upgradeLabel(id), cost: Selectors.upgradeCost(id, true) };
         gameState.stadium.upgrades[id] = false;
         Engine.money('Licytacja komornicza: ' + u.label, Math.round(u.cost * 0.3));
         if (id === 'boiler') Engine.applyEffects({ lockerRoom: -8 });
@@ -6184,8 +6228,9 @@ const Engine = {
     const A = gameState.academy;
     if (A.building) return;
     const next = DATA.academyLevels[Selectors.academyLevel() + 1];
-    if (!next || gameState.finance.budget < next.cost) return;
-    Engine.money('Szkółka (budowa): ' + next.name, -next.cost);
+    const cost = Selectors.academyCost(Selectors.academyLevel() + 1);
+    if (!next || gameState.finance.budget < cost) return;
+    Engine.money('Szkółka (budowa): ' + next.name, -cost);
     A.building = { level: Selectors.academyLevel() + 1, ready: gameState.calendar.week + (next.weeks || 4) };
     Engine.addLog('🏗️ Ruszyła rozbudowa szkółki: ' + next.name + '. Potrwa ok. ' + (next.weeks || 4) + ' tyg.', 'finance');
   },
@@ -6848,8 +6893,9 @@ const Engine = {
   buildStadium() {
     const st = gameState.stadium;
     const next = DATA.stadiumLevels[(st.level || 0) + 1];
-    if (!next || gameState.finance.budget < next.cost) return;
-    Engine.money('Rozbudowa stadionu: ' + next.name, -next.cost);
+    const cost = next && Selectors.stadiumCost((st.level || 0) + 1);
+    if (!next || gameState.finance.budget < cost) return;
+    Engine.money('Rozbudowa stadionu: ' + next.name, -cost);
     st.level = (st.level || 0) + 1;
     Engine.applyEffects({ fans: +4 });
     Engine.addLog('🏗️ Rozbudowa stadionu: ' + next.name + ' (' + next.capacity + ' miejsc). Wójt przeciął wstęgę nożyczkami z sekretariatu. [kibice +4%]', 'finance');
@@ -6859,22 +6905,26 @@ const Engine = {
     const st = gameState.stadium;
     if (!st.tiers) st.tiers = {};
     const next = (DATA.upgradeTiers[id] || [])[Selectors.upgradeTier(id)];
-    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < next.cost) return;
-    Engine.money('Modernizacja: ' + next.label, -next.cost);
+    const cost = next && Selectors.tierCost(next);
+    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < cost) return;
+    Engine.money('Modernizacja: ' + next.label, -cost);
     st.tiers[id] = Selectors.upgradeTier(id) + 1;
     if (next.lockerBase) Engine.applyEffects({ lockerRoom: +3 });
-    Engine.addLog('🏗️ Modernizacja: ' + DATA.upgrades[id].label + ' → ' + next.label + ' (' + Utils.formatMoney(next.cost) + ').', 'finance');
+    Engine.addLog('🏗️ Modernizacja: ' + Selectors.upgradeLabel(id) + ' → ' + next.label + ' (' + Utils.formatMoney(cost) + ').', 'finance');
   },
 
   buyUpgrade(id) {
     const u = DATA.upgrades[id];
     const cost = Selectors.upgradeCost(id);
     if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost) return;
-    Engine.money('Inwestycja: ' + u.label, -cost);
+    const label = Selectors.upgradeLabel(id, Selectors.band());
+    Engine.money('Inwestycja: ' + label, -cost);
     gameState.stadium.upgrades[id] = true;
+    if (!gameState.stadium.upgradeBand) gameState.stadium.upgradeBand = {};
+    gameState.stadium.upgradeBand[id] = Selectors.band();   // obiekt zapamiętuje, w jakich realiach go zbudowano
     if (id === 'roller') gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 30, 0, 100);
     if (id === 'boiler') Engine.applyEffects({ lockerRoom: +8 });
-    Engine.addLog('🔧 Inwestycja: ' + u.label + ' (' + Utils.formatMoney(cost) + '). Pan Heniek mówi, że „takiego luksusu tu nie było od Gierka”.', 'finance');
+    Engine.addLog('🔧 Inwestycja: ' + label + ' (' + Utils.formatMoney(cost) + '). Pan Heniek mówi, że „takiego luksusu tu nie było od Gierka”.', 'finance');
   },
 
   // Hooki wykonywane po kliknięciu [NASTĘPNY TYDZIEŃ], po kolei.
@@ -7168,7 +7218,7 @@ const Selectors = {
     }
     Object.keys(DATA.upgrades).forEach((id) => {
       const u = DATA.upgrades[id];
-      if (u.licenseLevel && level >= u.licenseLevel && !up[id]) miss.push(u.label);
+      if (u.licenseLevel && level >= u.licenseLevel && !up[id]) miss.push(Selectors.upgradeLabel(id));
     });
     if (!skipCoach && !Selectors.coachLicenseOk(level)) miss.push('Trener z licencją ' + DATA.coachLicenses[Selectors.coachLicenseReq(level)]);
     const needCap = DATA.licenseCapacity[level] || 0;
@@ -7275,7 +7325,21 @@ const Selectors = {
   colorsNick: () => (Selectors.colors() ? Selectors.colors().nick : ''),
   defaultStadium: (town) => 'Boisko Gminne przy Remizie' + (town ? ' w ' + town : ''),
   stadiumCapacity: () => DATA.stadiumLevels[gameState.stadium.level || 0].capacity,
-  upgradeCost: (id) => Math.round(DATA.upgrades[id].cost * (id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),
+  // 13.70: ceny ulepszeń rosną z rangą ligi: (współczynnik ligi / współczynnik szczebla bazowego)^0.7, w widełkach 0,5–12×
+  costScale: (ref = 1, lvl = gameState.club.leagueLevel) => { const now = (DATA.leagueLevels[lvl] || DATA.leagueLevels[1]).econ, base = (DATA.leagueLevels[ref] || DATA.leagueLevels[1]).econ; return Utils.clamp(Math.pow(now / base, 0.7), 0.5, 12); },
+  niceCost: (v) => { const step = v >= 100000 ? 5000 : v >= 20000 ? 1000 : v >= 5000 ? 500 : v >= 1000 ? 100 : 10; return Math.max(step, Math.round(v / step) * step); },
+  scaledCost: (base, ref) => Selectors.niceCost(base * Selectors.costScale(ref)),
+  upgradeRef: (id) => { const u = DATA.upgrades[id], f = DATA.upgradeFlavor[id]; return (f && f.ref) || u.licenseLevel || 1; },
+  upgradeCost: (id, noDiscount) => Selectors.niceCost(Selectors.scaledCost(DATA.upgrades[id].cost, Selectors.upgradeRef(id)) * (!noDiscount && id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),
+  tierCost: (t) => Selectors.scaledCost(t.cost, t.minLevel || 1),
+  stadiumRef: (i) => { const k = DATA.licenseCapacity.findIndex((c) => c >= i); return k > 0 ? k : 8; },
+  stadiumCost: (i) => Selectors.scaledCost(DATA.stadiumLevels[i].cost, Selectors.stadiumRef(i)),
+  academyCost: (i) => Selectors.scaledCost(DATA.academyLevels[i].cost, DATA.academyRef[i] || 1),
+  // Szczebel opisów: 0 – amatorski (B-klasa–V liga), 1 – półzawodowy (IV–III liga), 2 – zawodowy (II liga–Ekstraklasa)
+  band: (lvl = gameState.club.leagueLevel) => (lvl >= 6 ? 2 : lvl >= 4 ? 1 : 0),
+  upgradeBandOf: (id) => { const b = (gameState.stadium.upgradeBand || {})[id]; return gameState.stadium.upgrades[id] && b != null ? b : Selectors.band(); },
+  upgradeLabel: (id, b = Selectors.upgradeBandOf(id)) => { const f = DATA.upgradeFlavor[id]; return f ? f.l[b] : DATA.upgrades[id].label; },
+  upgradeDesc: (id, b = Selectors.upgradeBandOf(id)) => { const f = DATA.upgradeFlavor[id]; return f ? f.d[b] + ' ' + f.fx : DATA.upgrades[id].desc; },
   // Nazwa klubu z formularza: przedrostek (z listy albo własny) + miejscowość
   formClubName: (f) => [(f.prefix === 'custom' ? f.customPrefix : f.prefix).trim(), f.town.trim()].filter(Boolean).join(' '),
   youthLevel: () => Math.min(DATA.youthLevels.length - 1, Math.round(Selectors.academyLevel() * 0.7)),
@@ -9182,9 +9246,9 @@ const UI = {
     if (view === 'base') {
       const folds = gameState.ui.folds || {};
       const al = Selectors.academyLevel();
-      const baseRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(a.cost)}</span>`,
+      const baseRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.academyCost(i))}</span>`,
         'nabór ' + a.cands + '/sezon · sufit +' + a.room + ' · 💎 ' + Math.round(a.talent * 100) + '% · budowa ' + (a.weeks || 0) + ' tyg.',
-        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', budget < a.cost)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', budget < Selectors.academyCost(i))) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
       const staffGroup = (role, title, effect) => {
         const cur = u[role];
         const rows = DATA.u19Staff[role].map((c, i) => c.level > Selectors.staffCap('u19') ? '' : UI.row(Utils.escape(c.name), 'poziom ' + c.level + ' · ' + Utils.formatMoney(Math.round(c.wage * Selectors.econ())) + '/tydz.',
@@ -10043,10 +10107,10 @@ const UI = {
       const next = owned ? (DATA.upgradeTiers[id] || [])[tier] : null;
       const tierName = tier ? (DATA.upgradeTiers[id][tier - 1].label) : '';
       const action = !owned ? UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))
-        : next ? (gameState.club.leagueLevel >= next.minLevel ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(next.cost), gameState.finance.budget < next.cost) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
+        : next ? (gameState.club.leagueLevel >= next.minLevel ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(Selectors.tierCost(next)), gameState.finance.budget < Selectors.tierCost(next)) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
         : '<span class="text-[11px] font-bold text-grass">MAX</span>';
-      return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(tier ? tierName : u.label)} <span class="font-normal text-ink-700">${owned ? (tier ? '· poz. ' + (tier + 1) : '') : '– ' + Utils.formatMoney(Selectors.upgradeCost(id)) + (Selectors.upgradeCost(id) < u.cost ? ' (rabat Kółka Rolniczego)' : '')}</span>`,
-        (next ? 'Dalej: <b>' + Utils.escape(next.label) + '</b>' : Utils.escape(u.desc)) + lic,
+      return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(tier ? tierName : Selectors.upgradeLabel(id))} <span class="font-normal text-ink-700">${owned ? (tier ? '· poz. ' + (tier + 1) : '') : '– ' + Utils.formatMoney(Selectors.upgradeCost(id)) + (Selectors.upgradeCost(id) < Selectors.upgradeCost(id, true) ? ' (rabat Kółka Rolniczego)' : '')}</span>`,
+        (next ? 'Dalej: <b>' + Utils.escape(next.label) + '</b>' : Utils.escape(Selectors.upgradeDesc(id))) + lic,
         action, '', true);
     };
     const group = (key, title, list, note) => {
@@ -10066,9 +10130,9 @@ const UI = {
     const teamList = all.filter(([, u]) => u.group === 'team');
     const anyOpen = ['st-build', 'st-youth', 'st-lic', 'st-fans', 'st-team'].some((k) => folds[k]);
     const al = Selectors.academyLevel();
-    const youthRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(a.cost)}</span>`,
+    const youthRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.academyCost(i))}</span>`,
       a.cands + ' kandydatów na selekcji · sufit +' + a.room + ' · szansa na 💎 ' + Math.round(a.talent * 100) + '%',
-      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < a.cost)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < Selectors.academyCost(i))) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
     const youthGroup = `
       <details data-fold="st-youth" class="mt-1.5" ${folds['st-youth'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
@@ -10078,9 +10142,9 @@ const UI = {
       </details>`;
     const lv = st.level || 0, nextLv = DATA.stadiumLevels[lv + 1];
     const needNext = DATA.licenseCapacity[Selectors.nextLevel()] || 0;
-    const buildRows = DATA.stadiumLevels.map((s, i) => i === 0 ? '' : UI.row(`${i <= lv ? '✅ ' : ''}${Utils.escape(s.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(s.cost)}</span>`,
+    const buildRows = DATA.stadiumLevels.map((s, i) => i === 0 ? '' : UI.row(`${i <= lv ? '✅ ' : ''}${Utils.escape(s.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.stadiumCost(i))}</span>`,
       s.capacity + ' miejsc' + (DATA.licenseCapacity.indexOf(i) > 0 ? ' · 📋 wymóg od ligi ' + DATA.leagueLevels[DATA.licenseCapacity.indexOf(i)].name : ''),
-      i <= lv ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === lv + 1 ? UI.smallBtn('build-stadium', '', 'Buduj', gameState.finance.budget < s.cost) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      i <= lv ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === lv + 1 ? UI.smallBtn('build-stadium', '', 'Buduj', gameState.finance.budget < Selectors.stadiumCost(i)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
     const buildGroup = `
       <details data-fold="st-build" class="mt-1.5" ${folds['st-build'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
@@ -10094,7 +10158,7 @@ const UI = {
       ${anyOpen ? '' : UI.bar(st.pitch, pitchColor)}
       ${anyOpen ? '' : `<p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
       <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
-      ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(nextLv.cost) + ')' : ''}</p>`}
+      ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
       ${buildGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
       ${group('st-fans', '🏟️ Rozbudowa: dla kibiców', fansList, '')}
