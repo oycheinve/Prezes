@@ -1175,7 +1175,7 @@ const DATA = {
       cutscene: { icon: '🧳', place: 'Przystanek autobusowy · świt' },
       from: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return p ? Selectors.playerName(p) : 'Zawodnik'; },
       title: 'Wyjazd na saksy do Niemiec',
-      body: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return (p ? '„' + p.nick + '”' : 'Zawodnik') + ' stoi z walizką na przystanku: „Prezesie, w Niemczech na budowie płacą 10 razy tyle. Jadę na pół roku. Chyba że…”'; },
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return (p ? Selectors.nickQ(p) : 'Zawodnik') + ' stoi z walizką na przystanku: „Prezesie, w Niemczech na budowie płacą 10 razy tyle. Jadę na pół roku. Chyba że…”'; },
       options: [
         {
           label: 'Dorzucić do pensji, żeby został',
@@ -1189,7 +1189,7 @@ const DATA = {
           hint: () => { const o = Selectors.foodOdds('salceson'); return Math.round(o.ok * 100) + '% że zostanie, inaczej afera'; },
           effects: {},
           log: 'Prezes rozłożył na ławce przystanku salceson i butelkę od szwagra.',
-          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (Engine.foodDeal('salceson', p ? '„' + p.nick + '”' : 'Zawodnik', p, true) !== 'ok' && p) { p.injured = Math.max(p.injured || 0, 6); Engine.addLog('🧳 „' + p.nick + '” i tak wsiadł do autobusu. Wróci za 6 tygodni.', 'event'); } },
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (Engine.foodDeal('salceson', p ? Selectors.nickQ(p) : 'Zawodnik', p, true) !== 'ok' && p) { p.injured = Math.max(p.injured || 0, 6); Engine.addLog('🧳 ' + Selectors.nickQ(p) + ' i tak wsiadł do autobusu. Wróci za 6 tygodni.', 'event'); } },
         },
         {
           label: 'Puścić go – wróci, jak wróci',
@@ -2355,7 +2355,7 @@ const DATA = {
       cutscene: { icon: '🎓', place: 'Gabinet prezesa · koniec sezonu', scripted: true },
       player: () => (gameState.u19 && gameState.u19.graduates[0]) || null,
       from: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? Selectors.u19Name() + ' · ' + p.age + ' lat' : 'Akademia'; },
-      title: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? '„' + p.nick + '” kończy 19 lat' : 'Junior kończy 19 lat'; },
+      title: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? Selectors.nickQ(p) + ' kończy 19 lat' : 'Junior kończy 19 lat'; },
       body: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Trener juniorów kładzie na biurku teczkę: „' + Selectors.playerName(p) + ' wyrasta z U19. ' + (p.talent ? 'To perełka – szkoda by było go stracić. ' : '') + 'Albo dajemy mu kontrakt w pierwszej drużynie, albo musi szukać klubu.” ➕ ' + p.youthPro + ' · ➖ ' + p.youthCon : ''; },
       options: [
         {
@@ -2500,9 +2500,9 @@ const DATA = {
       from: () => {
         const p = Selectors.callPlayer(), c = gameState.calls;
         if (!p) return 'Telefon z szatni';
-        return c.caller === 'partner' ? c.callerName + ' zawodnika ' + p.first + ' „' + p.nick + '”' : Selectors.playerName(p) + ' (telefon o 23:40)';
+        return c.caller === 'partner' ? c.callerName + ' zawodnika ' + Selectors.playerName(p) : Selectors.playerName(p) + ' (telefon o 23:40)';
       },
-      title: () => { const p = Selectors.callPlayer(); return p ? '„' + p.nick + '” chce podwyżki' : 'Telefon z szatni'; },
+      title: () => { const p = Selectors.callPlayer(); return p ? Selectors.nickQ(p) + ' chce podwyżki' : 'Telefon z szatni'; },
       body: () => {
         const p = Selectors.callPlayer(), c = gameState.calls;
         if (!p) return 'Rozmówca się rozłączył.';
@@ -2523,13 +2523,13 @@ const DATA = {
           label: () => DATA.foods.piwo.icon + ' ' + DATA.foods.piwo.label,
           hint: () => { const o = Selectors.foodOdds('piwo', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('piwo')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +4%), czasem afera'; },
           effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje „' + p.nick + '” zamiast podwyżki: ' + DATA.foods.piwo.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.piwo.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('piwo', '„' + p.nick + '”', p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +4 }); Engine.addLog(DATA.foods.piwo.icon + ' „' + p.nick + '” machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 „' + p.nick + '” wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '” opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
+            const res = Engine.foodDeal('piwo', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +4 }); Engine.addLog(DATA.foods.piwo.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2537,13 +2537,13 @@ const DATA = {
           label: () => DATA.foods.salceson.icon + ' ' + DATA.foods.salceson.label,
           hint: () => { const o = Selectors.foodOdds('salceson', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('salceson')) + ' · ' + Math.round(o.ok * 100) + '% sukces (forma w górę), czasem afera'; },
           effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje „' + p.nick + '” zamiast podwyżki: ' + DATA.foods.salceson.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.salceson.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('salceson', '„' + p.nick + '”', p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); p.formHistory = (p.formHistory || []).concat([7.5]).slice(-5); Engine.addLog(DATA.foods.salceson.icon + ' „' + p.nick + '” machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 „' + p.nick + '” wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '” opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
+            const res = Engine.foodDeal('salceson', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); p.formHistory = (p.formHistory || []).concat([7.5]).slice(-5); Engine.addLog(DATA.foods.salceson.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2551,13 +2551,13 @@ const DATA = {
           label: () => DATA.foods.golonka.icon + ' ' + DATA.foods.golonka.label,
           hint: () => { const o = Selectors.foodOdds('golonka', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('golonka')) + ' · ' + Math.round(o.ok * 100) + '% sukces (lojalny na sezon), czasem afera'; },
           effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje „' + p.nick + '” zamiast podwyżki: ' + DATA.foods.golonka.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.golonka.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('golonka', '„' + p.nick + '”', p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +6 }); p.loyalUntil = gameState.calendar.season; Engine.addLog(DATA.foods.golonka.icon + ' „' + p.nick + '” machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 „' + p.nick + '” wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '” opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
+            const res = Engine.foodDeal('golonka', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +6 }); p.loyalUntil = gameState.calendar.season; Engine.addLog(DATA.foods.golonka.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2565,13 +2565,13 @@ const DATA = {
           label: () => DATA.foods.smalec.icon + ' ' + DATA.foods.smalec.label,
           hint: () => { const o = Selectors.foodOdds('smalec', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('smalec')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +2%), czasem afera'; },
           effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje „' + p.nick + '” zamiast podwyżki: ' + DATA.foods.smalec.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.smalec.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('smalec', '„' + p.nick + '”', p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +2 }); Engine.addLog(DATA.foods.smalec.icon + ' „' + p.nick + '” machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 „' + p.nick + '” wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '” opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
+            const res = Engine.foodDeal('smalec', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +2 }); Engine.addLog(DATA.foods.smalec.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2579,13 +2579,13 @@ const DATA = {
           label: () => DATA.foods.whisky.icon + ' ' + DATA.foods.whisky.label,
           hint: () => { const o = Selectors.foodOdds('whisky', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('whisky')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +3%), czasem afera'; },
           effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes wręcza „' + p.nick + '” butelkę whisky w drewnianym pudełku.' : 'Whisky bez adresata.'; },
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes wręcza ' + Selectors.nickQ(p) + ' butelkę whisky w drewnianym pudełku.' : 'Whisky bez adresata.'; },
           onChoose: () => {
             const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('whisky', '„' + p.nick + '”', p, true);
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); Engine.addLog('🥃 „' + p.nick + '” przyjął whisky i odpuścił podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 „' + p.nick + '” odstawił butelkę: „Wolałbym przelew”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 „' + p.nick + '”: „Butelką mnie nie kupicie”. Wywiad dla mediów, szatnia wściekła. [szatnia -8%]', 'event'); }
+            const res = Engine.foodDeal('whisky', Selectors.nickQ(p), p, true);
+            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); Engine.addLog('🥃 ' + Selectors.nickQ(p) + ' przyjął whisky i odpuścił podwyżkę.', 'event'); }
+            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' odstawił butelkę: „Wolałbym przelew”. [szatnia -2%]', 'event'); }
+            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ': „Butelką mnie nie kupicie”. Wywiad dla mediów, szatnia wściekła. [szatnia -8%]', 'event'); }
           },
         },
         {
@@ -2598,7 +2598,7 @@ const DATA = {
             const accept = Selectors.refusalAcceptChance(p);   // dobra atmosfera = większa wyrozumiałość
             if (Math.random() < accept) {
               Engine.applyEffects({ lockerRoom: -1 });
-              Engine.addLog('🤝 „' + p.nick + '” przyjął odmowę do wiadomości: „Rozumiem, Prezesie. Gram dalej.”', 'event');
+              Engine.addLog('🤝 ' + Selectors.nickQ(p) + ' przyjął odmowę do wiadomości: „Rozumiem, Prezesie. Gram dalej.”', 'event');
               return;
             }
             if (gameState.club.leagueLevel >= 7) {
@@ -2612,7 +2612,7 @@ const DATA = {
             const r = Math.random();
             if (r < 0.6) {
               Engine.applyEffects({ lockerRoom: -10 });
-              Engine.addLog('😤 „' + p.nick + '” strzelił focha. W szatni ciche dni, na treningu biega w słuchawkach. [szatnia -10%]', 'event');
+              Engine.addLog('😤 ' + Selectors.nickQ(p) + ' strzelił focha. W szatni ciche dni, na treningu biega w słuchawkach. [szatnia -10%]', 'event');
             } else {
               // W trakcie ligi składy są zamknięte – odejdzie przy podsumowaniu sezonu
               p.wantsOut = gameState.calls.rival;
@@ -3311,9 +3311,9 @@ const Engine = {
   // Easter egg: w Amatorze Maszewo od 1. kolejki gra Kacper Chudy – snajper i asystent z sufitem OVR 99
   kacperChudy() {
     const weakest = gameState.squad.filter((p) => p.pos === 'FWD').sort((a, b) => a.skill - b.skill)[0];
-    if (weakest && gameState.squad.length >= CONFIG.maxSquad) gameState.squad = gameState.squad.filter((x) => x.id !== weakest.id);
+    if (weakest) gameState.squad = gameState.squad.filter((x) => x.id !== weakest.id);   // zastępuje najsłabszego napastnika – kadra bez zmian
     const p = Engine.generatePlayer({ ageMin: 20, ageMax: 20, pos: 'FWD', skillMin: 10, skillMax: 10, wageMin: 10, wageMax: 10 });
-    Object.assign(p, { first: 'Kacper', last: 'Chudy', nick: 'Kacperinho', age: 20, skill: 10 + Selectors.levelSkillBonus(), potential: CONFIG.maxSkill, talent: true, favorite: true, ace: true,
+    Object.assign(p, { first: 'Kacper', last: 'Chudy', nick: 'Chudy', noNick: true, age: 20, skill: 10 + Selectors.levelSkillBonus(), potential: CONFIG.maxSkill, talent: true, favorite: true, ace: true,
       loyalUntil: 9999, profile: 'off', tag: 'freekick', temper: 0.15, trait: 'Wychowanek Maszewa. Strzela z każdej pozycji, a jak nie strzela – to podaje.' });
     Engine.addLog('🥚 W szatni Amatora Maszewo trenuje 20-letni Kacper Chudy. Pan Mirek mówi tylko: „Takiego talentu tu jeszcze nie było”.', 'event');
   },
@@ -3366,11 +3366,11 @@ const Engine = {
     if (/korupc|passat|prowokac|nagrani|sprzedan/.test(r)) opts.push('🔎 Śledztwo lokalnego dziennikarza – „Kurier Powiatowy” miał ukrytą kamerę', '🕵️ Anonimowy donos do Wydziału Dyscypliny od działacza konkurencji');
     if (/zadym|chulig|pirotech|derb/.test(r)) opts.push('👮 Notatka policyjna z meczu trafiła do lokalnej prasy', '📱 Nagranie kibica rywala obiegło Wirtualnego X');
     if (/skarb|podatk|kas |domiar|nadzór|licencj|raty|finans/.test(r)) opts.push('🧾 Przeciek z urzędu gminy – ktoś przeczytał nasze faktury', '💼 Afera wyszła na jaw przez skłóconego byłego księgowego');
-    if (/obyczaj|piw|whisk|kiełbas|wódk|tabloid/.test(r)) opts.push('🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' („' + bench[0].nick + '” ' + bench[0].last + ')' : ''), '📸 Zdjęcie z imprezy wrzucone przez kelnerkę z remizy');
+    if (/obyczaj|piw|whisk|kiełbas|wódk|tabloid/.test(r)) opts.push('🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' (' + Selectors.shortName(bench[0]) + ')' : ''), '📸 Zdjęcie z imprezy wrzucone przez kelnerkę z remizy');
     if (/dop|kontrol/.test(r)) opts.push('🧪 Raport komisji antydopingowej wyciekł do mediów');
     if (/sanepid|zatruc|budk/.test(r)) opts.push('🤢 Wpis zatrutego kibica na grupie „Nasza Gmina”');
     if (Selectors.hasRealSponsor() && Math.random() < 0.35) opts.push('💼 Afera wyszła na jaw przez skłóconego sponsora (' + Selectors.sponsor().name + ')');
-    opts.push('📱 Wpis zazdrosnego rywala na Wirtualnym X (@Fanatycy' + Selectors.handleFrom(rival) + ')', '🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' („' + bench[0].nick + '” ' + bench[0].last + ')' : ''), '🔎 Śledztwo lokalnego dziennikarza');
+    opts.push('📱 Wpis zazdrosnego rywala na Wirtualnym X (@Fanatycy' + Selectors.handleFrom(rival) + ')', '🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' (' + Selectors.shortName(bench[0]) + ')' : ''), '🔎 Śledztwo lokalnego dziennikarza');
     const pick = Utils.rand(opts.slice(0, Math.max(2, opts.length - 2)));
     if (pick.startsWith('📱 Wpis zazdrosnego')) Engine.xPostRaw('😈', '@Fanatycy' + Selectors.handleFrom(rival), 'Hahaha, co tam się dzieje w ' + Selectors.clubDisplayName() + '? ' + reason + ' 🤡 Cała gmina już wie.');
     return pick;
@@ -3744,7 +3744,7 @@ const Engine = {
     }
     const scorers = Object.entries(scorerCount).map(([id, n]) => {
       const p = gameState.squad.find((x) => x.id === id);
-      return '„' + p.nick + '” ' + p.last + (n > 1 ? ' ×' + n : '');
+      return Selectors.shortName(p) + (n > 1 ? ' ×' + n : '');
     });
 
     const clubName = Selectors.clubDisplayName();
@@ -3761,7 +3761,7 @@ const Engine = {
     const goals = [];
     Object.entries(scorerCount).forEach(([id, n]) => {
       const p = gameState.squad.find((x) => x.id === id);
-      for (let i = 0; i < n; i++) goals.push({ min: Utils.randInt(1, 90), us: true, name: '„' + p.nick + '” ' + p.last });
+      for (let i = 0; i < n; i++) goals.push({ min: Utils.randInt(1, 90), us: true, name: Selectors.shortName(p) });
     });
     for (let i = 0; i < ga; i++) goals.push({ min: Utils.randInt(1, 90), us: false, name: rival.name });
     goals.sort((a, b) => a.min - b.min);
@@ -3953,7 +3953,7 @@ const Engine = {
       p.careerRatingCount = (p.careerRatingCount || 0) + 1;
       return { p, r };
     }).sort((a, b) => b.r - a.r);
-    hungover.forEach((p) => Engine.addLog('🥴 „' + p.nick + '” grał z wyraźnym kacem po weselu – nota ' + p.lastRating.toFixed(1) + '. Na rozgrzewce pomylił bramki.', 'event'));
+    hungover.forEach((p) => Engine.addLog('🥴 ' + Selectors.nickQ(p) + ' grał z wyraźnym kacem po weselu – nota ' + p.lastRating.toFixed(1) + '. Na rozgrzewce pomylił bramki.', 'event'));
     const best = rated[0], worst = rated[rated.length - 1];
     if (gameState.lastMatch) gameState.lastMatch.best = { name: Selectors.playerName(best.p), r: best.r };
     Engine.addLog('⭐ Gracz meczu: ' + Selectors.playerName(best.p) + ' (' + best.r.toFixed(1) + ') · 🪵 Najsłabszy na boisku: ' + Selectors.playerName(worst.p) + ' (' + worst.r.toFixed(1) + ')', 'match');
@@ -4443,6 +4443,20 @@ const Engine = {
     const lvl = gameState.club.leagueLevel;
     const start = lvl <= 3 ? 0 : lvl <= 5 ? 2 : 3;   // niżej – od rund okręgowych, Ekstraklasa od 1/16
     gameState.cup = { season: gameState.calendar.season, idx: start, start, alive: true, won: false, history: [], earned: 0 };
+    Engine.cupDraw();
+  },
+  // Losowanie rywala na najbliższą rundę – od razu trafia do terminarza
+  cupDraw() {
+    const c = gameState.cup;
+    const R = c && DATA.cupRounds[c.idx];
+    if (!R || !c.alive) { if (c) c.next = null; return null; }
+    const lvl = gameState.club.leagueLevel;
+    const oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], lvl - 2), Math.min(R.opp[1], Math.max(R.opp[0], lvl + 2))), 1, 8);
+    const L = DATA.leagueLevels[oppLvl];
+    const opp = L.pool ? Utils.rand(L.pool.filter((n) => !gameState.league.rivals.some((r) => r.name === n)).concat(L.pool).slice(0, 30)) : Utils.rand(DATA.rivals).name;
+    const final = c.idx === DATA.cupRounds.length - 1;
+    c.next = { idx: c.idx, opp, oppLvl, oppS: Math.round(L.rivalBase * Utils.randRange(0.9, 1.1) * 100) / 100, final, home: !final && (oppLvl > lvl ? false : Math.random() < 0.5) };
+    return c.next;
   },
   cupWeek(kolejka) {
     const c = gameState.cup;
@@ -4450,19 +4464,15 @@ const Engine = {
     const R = DATA.cupRounds[c.idx];
     if (!R || Selectors.euroKolejka(R.k) !== kolejka) return;
     const lvl = gameState.club.leagueLevel;
-    const oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], lvl - 2), Math.min(R.opp[1], Math.max(R.opp[0], lvl + 2))), 1, 8);
-    const L = DATA.leagueLevels[oppLvl];
-    const opp = L.pool ? Utils.rand(L.pool.filter((n) => !gameState.league.rivals.some((r) => r.name === n)).concat(L.pool).slice(0, 30)) : Utils.rand(DATA.rivals).name;
-    const oppS = L.rivalBase * Utils.randRange(0.9, 1.1);
-    const final = c.idx === DATA.cupRounds.length - 1;
-    const home = !final && (oppLvl > lvl ? false : oppLvl < lvl ? Math.random() < 0.5 : Math.random() < 0.5);   // gospodarzem zwykle niżej notowany
+    const nx = c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw();   // rywal wylosowany wcześniej – widoczny w terminarzu
+    const { opp, oppLvl, oppS, final, home } = nx;
     const m = Engine.detailMatch(oppS, final ? false : home, { neutral: final, hype: 1.1 + c.idx * 0.12 + (final ? 0.6 : 0), moneyLabel: 'Puchar Polski: bilety' });
     gameState.midweekWeek = gameState.calendar.week;
     let won = m.gf > m.ga, pens = '';
     if (m.gf === m.ga) { const pen = Engine.penalties(oppS); won = pen.won; pens = pen.score; }
     const e = Selectors.econ();
     const box = { header: '🏆 Puchar Polski', title: R.label + ' · ' + DATA.leagueLevels[oppLvl].name, round: R.label, oppLeague: DATA.leagueLevels[oppLvl].name, final,
-      legs: [{ label: final ? 'Finał' : 'Mecz', opp, home: final ? true : home, neutral: final, gf: m.gf, ga: m.ga, pens, goals: m.goals, cards: m.cards, att: m.att, income: m.income }], verdict: '', money: 0 };
+      legs: [{ label: final ? 'Finał' : 'Mecz', opp, home: final ? true : home, neutral: final, gf: m.gf, ga: m.ga, pens, goals: m.goals, cards: m.cards, att: m.att, income: m.income, tactic: m.tactic }], verdict: '', money: 0 };
     c.history.unshift(R.label + ': ' + opp + ' ' + m.gf + ':' + m.ga + (pens ? ' (k. ' + pens + ')' : '') + (won ? ' ✅' : ' ❌'));
     if (won) {
       const prize = Math.round(300 * e * (1 + c.idx * 0.6));
@@ -4470,17 +4480,19 @@ const Engine = {
       c.earned += prize; box.money += prize;
       Engine.applyEffects({ fans: final ? +15 : +2 });
       if (final) {
-        c.alive = false; c.won = true;
+        c.alive = false; c.won = true; c.next = null;
         Engine.addTrophy('🏆', 'Puchar Polski', 'pp');
         box.verdict = '🏆 PUCHAR POLSKI W GABLOCIE!';
         Engine.alert('🏆', 'PUCHAR POLSKI!', Selectors.clubDisplayName() + ' zdobywa Puchar Polski! Trofeum trafia do gablotki.' + (lvl === 8 ? ' Do tego eliminacje Ligi Europy.' : ''), 'good', true);
         Engine.xPost('portal', 'SENSACJA NA NARODOWYM! ' + Selectors.clubDisplayName() + ' z Pucharem Polski! 🏆');
       } else {
         c.idx++;
-        box.verdict = '✅ Awans! Dalej: ' + DATA.cupRounds[c.idx].label;
+        const d = Engine.cupDraw();
+        box.verdict = '✅ Awans! Dalej: ' + DATA.cupRounds[c.idx].label + (d ? ' – ' + d.opp : '');
       }
     } else {
       c.alive = false;
+      c.next = null;
       box.verdict = '❌ Odpadamy z Pucharu Polski (' + R.label + ').';
     }
     gameState.cupReport = box;   // pełnoekranowe podsumowanie meczu pucharowego po meczu ligowym
@@ -4684,9 +4696,25 @@ const Engine = {
   // Mecz pucharowy/barażowy z pełnym raportem: strzelcy, asysty, kartki, frekwencja i zysk z bramki
   detailMatch(oppS, home, opts = {}) {
     const neutral = !!opts.neutral;
-    const m = Engine.playoffMatch(oppS, home && !neutral);
+    const coach = Selectors.coach();
+    const style = DATA.styles[coach.style];
     const lineup = Engine.pickLineup([]);
-    const nm = (p) => '„' + p.nick + '” ' + p.last;
+    const chem = Engine.chemistry(lineup);
+    const ratio = Engine.teamStrength(lineup, chem) / oppS;   // forma i siła składu jak w lidze
+    const adv = neutral ? 1 : home ? 1.12 : 1 / 1.08;
+    let ourL = 1.2 * Math.pow(ratio, 1.3) * style.tempo * adv, oppL = 1.2 * Math.pow(1 / ratio, 1.3) * style.tempo / adv;
+    if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.18 : 1.05; oppL *= 1.1; }   // taktyka trenera
+    else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.72 : 0.85; ourL *= 0.85; }
+    else if (chem >= 60) { ourL *= 1.04; oppL *= 0.96; }
+    if (chem < 50) oppL *= 1 + (50 - chem) / 120;
+    const rawCards = Engine.rollCards(lineup, !!opts.derby);
+    const ourReds = rawCards.filter((c) => c.us && c.card === 'R').length, theirReds = rawCards.filter((c) => !c.us && c.card === 'R').length;
+    if (ourReds) { ourL *= Math.pow(0.82, ourReds); oppL *= Math.pow(1.15, ourReds); }
+    if (theirReds) { ourL *= Math.pow(1.15, theirReds); oppL *= Math.pow(0.85, theirReds); }
+    if (lineup.some((p) => p.ace)) ourL += 0.7;
+    const m = { gf: Utils.poisson(Math.max(0.15, ourL)), ga: Utils.poisson(Math.max(0.15, oppL)) };
+    lineup.forEach((p) => { p.cupApps = (p.cupApps || 0) + 1; });
+    const nm = (p) => Selectors.shortName(p);
     const goals = [];
     for (let i = 0; i < m.gf; i++) {
       const sc = Utils.weightedPick(lineup, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.ace ? 2 : 1));
@@ -4702,7 +4730,7 @@ const Engine = {
     }
     for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false });
     goals.sort((a, b) => a.min - b.min);
-    const cards = Engine.rollCards(lineup, !!opts.derby).filter((c) => c.us).map((c) => ({ card: c.card, min: c.min, name: c.name }));
+    const cards = rawCards.filter((c) => c.us).map((c) => ({ card: c.card, min: c.min, name: c.p ? Selectors.shortName(c.p) + (c.name.includes('2. żółta') ? ' (2. żółta)' : '') : c.name }));
     const e = Selectors.econ();
     const ticket = DATA.tickets[gameState.matchday.ticket];
     const hype = opts.hype || 1.2;
@@ -4715,7 +4743,7 @@ const Engine = {
       income = att * ticket.price;
     } else att = Math.round(Selectors.stadiumCapacity() * Utils.randRange(0.6, 1.3) * hype);
     if (income) Engine.money(opts.moneyLabel || 'Bilety: mecz pucharowy', income);
-    return { gf: m.gf, ga: m.ga, goals, cards, att, income, scorers: goals.filter((g) => g.us).map((g) => g.s.split('” ')[1] || g.s) };
+    return { gf: m.gf, ga: m.ga, goals, cards, att, income, tactic: style.label + ' · zgranie ' + chem + '%', scorers: goals.filter((g) => g.us).map((g) => g.s.split('” ')[1] || g.s) };
   },
   // Rzuty karne: lekko faworyzują lepszą drużynę i dobrego bramkarza
   penalties(oppS) {
@@ -4940,13 +4968,13 @@ const Engine = {
       const posMod = { GK: 0.3, DEF: 1.3, MID: 1.1, FWD: 0.8 }[p.pos] || 1;
       const temper = p.temper != null ? p.temper : 0.4;
       if (Math.random() < 0.0035 * (0.5 + temper * 2) * styleMod) {
-        cards.push({ us: true, card: 'R', min: Utils.randInt(10, 89), p, direct: true, name: '„' + p.nick + '” ' + p.last });
+        cards.push({ us: true, card: 'R', min: Utils.randInt(10, 89), p, direct: true, name: Selectors.shortName(p) });
         return;
       }
       if (Math.random() < 0.07 * (0.4 + temper * 1.6) * styleMod * posMod) {
         const min = Utils.randInt(5, 85);
-        cards.push({ us: true, card: 'Y', min, p, name: '„' + p.nick + '” ' + p.last });
-        if (Math.random() < 0.025 + temper * 0.05) cards.push({ us: true, card: 'R', min: Utils.randInt(min + 1, 90), p, name: '„' + p.nick + '” ' + p.last + ' (2. żółta)' });
+        cards.push({ us: true, card: 'Y', min, p, name: Selectors.shortName(p) });
+        if (Math.random() < 0.025 + temper * 0.05) cards.push({ us: true, card: 'R', min: Utils.randInt(min + 1, 90), p, name: Selectors.shortName(p) + ' (2. żółta)' });
       }
     });
     // rywale też faulują
@@ -6391,7 +6419,9 @@ const Selectors = {
     return statics.map((id) => DATA.coaches[id]).concat(gameState.coachMarket.list).filter((c) => c.id !== gameState.coach.id);
   },
   sponsor: () => (gameState.sponsor.active ? Selectors.sponsorDef(gameState.sponsor.active) : null),
-  playerName: (p) => p.first + ' „' + p.nick + '” ' + p.last,
+  playerName: (p) => (p.noNick ? p.first + ' ' + p.last : p.first + ' \u201e' + p.nick + '\u201d ' + p.last),
+  shortName: (p) => (p.noNick ? p.first + ' ' + p.last : '\u201e' + p.nick + '\u201d ' + p.last),   // Kacper Chudy gra pod własnym nazwiskiem
+  nickQ: (p) => (p.noNick ? p.first + ' ' + p.last : '\u201e' + p.nick + '\u201d'),
   clubDisplayName: () => {
     const sp = Selectors.sponsor();
     return sp && sp.clubPrefix ? sp.clubPrefix + ' ' + gameState.club.name : gameState.club.name;
@@ -6737,6 +6767,14 @@ const Selectors = {
   euroLive: () => Selectors.euroThisSeason() && !gameState.euro.done,
   euroComp: (c) => DATA.euro.comps[c || (gameState.euro && gameState.euro.comp) || 'UCL'],
   // kolejka ligowa danego etapu (terminarz pucharów dopasowany do liczby kolejek)
+  // Mecz pucharowy po danej kolejce ligowej (środa), jeśli jesteśmy w grze
+  cupAt: (kolejka) => {
+    const c = gameState.cup;
+    if (!c || !c.alive || c.season !== gameState.calendar.season) return null;
+    const R = DATA.cupRounds[c.idx];
+    if (!R || Selectors.euroKolejka(R.k) !== kolejka) return null;
+    return { R, next: c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw() };
+  },
   euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34)),
   // Kwalifikacja z miejsca w Ekstraklasie: 1. el. LM (mistrzowska), 2. el. LM (ligowa), 3. el. LE, 4. el. LKE
   euroQualFor: (pos) => ({ 1: { comp: 'UCL', path: 'champ' }, 2: { comp: 'UCL', path: 'league' }, 3: { comp: 'UEL', path: 'league' }, 4: { comp: 'UECL', path: 'league' } }[pos] || null),
@@ -6873,6 +6911,7 @@ const Storage = {
     }
     if (state.loans) state.loans.given = [];
     if (!state.trophies) state.trophies = [];
+    (state.squad || []).filter((p) => p.ace).forEach((p) => { p.nick = 'Chudy'; p.noNick = true; });   // 13.46: bez „Kacperinho”
     if (!state.u19) { const prev = gameState; gameState = state; Engine.u19Init(); gameState = prev; }   // Krok 13.35: akademia U19 w starych zapisach
     // Krok 13.26: bez skautingu – szkółka przechodzi do obiektów, skaut ze sztabu odchodzi
     if (!saved.academy && state.scouting && state.scouting.youthUpgrades) state.academy.level = (state.scouting.youthUpgrades.dresy ? 1 : 0) + (state.scouting.youthUpgrades.wfista ? 1 : 0);
@@ -7715,6 +7754,7 @@ const UI = {
           <span class="flex-1 min-w-0 text-[14px] font-bold leading-tight">${Utils.escape(a)}</span>
         </div>
         ${l.pens ? `<div class="text-center text-[12.5px] text-amber-glow mt-1">rzuty karne ${Utils.escape(l.pens)}</div>` : ''}
+        ${l.tactic ? `<div class="text-center text-[11px] text-paper-400 mt-1">🧠 ${Utils.escape(l.tactic)}</div>` : ''}
         ${UI.matchDetails(l, false)}
         <div class="text-center text-[18px] font-extrabold mt-3 ${won ? 'text-grass' : 'text-stamp'}">${Utils.escape(r.verdict)}</div>
         ${r.money ? `<div class="text-center text-[12.5px] text-paper-300">Premia za awans: <b class="text-grass">${Utils.signedMoney(r.money)}</b></div>` : ''}
@@ -8083,8 +8123,8 @@ const UI = {
         UI.tile('Bilans', me.w + '-' + me.d + '-' + me.l, me.p + ' meczów'),
         UI.tile('Bramki', me.gf + ':' + me.ga, me.pts + ' pkt · ' + (pos || '–') + '. miejsce'),
         UI.tile('Forma', dots || '–', u.last ? 'ost. ' + u.last.gf + ':' + u.last.ga : 'brak meczów'),
-      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon · w nawiasie łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
-        + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${p.talent ? '💎 ' : ''}„${Utils.escape(p.nick)}” ${Utils.escape(p.last)} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
+      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon · w nawiasie łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
+        + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${p.talent ? '💎 ' : ''}${Utils.escape(Selectors.shortName(p))} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
     }
     if (view === 'base') {
       const folds = gameState.ui.folds || {};
@@ -8115,7 +8155,7 @@ const UI = {
         : (p.age >= 17 || gem ? `<button data-action="u19-secure" data-id="${p.id}" ${budget < Selectors.secureCost(p) ? 'disabled' : ''} class="btn-press h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap ${budget < Selectors.secureCost(p) ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-ink-900 text-paper-100'}">🔒 ${Utils.formatMoney(Selectors.secureCost(p))}</button>` : '');
       return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0">
         ${UI.ovrBadge(p)}
-        <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}${flags}</div>
+        <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">${Utils.escape(Selectors.shortName(p))}${flags}</div>
         <div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
         ${action}
       </div>`;
@@ -8186,7 +8226,7 @@ const UI = {
     const inPre = !Selectors.isMatchWeek();
     const tiles = UI.tiles(UI.clubTiles());
     const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
-      `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>`);
+      `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>${(() => { const cup = !inPre && Selectors.cupAt(s.calendar.round + 1); return cup && cup.next ? `<p class="text-[11.5px] font-semibold mt-0.5">🏆 W środę Puchar Polski (${Utils.escape(cup.R.label.split(' – ')[0])}): ${cup.next.home || cup.next.final ? 'vs' : '@'} ${Utils.escape(cup.next.opp)}</p>` : ''; })()}`);
 
     return tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
@@ -8341,8 +8381,11 @@ const UI = {
     for (let i = gameState.calendar.round; i < Math.min(gameState.calendar.round + 6, gameState.season.rounds.length); i++) {
       const f = Selectors.fixtureAt(i);
       upcoming.push(`<li class="flex gap-2"><span class="w-8 text-ink-700">K${i + 1}</span><span class="w-16 text-ink-700">${f.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? '<span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
+      const cup = Selectors.cupAt(i + 1);
+      if (cup && cup.next) upcoming.push(`<li class="flex gap-2 rounded bg-amber-glow/20 -mx-1 px-1"><span class="w-8 text-ink-700 whitespace-nowrap">🏆</span><span class="w-16 text-ink-700 truncate">${cup.next.final ? 'Narodowy' : cup.next.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(cup.next.opp)}</b><span class="text-[10.5px] text-ink-700 whitespace-nowrap">PP · ${Utils.escape(cup.R.label.split(' – ')[0])} · śr.</span></li>`);
     }
-    return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>', UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
+    const cupLast = gameState.cup && gameState.cup.season === gameState.calendar.season && gameState.cup.history[0];
+    return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', (results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>') + (cupLast ? `<p class="text-[11.5px] text-ink-700 mt-1 truncate">🏆 Puchar Polski · ${Utils.escape(cupLast)}</p>` : ''), UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
       + UI.panel('📅 Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-[12px] space-y-0.5">${upcoming.join('')}</ul>` : '<p class="text-[12px]">Koniec sezonu.</p>');
   },
 
@@ -8356,7 +8399,7 @@ const UI = {
     const row = (i, p, right) => `
       <tr class="border-b border-paper-300 last:border-0">
         <td class="py-1 pr-1 text-ink-700 w-5">${i + 1}.</td>
-        <td class="py-1 pr-1 max-w-0 w-full truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b> <span class="text-[10.5px] text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
+        <td class="py-1 pr-1 max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
         ${right}
       </tr>`;
     const scorersHtml = scorers.length ? `<table class="w-full text-[12px]">
@@ -8492,7 +8535,7 @@ const UI = {
       return `
       <button data-action="player-open" data-id="${p.id}" class="${cols} w-full text-left h-[27px] px-1.5 text-[12px] border-b border-paper-300 last:border-0 border-l-[3px] ${inXI ? 'border-l-grass' : 'border-l-transparent'} ${gameState.ui.playerSheet === p.id ? 'bg-amber-glow/15' : 'active:bg-paper-200'}">
         <span class="text-[11px]">${DATA.positions[p.pos].icon}</span>
-        <span class="truncate"><b>„${Utils.escape(p.nick)}” ${Utils.escape(p.last)}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
+        <span class="truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
         <span class="text-center text-ink-700">${p.age}</span>
         <span class="text-center">${p.seasonApps}</span>
         <span class="text-center font-semibold">${p.seasonGoals}</span>
