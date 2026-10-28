@@ -745,12 +745,18 @@ const DATA = {
       F:   { label: 'FINAŁ',                kolejka: 33, add: 1.0,  tie: false, reach: 40000 },
     },
     order: ['Q2', 'Q3', 'PO', 'LP', 'KPO', 'R16', 'QF', 'SF', 'F'],
+    // 13.74: prawdziwe kluby faz ligowych 2025/26 (od najmocniejszego); nasz klub zastępuje jedną drużynę z dołu stawki
+    lp: {
+      UCL: ['Paris Saint-Germain', 'Real Madryt', 'Bayern Monachium', 'Arsenal FC', 'Manchester City', 'Liverpool FC', 'FC Barcelona', 'Inter Mediolan', 'Chelsea FC', 'AC Milan', 'Juventus Turyn', 'Atlético Madryt', 'Borussia Dortmund', 'Bayer Leverkusen', 'SSC Napoli', 'Tottenham Hotspur', 'Newcastle United', 'Benfica Lizbona', 'Sporting CP', 'PSV Eindhoven', 'Atalanta Bergamo', 'Olympique Marsylia', 'Ajax Amsterdam', 'Club Brugge', 'Galatasaray Stambuł', 'AS Monaco', 'Eintracht Frankfurt', 'Athletic Bilbao', 'Villarreal CF', 'Olympiakos Pireus', 'Slavia Praga', 'Bodø/Glimt', 'FC Kopenhaga', 'Union Saint-Gilloise', 'Qarabağ Ağdam', 'Pafos FC'],
+      UEL: ['AS Roma', 'Aston Villa', 'FC Porto', 'Olympique Lyon', 'Nottingham Forest', 'Real Betis', 'Fenerbahçe Stambuł', 'Feyenoord Rotterdam', 'Lille OSC', 'OGC Nice', 'Bologna FC', 'VfB Stuttgart', 'SC Freiburg', 'Celta Vigo', 'Celtic Glasgow', 'Rangers FC', 'SC Braga', 'PAOK Saloniki', 'Crvena Zvezda Belgrad', 'Dinamo Zagrzeb', 'Ferencváros Budapeszt', 'RB Salzburg', 'FC Basel', 'Young Boys Berno', 'FC Midtjylland', 'KRC Genk', 'FC Utrecht', 'Go Ahead Eagles', 'Viktoria Pilzno', 'Panathinaikos Ateny', 'Maccabi Tel Awiw', 'Ludogorec Razgrad', 'FCSB Bukareszt', 'Sturm Graz', 'Malmö FF', 'SK Brann'],
+      UECL: ['RC Strasbourg', 'Crystal Palace', 'ACF Fiorentina', 'AEK Ateny', 'Rayo Vallecano', 'FSV Mainz 05', 'AZ Alkmaar', 'Szachtar Donieck', 'Sparta Praga', 'Raków Częstochowa', 'Jagiellonia Białystok', 'Lech Poznań', 'Legia Warszawa', 'Dynamo Kijów', 'Rapid Wiedeń', 'Samsunspor', 'Omonia Nikozja', 'AEK Larnaka', 'BK Häcken', 'Aberdeen FC', 'HNK Rijeka', 'Sigma Ołomuniec', 'Zrinjski Mostar', 'Universitatea Craiova', 'Slovan Bratysława', 'Lausanne-Sport', 'NK Celje', 'Shamrock Rovers', 'Shelbourne FC', 'KuPS Kuopio', 'Breiðablik', 'FC Drita', 'Hamrun Spartans', 'Lincoln Red Imps', 'FC Noah', 'Shkëndija Tetowo'],
+    },
     // rywale wg siły: od skromnych mistrzów małych lig po europejskich gigantów
-    clubs: [
-      ['Flora Tallińska', 'Žalgiris Wileński', 'Shamrock Rovers Dublin', 'Sheriff Tyraspolski', 'Ludogorec Razgradzki', 'Maccabi Hajfa', 'FCSB Bukareszt', 'Partizan Belgradzki', 'Malmö Skańskie', 'Molde Fiordowe', 'Kopenhaga Duńska', 'Lugano Szwajcarskie'],
-      ['Slavia Praska', 'Sparta Praska', 'Ferencváros Budapeszteński', 'Dinamo Zagrzebskie', 'Crvena Zvezda Belgradzka', 'Rapid Wiedeński', 'Celtic Glasgowski', 'Bodø Arktyczne', 'Qarabağ Agdamski', 'Gent Flandryjski', 'PAOK Saloniki', 'Olympiakos Pirejski'],
-      ['Ajax Amsterdamski', 'Feyenoord Rotterdamski', 'PSV Eindhoveński', 'Benfica Lizbońska', 'Sporting Lizboński', 'Porto Smoczy', 'Galatasaray Stambulski', 'Fenerbahçe Stambulski', 'Club Brugge', 'Lazio Rzymskie', 'Roma Wilcza', 'Villarreal Żółtej Łodzi'],
-      ['Real Madrycki', 'Barcelona Katalońska', 'Bayern Monachijski', 'Manchester Błękitny', 'Liverpool Czerwony', 'Paryż Saint-Germain', 'Inter Mediolański', 'Juventus Turyński', 'Arsenal Kanonierów', 'Atlético Madryckie', 'Borussia Dortmundzka', 'Napoli Wezuwiańskie'],
+    clubs: [   // 13.74: prawdziwe kluby (eliminacje i rywale awaryjni), od skromnych mistrzów małych lig po gigantów
+      ['Flora Tallinn', 'Žalgiris Wilno', 'Shamrock Rovers', 'Sheriff Tyraspol', 'Ludogorec Razgrad', 'Maccabi Hajfa', 'FCSB Bukareszt', 'Partizan Belgrad', 'Malmö FF', 'Molde FK', 'KuPS Kuopio', 'Hamrun Spartans', 'Lincoln Red Imps', 'Breiðablik', 'FC Drita', 'Dinamo Mińsk', 'Riga FC', 'The New Saints', 'Linfield FC', 'Iberia 1999 Tbilisi'],
+      ['Slavia Praga', 'Sparta Praga', 'Ferencváros Budapeszt', 'Dinamo Zagrzeb', 'Crvena Zvezda Belgrad', 'Rapid Wiedeń', 'Celtic Glasgow', 'Bodø/Glimt', 'Qarabağ Ağdam', 'KAA Gent', 'FC Midtjylland', 'Young Boys Berno', 'Viktoria Pilzno', 'Sturm Graz', 'PAOK Saloniki', 'Olympiakos Pireus', 'FC Kopenhaga', 'Union Saint-Gilloise', 'FC Basel', 'Rangers FC'],
+      ['Ajax Amsterdam', 'Feyenoord Rotterdam', 'PSV Eindhoven', 'Benfica Lizbona', 'Sporting CP', 'FC Porto', 'Galatasaray Stambuł', 'Fenerbahçe Stambuł', 'Club Brugge', 'Lazio Rzym', 'AS Roma', 'Olympique Lyon', 'Lille OSC', 'Eintracht Frankfurt', 'Villarreal CF', 'Real Betis', 'Aston Villa', 'Atalanta Bergamo', 'AS Monaco', 'Olympique Marsylia'],
+      ['Real Madryt', 'FC Barcelona', 'Bayern Monachium', 'Manchester City', 'Liverpool FC', 'Paris Saint-Germain', 'Inter Mediolan', 'Juventus Turyn', 'Arsenal FC', 'Atlético Madryt', 'Borussia Dortmund', 'Bayer Leverkusen', 'AC Milan', 'Chelsea FC', 'SSC Napoli', 'Tottenham Hotspur'],
     ],
   },
 
@@ -5127,11 +5133,53 @@ const Engine = {
     return { name: Utils.rand(pool.length ? pool : DATA.euro.clubs[tier]), s, tier };
   },
   // 13.73: mecz europejski na pełnym silniku meczowym (jak liga i Puchar Polski): skład, zmęczenie, kartki, asysty, noty, MVP, bilety i gastro
+  // 13.74: tabela fazy ligowej – 35 prawdziwych klubów + my; siła wg pozycji na liście
+  euroBuildLp() {
+    const eu = gameState.euro;
+    const C = DATA.euro.comps[eu.comp];
+    const list = DATA.euro.lp[eu.comp].slice();
+    list.splice(Utils.randInt(24, 35), 1);   // zwalniamy miejsce z dołu stawki
+    const base = C.base + DATA.euro.stages.LP.add;
+    eu.lpTable = {};
+    list.forEach((name, i) => { eu.lpTable[name] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: Math.round((base + 0.38 - 0.76 * i / (list.length - 1)) * 100) / 100 }; });
+    eu.lpTable[US] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: 0 };
+    eu.lpPlayed = [];
+  },
+  euroLpRow(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts++; } else r.l++; },
+  // Pozostałe mecze kolejki fazy ligowej (symulacja w tle, tylko nasze rozgrywki)
+  euroLpRound(opp, gf, ga) {
+    const T = gameState.euro.lpTable;
+    Engine.euroLpRow(T[US], gf, ga);
+    if (T[opp]) Engine.euroLpRow(T[opp], ga, gf);
+    const rest = Utils.shuffle(Object.keys(T).filter((n) => n !== US && n !== opp));
+    for (let i = 0; i + 1 < rest.length; i += 2) {
+      const a = T[rest[i]], b = T[rest[i + 1]];
+      const r = a.s / b.s;
+      const ag = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(r, 1.6) * 1.1)), bg = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(1 / r, 1.6) / 1.1));
+      Engine.euroLpRow(a, ag, bg); Engine.euroLpRow(b, bg, ag);
+    }
+  },
   // Rywal najbliższego meczu losowany z wyprzedzeniem (widoczny w terminarzu)
   euroNextOpp() {
     const eu = gameState.euro;
     const key = eu.stage + ':' + (eu.lp ? eu.lp.played : 0);
-    if (!eu.nextOpp || eu.nextOpp.key !== key) eu.nextOpp = { key, opp: Engine.euroOpponent(eu.stage) };
+    if (!eu.nextOpp || eu.nextOpp.key !== key) {
+      let opp = null;
+      if (eu.stage === 'LP' && !eu.lpTable) Engine.euroBuildLp();   // stary zapis w trakcie fazy ligowej
+      const T = eu.lpTable;
+      if (T && eu.stage === 'LP') {
+        const cand = Object.keys(T).filter((n) => n !== US && !(eu.lpPlayed || []).includes(n));
+        const name = Utils.rand(cand);
+        opp = { name, s: T[name].s, tier: T[name].s >= 3.3 ? 3 : T[name].s >= 3 ? 2 : 1 };
+      } else if (T && ['KPO', 'R16', 'QF', 'SF', 'F'].includes(eu.stage)) {
+        // faza pucharowa: rywale z tabeli fazy ligowej (baraż – miejsca 9–24, dalej czołówka)
+        const order = Selectors.euroLpStandings().map((r) => r.team).filter((n) => n !== US && !eu.history.some((h) => h.opp === n && h.stage !== 'LP'));
+        const pool = eu.stage === 'KPO' ? order.slice(8, 24) : order.slice(0, eu.stage === 'R16' ? 16 : 8);
+        const name = Utils.rand(pool.length ? pool : order);
+        opp = { name, s: Math.round((T[name].s + DATA.euro.stages[eu.stage].add - DATA.euro.stages.LP.add) * 100) / 100, tier: 3 };
+      }
+      eu.nextOpp = { key, opp: opp || Engine.euroOpponent(eu.stage) };
+    }
     return eu.nextOpp.opp;
   },
   euroMatch(opp, home, neutral, label) {
@@ -5198,12 +5246,13 @@ const Engine = {
       lp.played++; lp.gf += m.gf; lp.ga += m.ga;
       const res = m.gf > m.ga ? 'W' : m.gf === m.ga ? 'D' : 'L';
       lp.pts += { W: 3, D: 1, L: 0 }[res];
+      if (eu.lpTable) { Engine.euroLpRound(opp.name, m.gf, m.ga); eu.lpPlayed = (eu.lpPlayed || []).concat(opp.name); }
       Engine.euroMoney('Premia UEFA za wynik', Math.round({ W: 6000, D: 2000, L: 0 }[res] * C.mult * e));
       eu.history.unshift({ stage: 'LP', opp: opp.name, text: C.short + ' · ' + lp.played + '. kolejka fazy ligowej: ' + (home ? 'dom' : 'wyjazd') + ' ' + m.gf + ':' + m.ga + ' z ' + opp.name });
-      verdict = 'Faza ligowa: ' + lp.pts + ' pkt po ' + lp.played + ' z ' + C.lpGames + ' meczów';
+      verdict = 'Faza ligowa: ' + lp.pts + ' pkt po ' + lp.played + ' z ' + C.lpGames + ' meczów' + (eu.lpTable ? ' · ' + (Selectors.euroLpStandings().findIndex((r) => r.team === US) + 1) + '. miejsce w tabeli' : '');
       good = res !== 'L';
       if (lp.played >= C.lpGames) {
-        const rank = Utils.clamp(Math.round(36 - lp.pts * (C.lpGames === 6 ? 3 : 2.2) + Utils.randInt(-2, 2)), 1, 36);
+        const rank = eu.lpTable ? Selectors.euroLpStandings().findIndex((r) => r.team === US) + 1 : Utils.clamp(Math.round(36 - lp.pts * (C.lpGames === 6 ? 3 : 2.2) + Utils.randInt(-2, 2)), 1, 36);   // miejsce z prawdziwej tabeli
         lp.rank = rank;
         if (rank <= 8) Engine.euroAdvance('R16', 'Faza ligowa: ' + rank + '. miejsce – prosto do 1/8 finału!');
         else if (rank <= 24) Engine.euroAdvance('KPO', 'Faza ligowa: ' + rank + '. miejsce – baraż o 1/8 finału.');
@@ -5291,6 +5340,7 @@ const Engine = {
     eu.stage = stage;
     if (stage === 'LP') {
       eu.lp = { played: 0, pts: 0, gf: 0, ga: 0, rank: null };
+      Engine.euroBuildLp();
       Engine.euroMoney('Premia UEFA: awans do fazy ligowej ' + C.name, Math.round(C.lpFee * e));
       Engine.applyEffects({ fans: +8 });
       Engine.addLog('🇪🇺 FAZA LIGOWA ' + C.name.toUpperCase() + '! Hymn, gwiazdy i premia ' + Utils.formatMoney(Math.round(C.lpFee * e)) + '. [kibice +8%]', 'system');
@@ -7881,6 +7931,10 @@ const Selectors = {
     if (!R || Selectors.euroKolejka(R.k) !== kolejka) return null;
     return { R, next: c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw() };
   },
+  euroLpStandings: () => {
+    const T = (gameState.euro && gameState.euro.lpTable) || {};
+    return Object.keys(T).map((team) => ({ team, ...T[team] })).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || b.s - a.s);
+  },
   // 13.73: europejski mecz w tygodniu danej kolejki (do terminarza)
   euroAt: (k) => {
     if (!Selectors.euroLive()) return null;
@@ -9560,6 +9614,14 @@ const UI = {
     if (view === 'stats') return segs + UI.teamStatsCard();
     if (view === 'money') return segs + UI.leagueMoneyView();
     if (view === 'euro' && gameState.euro) return segs + UI.euroView();
+    // 13.74: przełącznik tabeli – liga albo europejski puchar (tylko te, w których gramy w tym sezonie)
+    const eu = gameState.euro && gameState.euro.season === gameState.calendar.season ? gameState.euro : null;
+    const tv = eu && gameState.ui.tableView === eu.comp ? eu.comp : 'league';
+    const picker = eu ? `<select data-table-view aria-label="Wybierz tabelę" class="w-full mb-1 px-2 py-1.5 rounded-md bg-desk-800 border border-desk-600 text-[13px] text-paper-100 font-semibold">
+        <option value="league"${tv === 'league' ? ' selected' : ''}>📊 ${Utils.escape(Selectors.leagueName())}</option>
+        ${['UCL', 'UEL', 'UECL'].map((k) => `<option value="${k}"${tv === k ? ' selected' : ''}${k === eu.comp ? '' : ' disabled'}>${DATA.euro.comps[k].icon} ${DATA.euro.comps[k].name}${k === eu.comp ? '' : ' 🔒'}</option>`).join('')}
+      </select>` : '';
+    if (tv !== 'league') return segs + picker + UI.euroTableView();
 
     const n = Selectors.leagueSize();
     const big = n > 12;
@@ -9591,7 +9653,7 @@ const UI = {
     if (rl.downPO) legend.push(dot('bg-orange-400') + ' ' + rl.downPO + ': baraż o utrzymanie');
     if (rl.down) legend.push(dot('bg-stamp') + ' ' + range(n - rl.down + 1, n) + ': spadek' + (downName ? ' (' + downName + ')' : ''));
     if (!rl.down) legend.push(dot('bg-stamp') + ' ' + n + ': wstyd na cały powiat');
-    return segs + title + `
+    return segs + picker + title + `
       <section class="paper py-0.5 mb-1.5 overflow-hidden">
         <table class="w-full ${big ? 'text-[11px]' : 'text-[12px]'}">
           <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>
@@ -9600,6 +9662,41 @@ const UI = {
       </section>
       <p class="text-[10.5px] text-paper-400 leading-snug">${n} drużyn${upName ? ' · wyżej: ' + upName : ''} · ${legend.join(' · ')}
         ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>`;
+  },
+
+  // 13.74: tabela fazy ligowej europejskiego pucharu (skrócona: czołówka, strefy i nasze okolice)
+  euroTableView() {
+    const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
+    if (!eu.lpTable) {
+      return `<p class="text-[11px] text-paper-400 mb-1">${C.icon} ${C.name} · ${Utils.escape(eu.done ? eu.result : DATA.euro.stages[eu.stage].label)}</p>`
+        + UI.panel('Faza ligowa ' + C.name, 'Tabela 36 drużyn ruszy po awansie z eliminacji.', `<p class="text-[12px] mb-1">W fazie ligowej czekają m.in.:</p><p class="text-[12px] text-ink-700 leading-snug">${DATA.euro.lp[eu.comp].slice(0, 12).map(Utils.escape).join(', ')}…</p>`
+          + (eu.history.length ? `<ul class="text-[11.5px] mt-1.5 space-y-0.5">${eu.history.slice(0, 4).map((x) => '<li class="truncate">' + Utils.escape(x.text) + '</li>').join('')}</ul>` : ''));
+    }
+    const rows = Selectors.euroLpStandings();
+    const me = rows.findIndex((r) => r.team === US);
+    const show = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 23, 24, 35]);
+    for (let k = me - 3; k <= me + 3; k++) if (k >= 0 && k < rows.length) show.add(k);
+    const edge = (i) => (i < 8 ? 'border-l-grass' : i < 24 ? 'border-l-sky-500' : 'border-l-stamp');
+    let last = -1;
+    const html = rows.map((r, i) => {
+      if (!show.has(i)) return '';
+      const gap = i - last > 1 ? `<tr><td colspan="8" class="text-center text-[10px] text-ink-700 leading-none py-[1px]">⋯</td></tr>` : '';
+      last = i;
+      const us = r.team === US;
+      return gap + `<tr class="border-b border-paper-300 last:border-0 ${us ? 'bg-amber-glow/25 font-bold' : ''}">
+        <td class="py-[1.5px] pl-1 pr-1 text-right border-l-[3px] ${edge(i)}">${i + 1}.</td>
+        <td class="py-[1.5px] pr-1 max-w-0 w-full truncate">${Utils.escape(us ? Selectors.clubDisplayName() : r.team)}</td>
+        <td class="text-center px-1">${r.p}</td><td class="text-center px-1 text-ink-700">${r.w}</td><td class="text-center px-1 text-ink-700">${r.d}</td><td class="text-center px-1 text-ink-700">${r.l}</td>
+        <td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`;
+    }).join('');
+    return `<p class="text-[11px] text-paper-400 mb-1">${C.icon} ${C.name} · faza ligowa · ${eu.lp.played}/${C.lpGames} meczów${eu.lp.rank ? ' · zakończona: ' + eu.lp.rank + '. miejsce' : ''}</p>
+      <section class="paper py-0.5 mb-1.5 overflow-hidden">
+        <table class="w-full text-[11px]">
+          <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>
+          ${html}
+        </table>
+      </section>
+      <p class="text-[10.5px] text-paper-400 leading-snug">36 drużyn · <span class="inline-block w-2 h-2 bg-grass align-middle"></span> 1–8: 1/8 finału · <span class="inline-block w-2 h-2 bg-sky-500 align-middle"></span> 9–24: baraż · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> 25–36: koniec · gramy tylko z ${C.lpGames} rywalami${eu.done ? ' · ' + Utils.escape(eu.result) : ''}</p>`;
   },
 
   // Europejskie puchary: rozgrywki, etap, terminarz, premie
@@ -10643,6 +10740,7 @@ document.addEventListener('toggle', (e) => {
 
 document.addEventListener('input', (e) => {
   if (e.target.dataset && e.target.dataset.regionSelect != null) { Actions['set-region'](e.target.value); return; }
+  if (e.target.dataset && e.target.dataset.tableView != null) { gameState.ui.tableView = e.target.value; Storage.save(); UI.renderAll(); return; }
   const field = e.target.dataset && e.target.dataset.field;
   if (!field || gameState.screen !== 'start') return;
   const f = gameState.ui.form;
