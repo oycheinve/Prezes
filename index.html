@@ -401,6 +401,12 @@ const DATA = {
 
   // Licencje trenerskie: wymóg rośnie z ligą (indeks = poziom ligi); koszt kursu dla obecnego trenera
   coachLicenses: ['bez licencji', 'UEFA C', 'UEFA B', 'UEFA A', 'UEFA Pro'],
+  proLicenseLevel: 8,   // 13.72: w Ekstraklasie zatrudnisz tylko trenera z licencją UEFA Pro
+  coachTactics: {
+    off: ['Wysoki pressing', 'Gra skrzydłami', 'Tiki-taka', 'Gegenpressing'],
+    bal: ['Gra pozycyjna', 'Kontrola środka pola', 'Elastyczne 4-4-2', 'Pragmatyzm'],
+    def: ['Kontratak', 'Niski blok', 'Laga i autobus', 'Stałe fragmenty'],
+  },
   coachLicenseReq: [0, 0, 0, 1, 2, 2, 3, 4, 4],
   coachCourseCost: [0, 800, 3000, 12000, 40000],
 
@@ -821,21 +827,23 @@ const DATA = {
 
   // Kolejne poziomy już zbudowanych obiektów – odblokowywane wraz z ligą
   upgradeTiers: {
+    academyHall: [{ label: 'Kryte boisko pełnowymiarowe z bursą', cost: 150000, minLevel: 6, promo: 4 }, { label: 'Centrum szkolenia z internatem dla 60 talentów', cost: 400000, minLevel: 8, promo: 6 }],
+    tvcams:      [{ label: 'Wóz transmisyjny HD i 8 kamer', cost: 80000, minLevel: 6, promo: 3 }, { label: 'Studio telewizyjne na stadionie', cost: 220000, minLevel: 8, promo: 5 }],
     roller:     [{ label: 'Traktorek-kosiarka z koszem', cost: 2000, minLevel: 2, pitchRegen: 2 }, { label: 'Greenkeeper z certyfikatem', cost: 15000, minLevel: 4, pitchRegen: 3 }, { label: 'Murawa hybrydowa', cost: 120000, minLevel: 6, pitchRegen: 5, attendance: 1.03 }],
     boiler:     [{ label: 'Szatnia z kafelkami i prysznicami', cost: 3000, minLevel: 3, lockerBase: 4 }, { label: 'Strefa odnowy z jacuzzi', cost: 25000, minLevel: 5, lockerBase: 6 }],
     roof:       [{ label: 'Zadaszona cała trybuna główna', cost: 20000, minLevel: 5, attendance: 1.05 }],
     lights:     [{ label: 'Oświetlenie LED 1400 lx pod TV', cost: 60000, minLevel: 6, attendance: 1.05, promo: 4 }],
     stand:      [{ label: 'Trybuna ze skyboxami', cost: 150000, minLevel: 7, attendance: 1.08, promo: 6 }],
     monitoring: [{ label: 'Bramki z rozpoznawaniem twarzy', cost: 200000, minLevel: 8, attendance: 1.04, promo: 3 }],
-    toilets:    [{ label: 'Murowane toalety z ciepłą wodą', cost: 4000, minLevel: 3, attendance: 1.03, promo: 2 }],
-    parking:    [{ label: 'Parking asfaltowy na 500 aut', cost: 12000, minLevel: 4, attendance: 1.05 }],
-    kiosk:      [{ label: 'Strefa food trucków', cost: 15000, minLevel: 4, grill: 1.25, promo: 2 }],
-    scoreboard: [{ label: 'Telebim LED nad trybuną', cost: 50000, minLevel: 6, promo: 6, merch: 1.1 }],
-    gym:        [{ label: 'Centrum przygotowania z kriokomorą', cost: 40000, minLevel: 5, lockerBase: 4 }],
-    shop:       [{ label: 'Megastore klubowy', cost: 30000, minLevel: 5, merch: 1.3, promo: 3 }],
-    clubhouse:  [{ label: 'Klubowa restauracja z tarasem', cost: 25000, minLevel: 5, lockerBase: 3, promo: 4 }],
+    toilets:    [{ label: 'Murowane toalety z ciepłą wodą', cost: 4000, minLevel: 3, attendance: 1.03, promo: 2 }, { label: 'Sanitariaty VIP i pokój dla rodzin', cost: 30000, minLevel: 7, attendance: 1.03, promo: 2 }],
+    parking:    [{ label: 'Parking asfaltowy na 500 aut', cost: 12000, minLevel: 4, attendance: 1.05 }, { label: 'Parking wielopoziomowy z wjazdem dla autokarów', cost: 120000, minLevel: 7, attendance: 1.05 }],
+    kiosk:      [{ label: 'Strefa food trucków', cost: 15000, minLevel: 4, grill: 1.25, promo: 2 }, { label: 'Strefa gastro premium z kraftowym browarem', cost: 90000, minLevel: 6, grill: 1.2, promo: 3 }],
+    scoreboard: [{ label: 'Telebim LED nad trybuną', cost: 50000, minLevel: 6, promo: 6, merch: 1.1 }, { label: 'Telebim 360° pod dachem', cost: 250000, minLevel: 8, promo: 6, merch: 1.1 }],
+    gym:        [{ label: 'Centrum przygotowania z kriokomorą', cost: 40000, minLevel: 5, lockerBase: 4 }, { label: 'Laboratorium motoryczne z GPS-ami', cost: 160000, minLevel: 7, lockerBase: 4 }],
+    shop:       [{ label: 'Megastore klubowy', cost: 30000, minLevel: 5, merch: 1.3, promo: 3 }, { label: 'Flagowy salon w centrum miasta + e-sklep', cost: 140000, minLevel: 7, merch: 1.25, promo: 4 }],
+    clubhouse:  [{ label: 'Klubowa restauracja z tarasem', cost: 25000, minLevel: 5, lockerBase: 3, promo: 4 }, { label: 'Hotel klubowy dla zespołu', cost: 300000, minLevel: 8, lockerBase: 4, promo: 5 }],
     irrigation: [{ label: 'Podgrzewana murawa', cost: 80000, minLevel: 7, pitchRegen: 4 }],
-    training:   [{ label: 'Ośrodek z trzema boiskami', cost: 150000, minLevel: 6, lockerBase: 4, pitchRegen: 2, promo: 3 }],
+    training:   [{ label: 'Ośrodek z trzema boiskami', cost: 150000, minLevel: 6, lockerBase: 4, pitchRegen: 2, promo: 3 }, { label: 'Kampus treningowy z hotelem i odnową', cost: 450000, minLevel: 8, lockerBase: 4, pitchRegen: 2, promo: 4 }],
     vip:        [{ label: 'Strefa biznesowa z 20 lożami', cost: 200000, minLevel: 7, promo: 10, attendance: 1.04 }],
   },
 
@@ -904,7 +912,7 @@ const DATA = {
     vip:        { ref: 5, l: ['Ławka z poduszką dla wójta i sponsora', 'Loża dla sponsorów z kawą', 'Strefa VIP i catering premium'],
                   d: ['Poduszka z herbem i termos z kawą.', 'Zamknięta loża, ekspres do kawy i widok na całe boisko.', 'Loże biznesowe, hostessy i catering z restauracji.'], fx: 'Najlepsi sponsorzy pytają o nią najpierw.' },
   },
-  academyRef: [0, 1, 2, 4, 6, 8],   // szczebel „naturalny” dla poziomów szkółki
+  academyRef: [0, 1, 2, 4, 6, 8, 8, 8],   // szczebel „naturalny” dla poziomów szkółki
 
   // Zwykłe komunikaty tygodniowe. effects opcjonalne.
   weeklyFlavor: [
@@ -3270,9 +3278,12 @@ const DATA = {
     { name: 'Klepisko za szkołą i dwie piłki lekarskie', cost: 0,      cands: 3, skill: [1, 3], room: 0, talent: 0.04 },
     { name: 'Dresy i pachołki z przetargu',              cost: 1500,   weeks: 4,  cands: 3, skill: [2, 3], room: 1, talent: 0.07 },
     { name: 'Trener-emeryt od WF-u na pół etatu',        cost: 6000,   weeks: 8,  cands: 4, skill: [2, 4], room: 1, talent: 0.12 },
-    { name: 'Gminna Akademia z Orlikiem',                cost: 20000,  weeks: 14, cands: 4, skill: [3, 4], room: 2, talent: 0.18 },
-    { name: 'Akademia z internatem i dietetykiem',       cost: 70000,  weeks: 22, cands: 5, skill: [3, 5], room: 3, talent: 0.26 },
-    { name: 'Certyfikowana Akademia PZPN (5 gwiazdek)',  cost: 220000, weeks: 34, cands: 5, skill: [4, 6], room: 4, talent: 0.35 },
+    { name: 'Gminna Akademia z Orlikiem',                cost: 20000,  weeks: 14, cands: 4, skill: [3, 4], room: 2, talent: 0.18, minLevel: 3 },
+    { name: 'Akademia z internatem i dietetykiem',       cost: 70000,  weeks: 22, cands: 5, skill: [3, 5], room: 3, talent: 0.26, minLevel: 4 },
+    { name: 'Certyfikowana Akademia PZPN (5 gwiazdek)',  cost: 220000, weeks: 34, cands: 5, skill: [4, 6], room: 4, talent: 0.35, minLevel: 6 },
+    // 13.72: szersze drzewo – zaawansowane poziomy drogie i dostępne dopiero w zawodowych ligach
+    { name: 'Centrum szkolenia z analizą wideo i bursą',  cost: 380000, weeks: 40, cands: 6, skill: [4, 7], room: 5, talent: 0.42, minLevel: 7 },
+    { name: 'Akademia Elite z filią zagraniczną',          cost: 650000, weeks: 48, cands: 6, skill: [5, 7], room: 6, talent: 0.5,  minLevel: 8 },
   ],
   // Unikalne plusy i minusy młodzików (wylosowane przy selekcji)
   youthTraits: {
@@ -4533,6 +4544,8 @@ const Engine = {
     if (outcome === 'promo') {
       gameState.stats.promotions++;
       gameState.stats.topLevel = Math.max(gameState.stats.topLevel, newLevel);
+      const outdated = Object.keys(DATA.staffSlots).filter((k) => { const r = Selectors.staffRawLevel(k); return r > 0 && r < Selectors.staffStandard(newLevel); });
+      if (outdated.length) Engine.addLog('🔻 Sztab odstaje od nowej ligi: ' + outdated.map((k) => DATA.staffSlots[k].label + ' (' + gameState.staff[k].name + ')').join(', ') + '. Ich efekt spada o połowę – czas na lepszych fachowców (Sztab → Sztab).', 'system');
       Engine.checkLicense(newLevel);
       if (!Selectors.coachLicenseOk(newLevel)) { gameState.coach.licenseFor = newLevel; Engine.pushDecision('coachLicense'); }
     } else if (outcome === 'releg' || outcome === 'forced') {
@@ -6095,12 +6108,14 @@ const Engine = {
   refreshCoachMarket() {
     const lvl = gameState.club.leagueLevel;
     const keys = Object.keys(DATA.coachTraits);
+    const styles = Utils.shuffle(['off', 'bal', 'def']);   // 13.72: na giełdzie zawsze trzy różne style
     const list = [0, 1, 2].map((i) => {
-      const style = Utils.rand(['off', 'bal', 'def']);
+      const style = styles[i];
+      const tactic = Utils.rand(DATA.coachTactics[style]);
       const traits = Utils.shuffle(keys).slice(0, Math.random() < 0.5 ? 1 : 2);
       const quality = Math.round((0.06 + lvl * 0.022 + Utils.randRange(-0.03, 0.04)) * 100) / 100;
       const req = Selectors.coachLicenseReq(lvl);
-      const license = Utils.clamp(req - (Math.random() < 0.3 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0), 0, 4);   // część bez papierów na tę ligę – tańsza
+      const license = lvl >= 8 && i === 0 ? 4 : Utils.clamp(req - (Math.random() < 0.3 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0), 0, 4);   // część bez papierów na tę ligę – tańsza; w Ekstraklasie min. jeden z UEFA Pro
       let pay = 40 + quality * 700;
       if (traits.includes('tactician')) pay *= 1.25;
       if (traits.includes('mediaStar')) pay *= 1.3;
@@ -6111,8 +6126,8 @@ const Engine = {
       return {
         id: 'gen-' + gameState.calendar.season + '-' + lvl + '-' + i, name, title: DATA.coachTitles[lvl] || 'trener', age: Utils.randInt(32, 66),
         style, sign: Math.round(weekly * 2.5 / 5) * 5, weekly, quality, prefers: Utils.rand([null, null, 'youth', 'veterans']), fanMod: style === 'off' ? 1 : 0,
-        license, traits, generated: true,
-        desc: 'Styl: ' + DATA.styles[style].label.toLowerCase() + '. ' + traits.map((t) => DATA.coachTraits[t].label).join(', ') + '.',
+        license, traits, generated: true, tactic,
+        desc: 'Styl: ' + DATA.styles[style].label.toLowerCase() + ' (' + tactic.toLowerCase() + '). ' + traits.map((t) => DATA.coachTraits[t].label).join(', ') + '.',
         reports: DATA.styleReports[style],
         complaint: 'Prezesie, ta kadra nie pasuje do mojego stylu. Potrzebuję innych zawodników.',
         carpetOk: 'Trener wysłuchał uwag i obiecał poprawę. Chłopaki dostali w kość na treningu.',
@@ -6135,6 +6150,7 @@ const Engine = {
   hireCoach(id) {
     const coach = Selectors.coachDef(id);
     if (!coach || gameState.coach.id !== 'mirek' || id === 'mirek' || gameState.finance.budget < Selectors.coachOffer(coach).sign) return;
+    if (Selectors.coachNeedsPro(coach)) return;   // Ekstraklasa: bez UEFA Pro nie ma umowy
     Engine.money('Podpis trenera: ' + coach.name, -Selectors.coachOffer(coach).sign);
     Engine.setCoach(id);
     Engine.addLog('✍️ Nowy trener: ' + coach.name + ' (' + coach.title + '). Styl: ' + DATA.styles[coach.style].label + ' – „' + DATA.styles[coach.style].motto + '”. Pan Mirek z ulgą wraca do kosiarki.', 'decision');
@@ -6176,8 +6192,9 @@ const Engine = {
   /* ----- Sztab pomocniczy ----- */
   hireStaff(slot, idx = 0) {
     const cand = (DATA.staffPool[slot] || [])[idx];
-    if (!cand || cand.level > Selectors.staffCap('crew') || (gameState.staff[slot] && gameState.staff[slot].kind !== 'volunteer')) return;
     const prev = gameState.staff[slot];
+    const upgrade = prev && prev.kind === 'external' && cand && cand.level > Selectors.staffRawLevel(slot);   // 13.72: wymiana na lepszego fachowca
+    if (!cand || cand.level > Selectors.staffCap('crew') || (prev && prev.kind !== 'volunteer' && !upgrade)) return;
     gameState.staff[slot] = { name: cand.name, kind: 'external', wage: Math.round(cand.wage * Selectors.econ()), chem: cand.chem, lockerBase: cand.lockerBase, desc: cand.desc, level: cand.level };
     Engine.addLog('🧑‍💼 Do sztabu dołącza ' + cand.name + ' (' + DATA.staffSlots[slot].label + ', ' + Math.round(cand.wage * Selectors.econ()) + ' zł/tydz.).' + (prev ? ' ' + prev.name + ' wraca do koszenia trawy.' : ''), 'decision');
   },
@@ -6228,8 +6245,8 @@ const Engine = {
     const A = gameState.academy;
     if (A.building) return;
     const next = DATA.academyLevels[Selectors.academyLevel() + 1];
-    const cost = Selectors.academyCost(Selectors.academyLevel() + 1);
-    if (!next || gameState.finance.budget < cost) return;
+    const cost = next && Selectors.academyCost(Selectors.academyLevel() + 1);
+    if (!next || gameState.club.leagueLevel < (next.minLevel || 1) || gameState.finance.budget < cost) return;   // 13.72: poziom ligi blokuje zaawansowane szczeble
     Engine.money('Szkółka (budowa): ' + next.name, -cost);
     A.building = { level: Selectors.academyLevel() + 1, ready: gameState.calendar.week + (next.weeks || 4) };
     Engine.addLog('🏗️ Ruszyła rozbudowa szkółki: ' + next.name + '. Potrwa ok. ' + (next.weeks || 4) + ' tyg.', 'finance');
@@ -6979,6 +6996,19 @@ const Engine = {
       if (ctx) Engine.matchPosts(ctx);
       else if (Math.random() < 0.6) { const [who, text] = Utils.rand(DATA.xGossip); Engine.xPost(who, text); }
     },
+    function pitchInspection() {
+      // 13.72: od II ligi delegat ocenia płytę – fatalna murawa to kara i krytyka (zmusza do inwestycji)
+      const lvl = gameState.club.leagueLevel;
+      if (lvl < 6 || !Selectors.isMatchWeek() || !Selectors.currentFixture().home) return;
+      const e = Selectors.pitchScore(gameState.stadium.pitch);
+      if (e >= 30 || gameState.calendar.week - (gameState.stadium.lastPitchFine || -99) < 4) return;
+      gameState.stadium.lastPitchFine = gameState.calendar.week;
+      const fine = Math.round(120 * Selectors.econ() / 10) * 10;
+      Engine.money('Kara: stan murawy (delegat PZPN)', -fine);
+      Engine.applyEffects({ fans: -2 });
+      Engine.alert('🟫', 'Delegat krytykuje murawę', 'Stan płyty: „' + Selectors.pitchLabel(gameState.stadium.pitch) + '”. Kara ' + Utils.formatMoney(fine) + ' i drwiny w studiu TV. Czas zainwestować w murawę.', 'bad');
+      Engine.addLog('🟫 Delegat PZPN: murawa „' + Selectors.pitchLabel(gameState.stadium.pitch) + '”. Kara ' + Utils.formatMoney(fine) + '. [kibice -2%]', 'system');
+    },
     function shopManager() {
       // Kierownik sklepu: pensja co tydzień, a przed dniem meczowym dokupuje partie, by półki nie świeciły pustkami
       const m = gameState.merch;
@@ -7051,13 +7081,16 @@ const Engine = {
         const catastrophe = Selectors.debtRatio() > CONFIG.debtBailiffRatio || (row && row.p >= 8 && Selectors.ourPosition() === Selectors.leagueSize() && gameState.record.lossStreak >= 4);
         const unhappy = sp.breaks(gameState) || catastrophe;
         s.strikes = unhappy ? (s.strikes || 0) + 1 : Math.max(0, (s.strikes || 0) - 1);
+        if (unhappy) s.cutThisWeek = Selectors.sponsorTier().cut; else s.cutThisWeek = 0;
         if (unhappy && s.strikes === 2) Engine.alert('😟', 'Sponsor niezadowolony', sp.name + ' dzwoni z pretensjami: „Jeszcze trochę i się rozstaniemy”. Popraw sytuację w ciągu kilku tygodni.', 'warn');
-        if (s.strikes >= (catastrophe ? 3 : 5)) { s.strikes = 0; Engine.endSponsor('❌ ' + sp.breakLog); }   // zerwał – od razu wchodzi lokalny sponsor
+        const T = Selectors.sponsorTier();
+        if (s.strikes >= (catastrophe ? T.crash : T.patience)) { s.strikes = 0; s.cutThisWeek = 0; Engine.endSponsor('❌ ' + sp.breakLog); }   // zerwał – od razu wchodzi lokalny sponsor
       }
       const payer = Selectors.sponsor();
       if (payer !== sp) { Engine.money('Sponsor: ' + payer.name, Selectors.sponsorWeekly(payer)); return; }
-      Engine.money('Sponsor: ' + sp.name, Selectors.sponsorWeekly(sp));
-      Engine.addLog('💼 Sponsor „' + sp.name + '”: ' + Utils.formatMoney(Selectors.sponsorWeekly(sp)) + ' wpłynęło na konto (a raczej przyszło w kopercie).', 'finance');
+      const cut = s.cutThisWeek ? Math.round(Selectors.sponsorWeekly(sp) * s.cutThisWeek) : 0;   // potrącenie za kryzys (wyższe ligi)
+      Engine.money('Sponsor: ' + sp.name + (cut ? ' (potrącenie za wyniki)' : ''), Selectors.sponsorWeekly(sp) - cut);
+      Engine.addLog('💼 Sponsor „' + sp.name + '”: ' + Utils.formatMoney(Selectors.sponsorWeekly(sp) - cut) + (cut ? ' – potrącił ' + Utils.formatMoney(cut) + ' za kryzys' : ' wpłynęło na konto (a raczej przyszło w kopercie)') + '.', 'finance');
     },
     function payroll() {
       const players = Selectors.squadWages();
@@ -7214,9 +7247,16 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => (sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
-    : Math.round(sp.weekly * Selectors.revEcon() * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1))),
+    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1))),
+  // 13.72: powaga sponsorów rośnie z ligą – większe kontrakty, ale mniej cierpliwości i potrącenia za słabe wyniki
+  sponsorTier: (lvl = gameState.club.leagueLevel) => [
+    { label: 'lokalny biznes', mult: 1, patience: 5, crash: 3, cut: 0 },
+    { label: 'firma regionalna', mult: 1.3, patience: 4, crash: 3, cut: 0.2 },
+    { label: 'ogólnopolska marka', mult: 1.7, patience: 3, crash: 2, cut: 0.35 },
+  ][Selectors.band(lvl)],
   mediaStrategy: () => gameState.x.strategy || 'neutral',
   strategyLocked: () => gameState.x.strategySeason === gameState.calendar.season,
+  coachNeedsPro: (co) => gameState.club.leagueLevel >= DATA.proLicenseLevel && (co.license || 0) < 4,
   coachOffer: (co) => ({ sign: Math.round(co.sign * Selectors.econ()), weekly: Math.round(co.weekly * Selectors.econ()) }),
   coachWeekly: () => (gameState.coach.id === 'mirek' ? 0 : (gameState.coach.weekly || Selectors.coach().weekly)) + (gameState.coach.figurehead ? gameState.coach.figurehead.weekly : 0),
   coachLicense: () => Math.max(gameState.coach.license != null ? gameState.coach.license : (Selectors.coach().license || 0), Selectors.coach().license || 0),
@@ -7513,7 +7553,11 @@ const Selectors = {
   cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
   cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
   // Ukryty poziom osoby w sztabie (0 = wakat); starsze zapisy bez poziomu = przeciętny
-  staffLevel: (slot) => { const m = gameState.staff[slot]; return m ? (m.level != null ? m.level : m.kind === 'volunteer' ? 1 : 2) : 0; },
+  staffRawLevel: (slot) => { const m = gameState.staff[slot]; return m ? (m.level != null ? m.level : m.kind === 'volunteer' ? 1 : 2) : 0; },
+  // 13.72: standard ligi – fachowiec poniżej minimum rynku tej ligi jest „przestarzały” i daje połowę efektu
+  staffStandard: (lvl = gameState.club.leagueLevel) => Math.max(1, 1 + Math.floor((lvl - 1) * 0.6) - 2),
+  staffOutdated: (slot) => { const r = Selectors.staffRawLevel(slot); return r > 0 && r < Selectors.staffStandard(); },
+  staffLevel: (slot) => { const r = Selectors.staffRawLevel(slot); return Selectors.staffOutdated(slot) ? r * 0.5 : r; },
   upgradeTier: (id) => ((gameState.stadium.tiers || {})[id] || 0),
   // Premie z obiektów razem z ich kolejnymi poziomami
   upgradeSum: (key) => Object.keys(DATA.upgrades).reduce((s, id) => {
@@ -7631,6 +7675,7 @@ const Selectors = {
   staffEffect: (slot) => {
     const l = Selectors.staffLevel(slot);
     if (!l) return '';
+    if (Selectors.staffOutdated(slot)) return '🔻 Za słaby na ' + Selectors.leagueName() + ' – efekt o połowę, wymień na lepszego';
     if (slot === 'asystent') return 'Trener ×' + Selectors.assistantMult().toFixed(2) + ' skuteczności, +' + (l * 1.2).toFixed(1) + '% siły, szybszy rozwój młodych';
     if (slot === 'fizjo') return 'Kontuzje -' + Math.round(l * 17) + '%, krótsze leczenie, zmęczenie po meczach w tygodniu -' + Math.round(l * 18) + '%';
     if (slot === 'kierownik') return 'Nieobecności na meczach -' + Math.round(l * 12) + '%';
@@ -7873,12 +7918,15 @@ const Selectors = {
     if (v >= 40) return 'bg-amber-glow';
     return 'bg-stamp';
   },
-  pitchLabel: (v) => {
-    if (v >= 80) return 'Dywan (jak na wieś)';
-    if (v >= 60) return 'Przyzwoita trawa';
-    if (v >= 40) return 'Łysiny w polu karnym';
-    if (v >= 20) return 'Kretowisko';
-    return 'Kartoflisko';
+  // 13.72: im wyższa liga, tym surowsi eksperci i sędziowie – ta sama murawa dostaje gorszą ocenę
+  pitchStrict: (lvl = gameState.club.leagueLevel) => ({ 1: 0, 2: 3, 3: 6, 3.5: 8, 4: 10, 5: 14, 6: 18, 7: 23, 8: 28 }[lvl] || 0),
+  pitchScore: (v, lvl = gameState.club.leagueLevel) => v - Selectors.pitchStrict(lvl),
+  pitchLabel: (v, lvl = gameState.club.leagueLevel) => {
+    const e = Selectors.pitchScore(v, lvl), b = Selectors.band(lvl);
+    const L = [['Dywan (jak na wieś)', 'Przyzwoita trawa', 'Łysiny w polu karnym', 'Kretowisko', 'Kartoflisko'],
+      ['Równa płyta', 'Przyzwoita trawa', 'Łysiny – sędzia kręci nosem', 'Kretowisko – uwagi delegata', 'Kartoflisko – grozi walkower'],
+      ['Murawa na poziomie', 'Przeciętna – eksperci marudzą', 'Krytykowana w studiu TV', 'Skandal – nota od delegata PZPN', 'Boisko nie do gry']][b];
+    return L[e >= 80 ? 0 : e >= 60 ? 1 : e >= 40 ? 2 : e >= 20 ? 3 : 4];
   },
   facilityLabels: () => [
     gameState.stadium.upgrades.boiler ? 'Blaszak z ciepłą wodą (przez pierwsze 10 minut)' : 'Blaszak bez ciepłej wody',
@@ -9292,7 +9340,7 @@ const UI = {
       const al = Selectors.academyLevel();
       const baseRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.academyCost(i))}</span>`,
         'nabór ' + a.cands + '/sezon · sufit +' + a.room + ' · 💎 ' + Math.round(a.talent * 100) + '% · budowa ' + (a.weeks || 0) + ' tyg.',
-        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', budget < Selectors.academyCost(i))) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+        i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : (gameState.club.leagueLevel >= (a.minLevel || 1) ? UI.smallBtn('build-academy', '', 'Buduj', budget < Selectors.academyCost(i)) : '<span class="text-[10.5px] text-ink-700 text-right leading-tight">🔒 od ligi<br>' + DATA.leagueLevels[a.minLevel].name + '</span>')) : (gameState.club.leagueLevel < (a.minLevel || 1) ? '<span class="text-[10.5px] text-ink-700 text-right leading-tight">🔒 od ligi<br>' + DATA.leagueLevels[a.minLevel].name + '</span>' : '<span class="text-[11px] text-ink-700">później</span>'), '', true)).join('');
       const staffGroup = (role, title, effect) => {
         const cur = u[role];
         const rows = DATA.u19Staff[role].map((c, i) => c.level > Selectors.staffCap('u19') ? '' : UI.row(Utils.escape(c.name), 'poziom ' + c.level + ' · ' + Utils.formatMoney(Math.round(c.wage * Selectors.econ())) + '/tydz.',
@@ -9636,8 +9684,8 @@ const UI = {
         const offer = Selectors.coachOffer(co);
         const traits = (co.traits || []).map((t) => `<span class="whitespace-nowrap">${DATA.coachTraits[t].label} <span class="text-grass">+${DATA.coachTraits[t].pro}</span> <span class="text-stamp">−${DATA.coachTraits[t].con}</span></span>`).join(' · ');
         return UI.row(`${Utils.escape(co.name)} <span class="font-normal text-ink-700">· ${Utils.escape(co.title)} · jakość ${Math.round((co.quality + 0.1) * 100)}</span>`,
-          `<b>${st.label}</b> · 📜 ${DATA.coachLicenses[co.license || 0]}${(co.license || 0) < Selectors.coachLicenseReq() ? ' <span class="text-stamp">(za mało)</span>' : ''} · ${Utils.formatMoney(offer.sign)} + <b>${Utils.formatMoney(offer.weekly)}/tydz.</b> · chemia ${testLineup}%${traits ? '<br>' + traits : ''}`,
-          UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < offer.sign), '', true);
+          `<b>${st.label}</b>${co.tactic ? ' · ' + Utils.escape(co.tactic) : ''} · 📜 ${DATA.coachLicenses[co.license || 0]}${Selectors.coachNeedsPro(co) ? ' <span class="text-stamp font-semibold">🔒 Ekstraklasa wymaga UEFA Pro</span>' : (co.license || 0) < Selectors.coachLicenseReq() ? ' <span class="text-stamp">(za mało)</span>' : ''} · ${Utils.formatMoney(offer.sign)} + <b>${Utils.formatMoney(offer.weekly)}/tydz.</b> · chemia ${testLineup}%${traits ? '<br>' + traits : ''}`,
+          UI.smallBtn('hire-coach', `data-id="${id}"`, 'Zatrudnij', !isTemp || gameState.finance.budget < offer.sign || Selectors.coachNeedsPro(co)), '', true);
       }).join('');
       return segs + intro + UI.panel('Giełda Trenerów', isTemp ? 'Pan Mirek chętnie odda gwizdek. Wybierz następcę.' : 'Żeby zatrudnić nowego, najpierw zwolnij obecnego.', market);
     }
@@ -9652,6 +9700,7 @@ const UI = {
         const pool = all.filter((c) => c.level <= cap && c.level >= cap - 2);   // na rynku: fachowcy na miarę klubu
         const locked = all.find((c) => c.level > cap);
         const canHireExt = !m || m.kind === 'volunteer';
+        const canUpgrade = (cand) => canHireExt || (m.kind === 'external' && cand.level > Selectors.staffRawLevel(slot));
         const key = 'staff-' + slot;
         if (openSlot !== slot) {
           // zwinięta rola: nazwisko i realny efekt w dwóch linijkach (stuknięcie otwiera szczegóły i kandydatów)
@@ -9672,11 +9721,11 @@ const UI = {
             : '<div class="text-[12px] italic text-ink-700">Wakat. Krzesło stoi puste, na nim worek z piłkami.</div>'}
           <details data-fold="${key}" class="mt-1" ${folds[key] ? 'open' : ''}>
             <summary class="flex items-center justify-between h-7 px-2 rounded-md bg-paper-200 text-[11.5px] font-semibold cursor-pointer select-none">
-              <span>${canHireExt ? 'Kandydaci (' + pool.length + ')' : 'Kandydaci – najpierw zwolnij obecnego'}</span><span class="fold-chevron text-ink-700">⌄</span>
+              <span>${canHireExt ? 'Kandydaci (' + pool.length + ')' : m.kind === 'external' ? 'Kandydaci – wymiana na lepszego (' + pool.length + ')' : 'Kandydaci – najpierw zwolnij obecnego'}</span><span class="fold-chevron text-ink-700">⌄</span>
             </summary>
             ${pool.map((cand) => UI.row(Utils.escape(cand.name) + ' <span class="font-normal text-ink-700">· ' + '★'.repeat(cand.level) + '</span>',
               `${Utils.escape(cand.desc)} · ${Utils.formatMoney(Math.round(cand.wage * Selectors.econ()))}/tydz.${cand.chem ? ' · chemia +' + cand.chem : ''}${cand.lockerBase ? ' · atmosfera +' + cand.lockerBase : ''}`,
-              UI.smallBtn('hire-staff', `data-slot="${slot}" data-idx="${cand.i}"`, 'Zatrudnij', !canHireExt), 'px-1', true)).join('')}
+              UI.smallBtn('hire-staff', `data-slot="${slot}" data-idx="${cand.i}"`, canHireExt ? 'Zatrudnij' : 'Wymień', !canUpgrade(cand)), 'px-1', true)).join('')}
             ${locked ? `<p class="text-[10.5px] text-ink-700 px-1 py-1">🔒 ${'★'.repeat(locked.level)} ${Utils.escape(locked.name)} – przyjdzie od ligi ${Utils.escape(Selectors.staffFromLeague('crew', locked.level))} albo przy większym prestiżu klubu.</p>` : ''}
           </details>
         </div>`;
@@ -10002,7 +10051,6 @@ const UI = {
       ${UI.h4('Polityka cenowa biletów na bramce')}
       <div class="grid gap-1.5">${policies}</div>
       <p class="text-[11px] font-semibold mt-0.5 text-ink-700">✅ Nowy cennik działa od razu · reakcja kibiców rozliczana co miesiąc (przy dobrych wynikach łagodniej).</p>
-      <button data-action="sub-view" data-tab="finance" data-value="food" class="btn-press w-full mt-1.5 h-8 rounded-md bg-paper-200 text-[12px] font-semibold text-left px-2">🌭 Budka Pana Zenka: ${Selectors.budkaMenu().length} poz. w menu – ceny i rozbudowa ›</button>
       <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">📈 Nastroje po wynikach: <b>${Selectors.formLabel()}</b> do frekwencji, gastro i sklepu · ☀️ w słońcu grill +30%.</p>
     `);
   },
@@ -10087,7 +10135,7 @@ const UI = {
         <div class="bg-paper-200 border border-grass rounded-md px-2 py-1.5 mb-1">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
-              <div class="text-[10px] uppercase tracking-wide text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}</div>
+              <div class="text-[10px] uppercase tracking-wide text-ink-700">Umowa aktywna od Tygodnia ${s.signedWeek}${active.fallback ? '' : ' · ' + Selectors.sponsorTier().label}</div>
               <div class="text-[14px] font-bold">${Utils.escape(active.name)}</div>
             </div>
             ${active.fallback ? '<span class="text-[10.5px] font-semibold text-grass whitespace-nowrap">stały sponsor</span>' : UI.smallBtn('end-sponsor', '', 'Wypowiedz', false, 'stamp')}
@@ -10181,7 +10229,7 @@ const UI = {
     const al = Selectors.academyLevel();
     const youthRows = DATA.academyLevels.map((a, i) => i === 0 ? '' : UI.row(`${i <= al ? '✅ ' : ''}${Utils.escape(a.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.academyCost(i))}</span>`,
       a.cands + ' kandydatów na selekcji · sufit +' + a.room + ' · szansa na 💎 ' + Math.round(a.talent * 100) + '%',
-      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < Selectors.academyCost(i))) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      i <= al ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === al + 1 ? (gameState.academy.building ? (gameState.academy.building.level === i ? '<span class="text-[11px] font-bold text-amber-600">🏗️ ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.</span>' : '<span class="text-[11px] text-ink-700">później</span>') : (gameState.club.leagueLevel >= (a.minLevel || 1) ? UI.smallBtn('build-academy', '', 'Buduj', gameState.finance.budget < Selectors.academyCost(i)) : '<span class="text-[10.5px] text-ink-700 text-right leading-tight">🔒 od ligi<br>' + DATA.leagueLevels[a.minLevel].name + '</span>')) : (gameState.club.leagueLevel < (a.minLevel || 1) ? '<span class="text-[10.5px] text-ink-700 text-right leading-tight">🔒 od ligi<br>' + DATA.leagueLevels[a.minLevel].name + '</span>' : '<span class="text-[11px] text-ink-700">później</span>'), '', true)).join('');
     const youthGroup = `
       <details data-fold="st-youth" class="mt-1.5" ${folds['st-youth'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
