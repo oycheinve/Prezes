@@ -5145,19 +5145,41 @@ const Engine = {
     eu.lpTable[US] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: 0 };
     eu.lpPlayed = [];
   },
-  euroLpRow(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts++; } else r.l++; },
-  // Pozostałe mecze kolejki fazy ligowej (symulacja w tle, tylko nasze rozgrywki)
-  euroLpRound(opp, gf, ga) {
+  // 13.77: zapis sprzed 13.74 – faza ligowa rozegrana bez tabeli: odtwarzamy ją z naszego bilansu
+  euroRebuildLp() {
+    const eu = gameState.euro, lp = eu.lp || { played: 0, pts: 0, gf: 0, ga: 0 };
+    const played = lp.played || 0;
+    const w = Math.min(played, Math.floor((lp.pts || 0) / 3)), d = Math.min(played - w, (lp.pts || 0) - w * 3);
+    const zone = (k) => (k <= 8 ? 0 : k <= 24 ? 1 : 2);
+    for (let tries = 0; tries < 40; tries++) {   // powtarzamy, aż nasze miejsce zgadza się z zapisanym (albo choć strefa)
+      Engine.euroBuildLp();
+      const T = eu.lpTable;
+      const opps = Utils.shuffle(Object.keys(T).filter((n) => n !== US)).slice(0, played);
+      opps.forEach((o) => { Engine.euroLpRow(T[o], Utils.poisson(1.2), Utils.poisson(1.4)); Engine.euroLpOthers([US, o]); });
+      Object.assign(T[US], { p: played, w, d, l: Math.max(0, played - w - d), gf: lp.gf || 0, ga: lp.ga || 0, pts: lp.pts || 0 });
+      eu.lpPlayed = opps;
+      const pos = Selectors.euroLpStandings().findIndex((r) => r.team === US) + 1;
+      if (!lp.rank || pos === lp.rank || (tries > 25 && zone(pos) === zone(lp.rank))) break;
+    }
+  },
+  // Mecze kolejki fazy ligowej bez naszego udziału (pary losowane z pozostałych drużyn)
+  euroLpOthers(skip) {
     const T = gameState.euro.lpTable;
-    Engine.euroLpRow(T[US], gf, ga);
-    if (T[opp]) Engine.euroLpRow(T[opp], ga, gf);
-    const rest = Utils.shuffle(Object.keys(T).filter((n) => n !== US && n !== opp));
+    const rest = Utils.shuffle(Object.keys(T).filter((n) => !skip.includes(n)));
     for (let i = 0; i + 1 < rest.length; i += 2) {
       const a = T[rest[i]], b = T[rest[i + 1]];
       const r = a.s / b.s;
       const ag = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(r, 1.6) * 1.1)), bg = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(1 / r, 1.6) / 1.1));
       Engine.euroLpRow(a, ag, bg); Engine.euroLpRow(b, bg, ag);
     }
+  },
+  euroLpRow(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts++; } else r.l++; },
+  // Pozostałe mecze kolejki fazy ligowej (symulacja w tle, tylko nasze rozgrywki)
+  euroLpRound(opp, gf, ga) {
+    const T = gameState.euro.lpTable;
+    Engine.euroLpRow(T[US], gf, ga);
+    if (T[opp]) Engine.euroLpRow(T[opp], ga, gf);
+    Engine.euroLpOthers([US, opp]);
   },
   // Rywal najbliższego meczu losowany z wyprzedzeniem (widoczny w terminarzu)
   euroNextOpp() {
@@ -9691,39 +9713,30 @@ const UI = {
     </li>`;
   },
 
-  // 13.74: tabela fazy ligowej europejskiego pucharu (skrócona: czołówka, strefy i nasze okolice)
+  // 13.77: pełna tabela fazy ligowej (36 drużyn) – miejsce, mecze, bilans, bramki, punkty; przed fazą ligową lista uczestników
   euroTableView() {
     const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
-    if (!eu.lpTable) {
-      return `<p class="text-[11px] text-paper-400 mb-1">${C.icon} ${C.name} · ${Utils.escape(eu.done ? eu.result : DATA.euro.stages[eu.stage].label)}</p>`
-        + UI.panel('Faza ligowa · ' + C.name, '', `<p class="text-[12px] text-ink-700 leading-snug">${DATA.euro.lp[eu.comp].slice(0, 12).map(Utils.escape).join(', ')}…</p>`
-          + (eu.history.length ? `<ul class="text-[11.5px] mt-1.5 space-y-0.5">${eu.history.slice(0, 4).map((x) => '<li class="truncate">' + Utils.escape(x.text) + '</li>').join('')}</ul>` : ''));
-    }
-    const rows = Selectors.euroLpStandings();
-    const me = rows.findIndex((r) => r.team === US);
-    const show = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 23, 24, 35]);
-    for (let k = me - 3; k <= me + 3; k++) if (k >= 0 && k < rows.length) show.add(k);
+    if (eu.lp && !eu.lpTable) Engine.euroRebuildLp();   // stary zapis
+    const rows = eu.lpTable ? Selectors.euroLpStandings()
+      : DATA.euro.lp[eu.comp].map((team, i) => ({ team, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
     const edge = (i) => (i < 8 ? 'border-l-grass' : i < 24 ? 'border-l-sky-500' : 'border-l-stamp');
-    let last = -1;
     const html = rows.map((r, i) => {
-      if (!show.has(i)) return '';
-      const gap = i - last > 1 ? `<tr><td colspan="8" class="text-center text-[10px] text-ink-700 leading-none py-[1px]">⋯</td></tr>` : '';
-      last = i;
       const us = r.team === US;
-      return gap + `<tr class="border-b border-paper-300 last:border-0 ${us ? 'bg-amber-glow/25 font-bold' : ''}">
-        <td class="py-[1.5px] pl-1 pr-1 text-right border-l-[3px] ${edge(i)}">${i + 1}.</td>
-        <td class="py-[1.5px] pr-1 max-w-0 w-full truncate">${Utils.escape(us ? Selectors.clubDisplayName() : r.team)}</td>
-        <td class="text-center px-1">${r.p}</td><td class="text-center px-1 text-ink-700">${r.w}</td><td class="text-center px-1 text-ink-700">${r.d}</td><td class="text-center px-1 text-ink-700">${r.l}</td>
-        <td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`;
+      return `<tr class="${i % 2 ? 'bg-paper-200/60' : ''} ${us ? '!bg-amber-glow/30 font-bold' : ''}">
+        <td class="pl-1 pr-1 text-right border-l-[3px] ${edge(i)}">${i + 1}</td>
+        <td class="pr-1 max-w-0 w-full truncate">${Utils.escape(us ? Selectors.clubDisplayName() : r.team)}</td>
+        <td class="text-center px-0.5">${r.p}</td><td class="text-center px-0.5 text-ink-700 whitespace-nowrap">${r.w}-${r.d}-${r.l}</td>
+        <td class="text-center px-0.5 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`;
     }).join('');
-    return `<p class="text-[11px] text-paper-400 mb-1">${C.icon} ${C.name} · faza ligowa · ${eu.lp.played}/${C.lpGames} meczów${eu.lp.rank ? ' · zakończona: ' + eu.lp.rank + '. miejsce' : ''}</p>
-      <section class="paper py-0.5 mb-1.5 overflow-hidden">
-        <table class="w-full text-[11px]">
-          <tr class="text-[10px] uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W</th><th>R</th><th>P</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>
+    const status = eu.lpTable ? 'faza ligowa · ' + eu.lp.played + '/' + C.lpGames + (eu.lp.rank ? ' · ' + eu.lp.rank + '. miejsce' : '') : Utils.escape(DATA.euro.stages[eu.stage].label) + ' · uczestnicy fazy ligowej';
+    return `<p class="text-[11px] text-paper-400 mb-0.5 truncate">${C.icon} ${C.name} · ${status}${eu.done ? ' · ' + Utils.escape(eu.result) : !Selectors.euroLive() ? '' : eu.stage !== 'LP' && eu.lpTable ? ' · teraz: ' + Utils.escape(DATA.euro.stages[eu.stage].label) : ''}</p>
+      <section class="paper py-0.5 mb-1 overflow-hidden">
+        <table class="w-full text-[10px] leading-[12.5px]">
+          <tr class="text-[9px] uppercase text-ink-700"><th></th><th class="text-left">Drużyna</th><th>M</th><th>W-R-P</th><th>Br</th><th class="text-right pr-1.5">Pkt</th></tr>
           ${html}
         </table>
       </section>
-      <p class="text-[10.5px] text-paper-400 leading-snug">36 drużyn · <span class="inline-block w-2 h-2 bg-grass align-middle"></span> 1–8: 1/8 finału · <span class="inline-block w-2 h-2 bg-sky-500 align-middle"></span> 9–24: baraż · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> 25–36: koniec${eu.done ? ' · ' + Utils.escape(eu.result) : ''}</p>`;
+      <p class="text-[10px] text-paper-400 leading-tight"><span class="inline-block w-2 h-2 bg-grass align-middle"></span> 1–8: 1/8 finału · <span class="inline-block w-2 h-2 bg-sky-500 align-middle"></span> 9–24: baraż · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> 25–36: odpadają</p>`;
   },
 
   // Europejskie puchary: rozgrywki, etap, terminarz, premie
