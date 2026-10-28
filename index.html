@@ -503,11 +503,25 @@ const DATA = {
     },
   },
 
+  // Sklep fanowski: rozbudowa dokłada towary, prezes ustala cenę każdej pozycji z osobna
   merch: {
-    mug:   { label: 'Kubek z herbem',                 unitCost: 8,  basePrice: 15, batch: 20, demand: 2.5 },
-    scarf: { label: 'Szalik „Ultras Wieś”',           unitCost: 15, basePrice: 30, batch: 20, demand: 1.8 },
-    shirt: { label: 'Koszulka meczowa (100% poliester)', unitCost: 45, basePrice: 90, batch: 10, demand: 0.8, favoriteBoost: true },
+    wlepki:   { icon: '🏷️', label: 'Wlepki z herbem',            unitCost: 1,  basePrice: 3,   batch: 50, demand: 4 },
+    scarf:    { icon: '🧣', label: 'Szalik „Ultras Wieś”',       unitCost: 15, basePrice: 30,  batch: 20, demand: 1.8 },
+    mug:      { icon: '☕', label: 'Kubek z herbem',             unitCost: 8,  basePrice: 15,  batch: 20, demand: 2.2 },
+    czapka:   { icon: '🧢', label: 'Czapka z pomponem',          unitCost: 12, basePrice: 25,  batch: 20, demand: 1.3 },
+    shirt:    { icon: '👕', label: 'Koszulka domowa',            unitCost: 45, basePrice: 90,  batch: 10, demand: 0.8, favoriteBoost: true },
+    away:     { icon: '🎽', label: 'Koszulka wyjazdowa',         unitCost: 45, basePrice: 85,  batch: 10, demand: 0.5, favoriteBoost: true },
+    bluza:    { icon: '🧥', label: 'Bluza z kapturem',           unitCost: 40, basePrice: 80,  batch: 10, demand: 0.55 },
+    kurtka:   { icon: '🧤', label: 'Kurtka „jak trener”',        unitCost: 90, basePrice: 180, batch: 5,  demand: 0.22 },
+    pilka:    { icon: '⚽', label: 'Piłka z autografami',        unitCost: 30, basePrice: 70,  batch: 10, demand: 0.35, favoriteBoost: true },
   },
+  shopLevels: [null,
+    { name: 'Okienko w blaszaku',           cost: 0,     items: ['wlepki', 'scarf'] },
+    { name: 'Kiosk z witryną',              cost: 500,   items: ['mug', 'czapka'] },
+    { name: 'Sklep klubowy',                cost: 1500,  items: ['shirt'] },
+    { name: 'Fan shop z przymierzalnią',    cost: 4000,  items: ['away', 'bluza'] },
+    { name: 'Megastore przy stadionie',     cost: 10000, items: ['kurtka', 'pilka'] },
+  ],
 
   // Narzut w sklepie: za tanio = sprzedaż poniżej kosztów (strata na każdej sztuce), za drogo = popyt leci i kibice się wściekają
   merchMarkups: {
@@ -3254,9 +3268,12 @@ function createInitialState() {
     star: { playerId: null, rebel: false, promised: 0, lastWeek: 0, talkWeek: 0 },   // gwiazda „za dobra na ten klub”   // okno transferowe po sezonie (do 1. kolejki)
     cutscenes: { lastWeek: 0, recent: [], targetId: null },
     merch: {
-      stock: { mug: 0, scarf: 0, shirt: 0 },
+      stock: { wlepki: 0, scarf: 0, mug: 0, czapka: 0, shirt: 0, away: 0, bluza: 0, kurtka: 0, pilka: 0 },
       markup: 'medium',
       soldTotal: 0,
+      level: 1,                 // poziom sklepu → asortyment
+      prices: {},               // cena każdej pozycji (domyślnie bazowa)
+      last: {},                 // sprzedaż w ostatnim tygodniu
     },
     sponsor: {
       active: null,             // id z DATA.sponsors
@@ -5450,6 +5467,24 @@ const Engine = {
     Engine.addLog('💸 Sprzedany: ' + Selectors.playerName(p) + ' za ' + Utils.formatMoney(price) + '.' + Engine.describeEffects(effects), 'decision');
   },
 
+  // Głęboki dług: kluby wiedzą, że musimy sprzedać – płacą ok. 45% wartości, także poza oknem
+  fireSale(id) {
+    if (!Selectors.debtCrisis()) return;
+    const p = gameState.squad.find((x) => x.id === id);
+    if (!p || p.loan || gameState.squad.length <= CONFIG.minSquad) return;
+    const price = Selectors.fireSalePrice(p);
+    const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : 1);
+    gameState.squad = gameState.squad.filter((x) => x.id !== id);
+    if (p.id === gameState.star.playerId) Engine.endStar(false);
+    Engine.money('Wyprzedaż po taniości: ' + Selectors.playerName(p), price);
+    const effects = p.legend ? { fans: -10, lockerRoom: -8 } : p.favorite ? { fans: -6, lockerRoom: -4 } : { fans: -1, lockerRoom: -3 };
+    Engine.applyEffects(effects);
+    if (gameState.transfer.open) gameState.transfer.sold++;
+    gameState.stats.fireSales = (gameState.stats.fireSales || 0) + 1;
+    Engine.addLog('🔥 WYPRZEDAŻ: ' + Selectors.playerName(p) + ' odchodzi do ' + club + ' za ' + Utils.formatMoney(price) + ' (wart ' + Utils.formatMoney(Selectors.sellPrice(p)) + '). Wszyscy wiedzą, że toniemy.' + Engine.describeEffects(effects), 'decision');
+    if (Math.random() < 0.4) Engine.xPost('portal', Selectors.clubDisplayName() + ' wyprzedaje skład za bezcen! ' + Selectors.shortName(p) + ' poszedł za ' + Utils.formatMoney(price) + '. Komornik już grzeje silnik? 💸');
+  },
+
   coachBringsPlayer() {
     if (gameState.squad.length >= CONFIG.maxSquad) return;
     const p = Engine.generatePlayer({ ageMin: 26, ageMax: 32, skillMin: 6 + Selectors.levelSkillBonus(), skillMax: 8 + Selectors.levelSkillBonus(), wageMin: Math.round(30 * Selectors.econ()), wageMax: Math.round(45 * Selectors.econ()) });
@@ -5962,12 +5997,30 @@ const Engine = {
 
   /* ----- Sklepik ----- */
   merchPrice(itemId) {
-    return Math.round(DATA.merch[itemId].basePrice * DATA.merchMarkups[gameState.merch.markup].priceMod);
+    const pr = gameState.merch.prices && gameState.merch.prices[itemId];
+    return pr != null ? pr : DATA.merch[itemId].basePrice;
+  },
+  merchSetPrice(id, delta) {
+    const it = DATA.merch[id];
+    if (!it || !Selectors.shopItems().includes(id)) return;
+    const step = it.basePrice >= 50 ? 5 : 1;
+    gameState.merch.prices[id] = Utils.clamp(Engine.merchPrice(id) + delta * step, 1, it.basePrice * 3);
+  },
+  shopUpgrade() {
+    const m = gameState.merch;
+    const next = DATA.shopLevels[(m.level || 1) + 1];
+    if (!next) return;
+    const cost = Math.round(next.cost * Selectors.econ() / 10) * 10;
+    if (gameState.finance.budget < cost) return;
+    Engine.money('Rozbudowa sklepu: ' + next.name, -cost);
+    m.level = (m.level || 1) + 1;
+    Engine.applyEffects({ fans: +2 });
+    Engine.addLog('🛍️ Rozbudowa sklepu: ' + next.name + '. Nowy asortyment: ' + next.items.map((id) => DATA.merch[id].label).join(', ') + '. [kibice +2%]', 'finance');
   },
 
   orderMerch(itemId) {
     const item = DATA.merch[itemId];
-    if (!item || gameState.finance.budget < item.batch * item.unitCost) return;
+    if (!item || !Selectors.shopItems().includes(itemId) || gameState.finance.budget < item.batch * item.unitCost) return;
     const cost = item.batch * item.unitCost;
     Engine.money('Zamówienie: ' + item.label, -cost);
     gameState.merch.stock[itemId] += item.batch;
@@ -6305,14 +6358,14 @@ const Engine = {
     },
     function merchSales() {
       const m = gameState.merch;
-      const markup = DATA.merchMarkups[m.markup];
       const favorites = gameState.squad.filter((p) => p.favorite).length;
       const parts = [];
       let income = 0;
-      Object.keys(DATA.merch).forEach((id) => {
-        if (m.stock[id] <= 0) return;
+      m.last = {};
+      Selectors.shopItems().forEach((id) => {
+        if (!(m.stock[id] > 0)) return;
         const item = DATA.merch[id];
-        let d = item.demand * Math.sqrt(Selectors.econ()) * (0.4 + gameState.morale.fans / 60) * markup.demandMod * Utils.randRange(0.5, 1.5);
+        let d = item.demand * Math.sqrt(Selectors.econ()) * (0.4 + gameState.morale.fans / 60) * Selectors.merchDemand(id) * Utils.randRange(0.5, 1.5);
         if (item.favoriteBoost) d *= 1 + 0.25 * Math.min(favorites, 4);   // koszulki z nazwiskiem ulubieńca
         d *= Selectors.upgradeProd('merch');                                // tablica wyników, sklep z witryną
         d *= Selectors.passPolicy().merch || 1;                             // fanatycy z tanich karnetów kupują szaliki
@@ -6325,11 +6378,14 @@ const Engine = {
         if (m.stock[id] === 0) Engine.alert('📦', 'Wyprzedane: ' + item.label, 'Rozeszło się do ostatniej sztuki! Zamów nową partię w Finanse → Sklep, zanim kibice pójdą do konkurencji.', 'warn');
         m.soldTotal += sold;
         income += sold * Engine.merchPrice(id);
+        m.last[id] = sold;
         parts.push(item.label + ' ×' + sold);
       });
-      // Konsekwencje cennika: nastroje kibiców co tydzień, strata przy dumpingu, burza przy zdzierstwie
-      if (markup.fans) gameState.monthly.fans += markup.fans;   // nastroje po cenach – rozliczane raz w miesiącu
-      if (m.markup === 'lux' && Math.random() < 0.15) Engine.xPost('ultras', 'Szalik za ' + Engine.merchPrice('scarf') + ' zł?! Prezes chyba myśli, że to Real Madryt. BOJKOT SKLEPIKU! 😡');
+      // Konsekwencje cennika: nastroje kibiców (rozliczane raz w miesiącu), burza przy zdzierstwie
+      const spi = Selectors.shopPriceIndex();
+      const shopFans = spi > 1.6 ? -3 : spi > 1.3 ? -1 : spi < 0.75 ? 1 : 0;
+      if (shopFans) gameState.monthly.fans += shopFans;
+      if (spi > 1.6 && Math.random() < 0.15) Engine.xPost('ultras', 'Szalik za ' + Engine.merchPrice('scarf') + ' zł?! Prezes chyba myśli, że to Real Madryt. BOJKOT SKLEPIKU! 😡');
       if (income > 0) {
         gameState.monthly.merch += income;
         Engine.money('Sklepik fanowski', income);
@@ -6925,6 +6981,13 @@ const Selectors = {
   euroLive: () => Selectors.euroThisSeason() && !gameState.euro.done,
   euroComp: (c) => DATA.euro.comps[c || (gameState.euro && gameState.euro.comp) || 'UCL'],
   // kolejka ligowa danego etapu (terminarz pucharów dopasowany do liczby kolejek)
+  shopItems: () => { const lvl = (gameState.merch && gameState.merch.level) || 1; return DATA.shopLevels.slice(1, lvl + 1).flatMap((L) => L.items); },
+  // Popyt na gadżet zależy od jego ceny względem bazowej
+  merchDemand: (id) => Utils.clamp(Math.pow(DATA.merch[id].basePrice / Math.max(1, Engine.merchPrice(id)), 1.8), 0.08, 2.2),
+  shopPriceIndex: () => { const it = Selectors.shopItems(); return it.reduce((s, id) => s + Engine.merchPrice(id), 0) / Math.max(1, it.reduce((s, id) => s + DATA.merch[id].basePrice, 0)); },
+  // Kryzys finansowy: głęboki dług otwiera cięcia i wyprzedaż „po taniości”
+  debtCrisis: () => gameState.finance.budget < Selectors.debtThresholds().warn,
+  fireSalePrice: (p) => Math.max(10, Math.round((p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)) * 0.45 / 10) * 10),
   budkaMenu: () => { const lvl = (gameState.budka && gameState.budka.level) || 1; return DATA.budka.levels.slice(1, lvl + 1).flatMap((L) => L.items); },
   budkaPrice: (id) => { const pr = gameState.budka && gameState.budka.prices[id]; return pr != null ? pr : DATA.budka.items[id].base; },
   budkaCost: (id) => { const it = DATA.budka.items[id]; return it.meat && gameState.budka && gameState.budka.cheapMeat ? Math.max(1, Math.round(it.cost * 0.5)) : it.cost; },
@@ -7075,6 +7138,7 @@ const Storage = {
     }
     if (state.loans) state.loans.given = [];
     if (!state.trophies) state.trophies = [];
+    if (saved.merch && saved.merch.level == null) state.merch.level = 3;   // 13.50: stare zapisy miały kubki, szaliki i koszulki
     (state.squad || []).filter((p) => p.ace).forEach((p) => { p.nick = 'Chudy'; p.noNick = true; });   // 13.46: bez „Kacperinho”
     if (!state.u19) { const prev = gameState; gameState = state; Engine.u19Init(); gameState = prev; }   // Krok 13.35: akademia U19 w starych zapisach
     // Krok 13.26: bez skautingu – szkółka przechodzi do obiektów, skaut ze sztabu odchodzi
@@ -8877,7 +8941,38 @@ const UI = {
       + (views[view] || UI.reportCard)();
   },
 
+  // Kryzys: cięcia kosztów stałych i wyprzedaż zawodników w jednym miejscu
+  crisisCutsCard() {
+    const e = Selectors.econ();
+    const staff = Object.entries(DATA.staffSlots).map(([slot, def]) => ({ slot, def, m: gameState.staff[slot] })).filter((x) => x.m && x.m.kind !== 'volunteer' && x.m.wage > 0);
+    const d = gameState.director && gameState.director.hired;
+    const u = gameState.u19 || {};
+    const cut = (icon, role, name, wage, action, attrs) => `
+      <div class="flex items-center gap-1.5 py-[3px] border-b border-paper-300 last:border-0 text-[12px]">
+        <span class="w-5 text-center">${icon}</span><span class="min-w-0 flex-1 truncate"><b>${Utils.escape(role)}</b> · ${Utils.escape(name)}</span>
+        <span class="text-ink-700 whitespace-nowrap">${Utils.formatMoney(wage)}/tydz.</span>${UI.smallBtn(action, attrs, 'Zwolnij', false, 'stamp')}
+      </div>`;
+    const cuts = staff.map((x) => cut(x.def.icon, x.def.label.split(' ')[0], x.m.name, x.m.wage, 'fire-staff', `data-slot="${x.slot}"`)).join('')
+      + (d ? cut('🧑‍💼', 'Dyrektor', d.name, Math.round(d.wage * e), 'fire-director', '') : '')
+      + (u.coach ? cut('🌱', 'Trener U19', u.coach.name, Math.round(u.coach.wage * e), 'fire-u19', 'data-role="coach"') : '')
+      + (u.recruiter ? cut('🔭', 'Rekruter U19', u.recruiter.name, Math.round(u.recruiter.wage * e), 'fire-u19', 'data-role="recruiter"') : '');
+    const canSell = gameState.squad.length > CONFIG.minSquad;
+    const sale = gameState.squad.filter((p) => !p.loan).sort((a, b) => Selectors.sellPrice(b) - Selectors.sellPrice(a)).slice(0, 5).map((p) => `
+      <div class="flex items-center gap-1.5 py-[3px] border-b border-paper-300 last:border-0 text-[12px]">
+        ${UI.ovrBadge(p)}<span class="min-w-0 flex-1 truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}</span>
+        <span class="whitespace-nowrap text-[11px]"><s class="text-ink-700">${Utils.formatMoney(Selectors.sellPrice(p))}</s> <b class="text-stamp">${Utils.formatMoney(Selectors.fireSalePrice(p))}</b></span>${UI.smallBtn('fire-sale', `data-id="${p.id}"`, 'Sprzedaj', !canSell, 'stamp')}
+      </div>`).join('');
+    return UI.panel('🔥 Ratowanie budżetu', 'Klub tonie w długach (' + Utils.formatMoney(gameState.finance.budget) + '). Cięcia oszczędzają co tydzień, ale zabierają bonusy sztabu.', `
+      ${UI.h4('✂️ Zwolnienia w sztabie')}
+      ${cuts || '<p class="text-[11.5px] text-ink-700">Nie ma już kogo zwalniać – zostali sami społecznicy.</p>'}
+      ${UI.h4('💸 Wyprzedaż „po taniości” – kluby widzą naszą desperację (~45% wartości)')}
+      ${sale}
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Sprzedaż działa także poza oknem transferowym. Szatnia i kibice źle to znoszą – zwłaszcza odejście ulubieńców.</p>
+    `);
+  },
+
   reportCard() {
+    if (Selectors.debtCrisis() && !gameState.ui.showBilans) return UI.crisisCutsCard() + `<button data-action="show-bilans" class="btn-press w-full h-8 rounded-md bg-desk-700 text-paper-200 text-[12px]">📊 Pokaż bilans tygodnia</button>`;
     const rep = gameState.lastReport;
     const body = !rep
       ? '<p class="text-[12px]">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
@@ -8886,7 +8981,7 @@ const UI = {
           <tr><td class="pt-1.5 font-semibold">Razem</td><td class="pt-1.5 text-right font-bold text-[14px] whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
     return UI.panel('Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body)
-      + `<p class="text-[10.5px] text-paper-400 leading-snug">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”.</p>`;
+      + (Selectors.debtCrisis() ? `<button data-action="show-bilans" class="btn-press w-full h-8 rounded-md bg-stamp text-white text-[12px] font-bold">🔥 Ratowanie budżetu: cięcia i wyprzedaż</button>` : `<p class="text-[10.5px] text-paper-400 leading-snug">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”.</p>`);
   },
 
   ticketsCard() {
@@ -8954,24 +9049,36 @@ const UI = {
   merchCard() {
     const m = gameState.merch;
     const favorites = gameState.squad.filter((p) => p.favorite).length;
-    const rows = Object.entries(DATA.merch).map(([id, item]) => {
+    const items = Selectors.shopItems();
+    const rows = items.map((id) => {
+      const item = DATA.merch[id];
       const cost = item.batch * item.unitCost;
-      return UI.row(`${item.label} <span class="font-normal text-ink-700">· magazyn</span> ${m.stock[id]}`, `hurt ${item.unitCost} zł · sprzedaż ${Engine.merchPrice(id)} zł`,
-        UI.smallBtn('order-merch', `data-item="${id}"`, '+' + item.batch + ' szt. (' + Utils.formatMoney(cost) + ')', gameState.finance.budget < cost));
+      const pr = Engine.merchPrice(id);
+      const tone = pr > item.basePrice * 1.3 ? 'text-stamp' : pr < item.unitCost ? 'text-stamp' : pr < item.basePrice * 0.85 ? 'text-grass' : '';
+      return `
+      <div class="flex items-center gap-1 py-[3px] border-b border-paper-300 last:border-0">
+        <span class="text-[16px] w-5 text-center">${item.icon}</span>
+        <span class="min-w-0 flex-1"><span class="block text-[12px] font-semibold truncate">${Utils.escape(item.label)}</span><span class="block text-[10px] truncate ${m.stock[id] ? 'text-ink-700' : 'text-stamp font-semibold'}">mag. ${m.stock[id]} · hurt ${item.unitCost} zł${m.last && m.last[id] ? ' · ost. ' + m.last[id] + ' szt.' : ''}</span></span>
+        <button data-action="merch-price" data-id="${id}" data-value="-1" class="btn-press w-6 h-7 rounded-md bg-paper-200 font-bold">−</button>
+        <b class="w-11 text-center text-[12.5px] ${tone}">${pr} zł</b>
+        <button data-action="merch-price" data-id="${id}" data-value="1" class="btn-press w-6 h-7 rounded-md bg-paper-200 font-bold">+</button>
+        <button data-action="order-merch" data-item="${id}" ${gameState.finance.budget < cost ? 'disabled' : ''} class="btn-press h-7 px-1.5 rounded-md bg-amber-glow text-ink-900 text-[10.5px] font-bold leading-tight disabled:opacity-40">📦+${item.batch}<br>${Utils.formatMoney(cost)}</button>
+      </div>`;
     }).join('');
-    const frozen = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id] * DATA.merch[id].unitCost, 0);
+    const frozen = items.reduce((sum, id) => sum + (m.stock[id] || 0) * DATA.merch[id].unitCost, 0);
     const shopLine = gameState.lastReport && gameState.lastReport.lines.find((l) => l.label === 'Sklepik fanowski');
-    const stock = Object.keys(DATA.merch).reduce((sum, id) => sum + m.stock[id], 0);
+    const stock = items.reduce((sum, id) => sum + (m.stock[id] || 0), 0);
+    const next = DATA.shopLevels[(m.level || 1) + 1];
+    const nextCost = next ? Math.round(next.cost * Selectors.econ() / 10) * 10 : 0;
+    const spi = Selectors.shopPriceIndex();
     return UI.tiles([
       UI.tile('Magazyn', stock + ' szt.', 'zamrożone ' + Utils.formatMoney(frozen)),
       UI.tile('Ostatni tydz.', shopLine ? Utils.signedMoney(shopLine.amount) : '0 zł', 'wpływ ze sklepu', shopLine ? 'text-grass' : ''),
       UI.tile('Sprzedano', m.soldTotal + ' szt.', 'od początku'),
-    ]) + UI.panel('Sklepik Fanowski', 'Okienko w blaszaku, czynne w dni meczowe i „jak ktoś zapuka”.', `
+    ]) + UI.panel('🛍️ ' + DATA.shopLevels[m.level || 1].name + ' · poziom ' + (m.level || 1) + '/' + (DATA.shopLevels.length - 1), 'Asortyment rośnie z rozbudową. Cenę każdego gadżetu ustalasz sam; za drogo = nikt nie kupuje i kibice marudzą.', `
       ${rows}
-      <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Schodzi szybciej po wygranych i w tygodnie meczów u siebie (nastroje po wynikach: <b>${Selectors.formLabel()}</b>). Ulubieńcy Trybun (${favorites}) napędzają koszulki.</p>
-      ${UI.h4('Narzut')}
-      ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markupNext || m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
-      <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markupNext || m.markup].fans < 0 || (m.markupNext || m.markup) === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markupNext || m.markup].note}${DATA.merchMarkups[m.markupNext || m.markup].fans ? ' · nastroje kibiców ' + (DATA.merchMarkups[m.markupNext || m.markup].fans > 0 ? 'w górę' : 'w dół') + ' (rozliczane raz w miesiącu)' : ''}</p>
+      <div class="flex justify-between text-[11px] mt-1"><span>Ceny vs bazowe: <b class="${spi > 1.3 ? 'text-stamp' : spi < 0.8 ? 'text-grass' : ''}">${Math.round(spi * 100)}%</b>${spi > 1.3 ? ' · kibice marudzą' : spi < 0.75 ? ' · kibice chwalą' : ''}</span><span class="text-ink-700">⭐ ulubieńcy: ${favorites} → koszulki</span></div>
+      ${next ? `<button data-action="shop-upgrade" ${gameState.finance.budget < nextCost ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1 text-left disabled:opacity-50"><span class="block text-[12px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)}</span><span class="block text-[10.5px] truncate">Nowe: ${next.items.map((id) => DATA.merch[id].icon + ' ' + DATA.merch[id].label).join(', ')}</span></button>` : '<p class="text-[11px] text-grass font-semibold mt-1">🏆 Sklep w pełni rozbudowany.</p>'}
     `);
   },
 
@@ -9312,6 +9419,13 @@ const Actions = {
     App.commit();
   },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
+  'show-bilans'()    { gameState.ui.showBilans = !gameState.ui.showBilans; App.commit(); },
+  'merch-price'(el)  { Engine.merchSetPrice(el.dataset.id, +el.dataset.value || 0); App.commit(); },
+  'shop-upgrade'()   { Engine.shopUpgrade(); App.commit(); },
+  'fire-sale'(el) {
+    const p = gameState.squad.find((x) => x.id === el.dataset.id);
+    if (p && confirm('Sprzedać ' + Selectors.playerName(p) + ' po taniości za ' + Utils.formatMoney(Selectors.fireSalePrice(p)) + ' (wartość: ' + Utils.formatMoney(Selectors.sellPrice(p)) + ')?')) { Engine.fireSale(p.id); App.commit(); }
+  },
   'sign-sponsor'(el) { Engine.signSponsor(el.dataset.id); App.commit(); },
   'end-sponsor'() {
     const sp = Selectors.sponsor();
