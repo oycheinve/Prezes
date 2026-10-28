@@ -534,6 +534,8 @@ const DATA = {
     mietek: { name: 'Prezes Mietek (Victoria Bździszewo)', club: 'Victoria Bździszewo', base: 1000, interest: 1.2, installments: 10, minScore: 0.15, note: 'Raty w poniedziałki. Gotówką. Do ręki. Pod kościołem.' },
     kantor: { name: 'Prezes Bogdan „Kantor” (Rolnik Głogówko)', club: 'Rolnik Głogówko', base: 2500, interest: 1.28, installments: 10, minScore: 0.45, note: 'Nie pyta, na co. Pyta tylko, kiedy.' },
     bank:   { name: 'Bank Spółdzielczy w Gminie', base: 6000, interest: 1.1, installments: 20, minScore: 1.4, note: 'Pani z okienka sprawdza wszystko: kasę, wpływy, długi. Za to tanio.' },
+    // Tylko na minusie: pożycza każdemu i ile razy chcesz – prosta droga do spirali długu
+    lombard: { name: 'Zdzisiek „Lichwa” (lombard przy PKS)', base: 1500, interest: 1.5, installments: 6, minScore: 0, crisisOnly: true, stack: 3, note: 'Nie ma rat, których się nie da zapłacić. Są tylko odsetki karne.' },
   },
 
   /* ----- Europejskie puchary (dla czołówki Ekstraklasy) ----- */
@@ -4723,15 +4725,20 @@ const Engine = {
   /* ----- Koniec gry ----- */
   checkGameOver() {
     if (gameState.screen !== 'game') return;
-    if (gameState.debt.deepWeeks >= CONFIG.debtGameOverWeeks) {
+    const owed = gameState.loans.taken.reduce((s, l) => s + l.remaining * l.rate, 0);
+    const hole = Math.max(0, -gameState.finance.budget) + owed;
+    const missed = gameState.loans.taken.reduce((s, l) => s + (l.penalties || 0), 0);
+    if (missed >= 2 && gameState.finance.budget < Selectors.debtThresholds().gameOver * 0.4 && hole > -Selectors.debtThresholds().gameOver * 1.5) {   // spirala długu: utrata płynności (nieopłacone raty) + dziura ponad siły klubu
+      Engine.gameOver('BANKRUCTWO. Dziura w kasie i niespłacone pożyczki sięgnęły ' + Utils.formatMoney(hole) + '. Sąd ogłosił upadłość klubu, syndyk zaplombował blaszak, a lichwiarze podzielili się sprzętem: Zdzisiek wziął kosiarkę, Mietek – siatki z bramek.', 'bankrupt');
+    } else if (gameState.debt.deepWeeks >= CONFIG.debtGameOverWeeks) {
       Engine.gameOver('Dług przekroczył ' + Utils.formatMoney(-Selectors.debtThresholds().gameOver) + ' przez ' + CONFIG.debtGameOverWeeks + ' tygodnie z rzędu. Walne Zgromadzenie w remizie odwołało Prezesa jednogłośnie (wstrzymał się tylko Pan Heniek).');
     } else if (gameState.morale.lockerRoom <= 0 && gameState.morale.fans <= 0) {
       Engine.gameOver('Szatnia i kibice w totalnym buncie (0% i 0%). Walne Zgromadzenie zebrało się w remizie bez zaproszenia Prezesa.');
     }
   },
 
-  gameOver(reason) {
-    gameState.gameOver = { reason, season: gameState.calendar.season, week: gameState.calendar.week, budget: gameState.finance.budget, league: Selectors.leagueName(), dna: Selectors.dnaLabel() };
+  gameOver(reason, kind) {
+    gameState.gameOver = { reason, kind: kind || null, season: gameState.calendar.season, week: gameState.calendar.week, budget: gameState.finance.budget, league: Selectors.leagueName(), dna: Selectors.dnaLabel() };
     gameState.screen = 'gameover';
     Storage.clear();
   },
@@ -5835,6 +5842,7 @@ const Engine = {
     gameState.loans.taken.push({ id, remaining: o.installments, rate: o.rate, amount: o.amount });
     Engine.money('Pożyczka: ' + l.name, o.amount);
     Engine.addLog('💸 ' + l.name + ' pożyczył ' + Utils.formatMoney(o.amount) + '. Spłata: ' + o.installments + ' rat po ' + Utils.formatMoney(o.rate) + '. ' + l.note, 'finance');
+    if (o.crisis) Engine.alert('🌀', 'Pożyczka ratunkowa', 'Dziura załatana na chwilę, ale raty ' + Utils.formatMoney(o.rate) + '/tydz. przez ' + o.installments + ' tyg. Nieopłacona rata = odsetki karne. Uważaj na spiralę długu!', 'warn');
   },
 
   /* ----- Infrastruktura ----- */
@@ -5980,7 +5988,14 @@ const Engine = {
       const L = gameState.loans;
       L.taken.forEach((loan) => {
         const lender = DATA.lenders[loan.id];
-        if (gameState.finance.budget < loan.rate) Engine.addScandal(lender.name + ' rozpowiada po wsi, że klub nie ma na raty');
+        if (gameState.finance.budget < loan.rate) {
+          Engine.addScandal(lender.name + ' rozpowiada po wsi, że klub nie ma na raty');
+          if ((loan.penalties || 0) < 4) {   // utrata płynności: każda nieopłacona rata dokłada kolejną (odsetki karne)
+            loan.penalties = (loan.penalties || 0) + 1;
+            loan.remaining++;
+            Engine.alert('🌀', 'Spirala długu', lender.name + ' nalicza odsetki karne: +1 rata (' + Utils.formatMoney(loan.rate) + '). Zostało ' + (loan.remaining - 1) + ' rat.', 'bad');
+          }
+        }
         Engine.money('Rata: ' + lender.name, -loan.rate);
         if (lender.club) Engine.clubEco(lender.club).cash += loan.rate;
         loan.remaining--;
@@ -6293,11 +6308,14 @@ const Selectors = {
     const l = DATA.lenders[id];
     const s = Selectors.creditScore();
     const e = Selectors.econ();
-    const cashFactor = Utils.clamp(0.4 + Math.max(0, gameState.finance.budget) / (4000 * e), 0.4, 2.2);   // limit skaluje się do stanu konta
-    const amount = Math.max(100, Math.round(l.base * e * Utils.clamp(s, 0.25, 2.5) * cashFactor / 50) * 50);
-    const interest = l.interest + Math.max(0, 1 - s) * 0.15;
+    const b = gameState.finance.budget;
+    const crisis = b < 0;   // dołek finansowy: lichwiarze ratują klub, ale drogo – droga do spirali długu
+    const cashFactor = crisis ? Utils.clamp(0.6 + -b / (5000 * e), 0.6, 1.6) : Utils.clamp(0.4 + Math.max(0, b) / (4000 * e), 0.4, 2.2);   // limit skaluje się do stanu konta (na minusie – do wielkości dziury)
+    const amount = Math.max(100, Math.round(l.base * e * Utils.clamp(s, crisis ? 0.6 : 0.25, 2.5) * cashFactor / 50) * 50);
+    const interest = l.interest + Math.max(0, 1 - s) * 0.15 + (crisis && id !== 'lombard' ? 0.2 : 0);
     const rate = Math.ceil(amount * interest / l.installments / 5) * 5;
-    const active = gameState.loans.taken.some((x) => x.id === id);
+    const activeN = gameState.loans.taken.filter((x) => x.id === id).length;
+    const active = l.stack ? activeN >= l.stack : activeN > 0;
     let amt = amount;
     let clubBroke = false;
     if (l.club) {   // prezes pożycza z kasy swojego klubu – nie da więcej, niż klub ma
@@ -6306,9 +6324,11 @@ const Selectors = {
       amt = Math.min(amount, cap);
     }
     const r = l.club ? Math.ceil(amt * interest / l.installments / 5) * 5 : rate;
-    const available = !active && s >= l.minScore && !clubBroke;
-    const reason = active ? 'spłacasz' : s < l.minScore ? (id === 'bank' ? 'brak zdolności' : 'nie ufa') : clubBroke ? 'sam bez kasy' : '';
-    return { amount: amt, rate: r, installments: l.installments, total: r * l.installments, available, reason, club: l.club };
+    const scoreOk = s >= l.minScore || (crisis && id !== 'bank');   // na minusie prezesi pożyczają mimo słabej zdolności – bank nadal nie
+    const offOnly = l.crisisOnly && !crisis;
+    const available = !active && scoreOk && !clubBroke && !offOnly;
+    const reason = active ? 'spłacasz' : offOnly ? 'tylko w kryzysie' : !scoreOk ? (id === 'bank' ? 'brak zdolności' : 'nie ufa') : clubBroke ? 'sam bez kasy' : '';
+    return { amount: amt, rate: r, installments: l.installments, total: r * l.installments, available, reason, club: l.club, crisis, activeN };
   },
 
   // Mocne i słabe strony zawodnika – wyliczone z jego danych, do świadomych zakupów
@@ -8224,11 +8244,12 @@ const UI = {
       <div class="w-full max-w-2xl">
         <header class="text-center mb-6">
           <p class="text-paper-400 text-[11px] font-medium tracking-wider uppercase mb-3">Protokół z Walnego Zgromadzenia · Remiza OSP · Sezon ${g.season}, Tydzień ${g.week}</p>
-          <h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
-          <p class="mt-4 text-paper-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>
+          ${g.kind === 'bankrupt' ? `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">BANKRUCTWO<br>KLUBU</h1>
+          <p class="mt-4 text-paper-300">Syndyk z teczką, komornik z lawetą, lichwiarze z reklamówkami. Na drzwiach blaszaka wisi kartka: „Zamknięte do odwołania”.</p>` : `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
+          <p class="mt-4 text-paper-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>`}
         </header>
         <section class="paper p-4 sm:p-8 relative">
-          <span class="inline-block px-2 py-0.5 rounded-md bg-stamp text-white text-xs font-bold mb-2">ODWOŁANY</span>
+          <span class="inline-block px-2 py-0.5 rounded-md bg-stamp text-white text-xs font-bold mb-2">${g.kind === 'bankrupt' ? 'UPADŁOŚĆ' : 'ODWOŁANY'}</span>
           <h2 class="text-base font-bold mb-2">Powód upadku</h2>
           <p class="mb-5 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
           <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
@@ -8436,9 +8457,11 @@ const UI = {
     const L = gameState.loans;
     const score = Selectors.creditScore();
     const [dot, label, level] = Selectors.creditLabel(score);
-    const takenRows = Object.entries(DATA.lenders).map(([id, l]) => {
-      const active = L.taken.find((x) => x.id === id);
+    const crisis = gameState.finance.budget < 0;
+    const owedAll = L.taken.reduce((s, l) => s + l.remaining * l.rate, 0);
+    const takenRows = Object.entries(DATA.lenders).filter(([id, l]) => !l.crisisOnly || crisis || L.taken.some((x) => x.id === id)).map(([id, l]) => {
       const o = Selectors.loanOffer(id);
+      const active = l.stack ? (o.available ? null : L.taken.find((x) => x.id === id)) : L.taken.find((x) => x.id === id);
       return UI.row(Utils.escape(l.name) + (active ? '' : ` <span class="font-normal">· <b>${Utils.formatMoney(o.amount)}</b></span>`),
         active ? `<b class="text-stamp">Spłacasz: zostało ${active.remaining} rat po ${Utils.formatMoney(active.rate)} (${Utils.formatMoney(active.remaining * active.rate)})</b>`
           : `${o.installments} rat × ${Utils.formatMoney(o.rate)} (oddajesz ${Utils.formatMoney(o.total)}).${l.club ? ' Kasa jego klubu: ' + Utils.formatMoney(Engine.clubEco(l.club).cash) + '.' : ''} ${Utils.escape(l.note)}`,
@@ -8448,10 +8471,10 @@ const UI = {
       <div class="flex items-center justify-between rounded-md bg-paper-200 px-2 py-1.5 text-[12px]">
         <span>Zdolność kredytowa: <b>${dot} ${label}</b></span><span class="text-ink-700">${'●'.repeat(level)}${'○'.repeat(5 - level)}</span>
       </div>
-      <p class="text-[10.5px] text-ink-700 leading-snug mt-0.5">Limity rosną i maleją razem ze stanem konta klubu (obecnie: <b>${Utils.formatMoney(gameState.finance.budget)}</b>) i kasą pożyczkodawcy.</p>
+      ${crisis ? `<p class="text-[10.5px] text-stamp leading-snug mt-0.5 font-semibold">🌀 Klub na minusie (${Utils.formatMoney(gameState.finance.budget)}): pożyczki ratunkowe są droższe. Nieopłacone raty = odsetki karne i utrata płynności. Dziura ${Utils.formatMoney(-Selectors.debtThresholds().gameOver * 1.5)} (minus + raty) = bankructwo.${owedAll ? ' Raty do spłaty: ' + Utils.formatMoney(owedAll) + '.' : ''}</p>` : `<p class="text-[10.5px] text-ink-700 leading-snug mt-0.5">Limity rosną i maleją razem ze stanem konta klubu (obecnie: <b>${Utils.formatMoney(gameState.finance.budget)}</b>) i kasą pożyczkodawcy.</p>`}
       ${UI.h4('Pożycz od innego prezesa lub z banku')}
       ${takenRows}
-      <p class="text-[11px] text-ink-700 mt-1">Raty schodzą automatycznie co tydzień. Im więcej kasy na koncie, tym wyższy limit – z pustym kontem pożyczysz najwyżej drobne.</p>
+      <p class="text-[11px] text-ink-700 mt-1">Raty schodzą automatycznie co tydzień. ${crisis ? 'Na minusie pożyczają nawet ci, którzy ci nie ufają – za cenę wyższych odsetek.' : 'Im więcej kasy na koncie, tym wyższy limit.'}</p>
     `);
   },
 
