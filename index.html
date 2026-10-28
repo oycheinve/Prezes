@@ -4320,7 +4320,9 @@ const Engine = {
     }
 
     // --- Europejski wieczór w środku tygodnia ---
+    Engine.euroKoTick(kolejka);
     Engine.euroWeek(kolejka);
+    Engine.euroKoTick(kolejka);   // 13.79: pozostałe pary drabinki
     Engine.cupWeek(kolejka);
     Engine.u19Match();   // juniorzy grają równolegle
 
@@ -5145,6 +5147,83 @@ const Engine = {
     eu.lpTable[US] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: 0 };
     eu.lpPlayed = [];
   },
+  // 13.79: drabinka fazy pucharowej – baraż (9–24), 1/8 (1–8 + zwycięzcy baraży), 1/4, 1/2, finał
+  euroKoTie(a, b, from) { const t = { a, b, from: from == null ? null : from, l1: null, l2: null, pens: '', w: null }; if (b === US) { t.a = US; t.b = a; } return t; },
+  euroBuildKo() {
+    const eu = gameState.euro;
+    const st = Selectors.euroLpStandings().map((r) => r.team);
+    eu.ko = { KPO: [], R16: [], QF: [], SF: [], F: [] };
+    for (let i = 0; i < 8; i++) eu.ko.KPO.push(Engine.euroKoTie(st[8 + i], st[23 - i]));
+    for (let i = 0; i < 8; i++) eu.ko.R16.push(Engine.euroKoTie(st[i], null, 7 - i));   // rywal: zwycięzca baraży (pary 9/24 → 1. miejsce itd.)
+  },
+  euroKoStr: (name) => { const T = gameState.euro.lpTable || {}; return (T[name] && T[name].s) || 3; },
+  // Mecz cudzej pary: poisson wg siły, gospodarz z lekką przewagą
+  euroKoLeg(t, leg, neutral) {
+    const sa = Engine.euroKoStr(t.a), sb = Engine.euroKoStr(t.b), r = sa / sb;
+    const adv = neutral ? 1 : leg === 1 ? 1 / 1.08 : 1.08;   // 1. mecz u B, rewanż u A
+    return [Utils.poisson(Math.max(0.15, 1.3 * Math.pow(r, 1.6) * adv)), Utils.poisson(Math.max(0.15, 1.3 * Math.pow(1 / r, 1.6) / adv))];
+  },
+  euroKoDecide(t) {
+    const ga = t.l1[0] + (t.l2 ? t.l2[0] : 0), gb = t.l1[1] + (t.l2 ? t.l2[1] : 0);
+    if (ga !== gb) { t.w = ga > gb ? t.a : t.b; return; }
+    const pa = Utils.clamp(0.5 + (Engine.euroKoStr(t.a) - Engine.euroKoStr(t.b)) * 0.2, 0.3, 0.7);
+    const aw = Math.random() < pa;
+    t.pens = aw ? Utils.randInt(4, 5) + ':' + Utils.randInt(2, 3) : Utils.randInt(2, 3) + ':' + Utils.randInt(4, 5);
+    t.w = aw ? t.a : t.b;
+  },
+  euroKoFill(stg) {
+    const ko = gameState.euro.ko;
+    if (stg === 'KPO') { ko.R16.forEach((t) => { if (!t.b && ko.KPO[t.from] && ko.KPO[t.from].w) { const n = Engine.euroKoTie(t.a, ko.KPO[t.from].w, t.from); Object.assign(t, n); } }); return; }
+    const nxt = { R16: 'QF', QF: 'SF', SF: 'F' }[stg];
+    if (!nxt || ko[nxt].length) return;
+    const w = ko[stg].map((t) => t.w);
+    for (let i = 0; i + 1 < w.length; i += 2) ko[nxt].push(Engine.euroKoTie(w[i], w[i + 1]));
+  },
+  // Cudze pary rozgrywane w tych samych tygodniach co nasze mecze (także po naszym odpadnięciu)
+  euroKoTick(kolejka) {
+    const eu = gameState.euro;
+    if (!eu || eu.season !== gameState.calendar.season) return;
+    Engine.euroEnsureKo();
+    if (!eu.ko) return;
+    ['KPO', 'R16', 'QF', 'SF', 'F'].forEach((stg) => {
+      const ties = eu.ko[stg];
+      if (!ties.length) return;
+      const k = Selectors.euroKolejka(DATA.euro.stages[stg].kolejka), single = stg === 'F';
+      ties.forEach((t) => {
+        if (!t.a || !t.b || t.w || t.a === US) return;
+        if (!t.l1 && kolejka >= k) t.l1 = Engine.euroKoLeg(t, 1, single);
+        if (!single && t.l1 && !t.l2 && kolejka >= k + 1) t.l2 = Engine.euroKoLeg(t, 2);
+        if (t.l1 && (single || t.l2)) Engine.euroKoDecide(t);
+      });
+      if (ties.every((t) => t.w)) Engine.euroKoFill(stg);
+    });
+  },
+  // Stary zapis (sprzed 13.79) już w fazie pucharowej: odtwarzamy drabinkę z naszą dotychczasową drogą
+  euroEnsureKo() {
+    const eu = gameState.euro;
+    const KO = ['KPO', 'R16', 'QF', 'SF', 'F'];
+    if (eu.ko || !eu.lp || !eu.lp.rank || eu.lp.played < DATA.euro.comps[eu.comp].lpGames) return;
+    if (!KO.includes(eu.stage) && !eu.done) return;
+    if (eu.lp && !eu.lpTable) Engine.euroRebuildLp();
+    Engine.euroBuildKo();
+    const cur = KO.indexOf(eu.stage);
+    KO.forEach((stg, i) => {
+      if (i > cur && cur >= 0) return;
+      eu.ko[stg].forEach((t) => {
+        if (!t.a || !t.b) return;
+        if (t.a === US) {
+          if (i < cur) { t.l1 = [1, 1]; t.l2 = stg === 'F' ? null : [1, 0]; t.w = US; }
+          else if (eu.done && !String(eu.result || '').startsWith('🏆')) { t.l1 = [0, 1]; t.l2 = stg === 'F' ? null : [1, 1]; t.w = t.b; }
+          else if (eu.tie) t.l1 = [eu.tie.gf, eu.tie.ga];
+          return;
+        }
+        if (i < cur || eu.done) { t.l1 = Engine.euroKoLeg(t, 1, stg === 'F'); if (stg !== 'F') t.l2 = Engine.euroKoLeg(t, 2); Engine.euroKoDecide(t); }
+      });
+      if (eu.ko[stg].every((t) => t.w)) Engine.euroKoFill(stg);
+    });
+  },
+  euroKoOur: () => { const eu = gameState.euro; return eu.ko && eu.ko[eu.stage] ? eu.ko[eu.stage].find((t) => t.a === US) : null; },
+
   // 13.77: zapis sprzed 13.74 – faza ligowa rozegrana bez tabeli: odtwarzamy ją z naszego bilansu
   euroRebuildLp() {
     const eu = gameState.euro, lp = eu.lp || { played: 0, pts: 0, gf: 0, ga: 0 };
@@ -5184,7 +5263,8 @@ const Engine = {
   // Rywal najbliższego meczu losowany z wyprzedzeniem (widoczny w terminarzu)
   euroNextOpp() {
     const eu = gameState.euro;
-    const key = eu.stage + ':' + (eu.lp ? eu.lp.played : 0);
+    const ourKo = eu.ko && eu.ko[eu.stage] ? eu.ko[eu.stage].find((t) => t.a === US) : null;
+    const key = eu.stage + ':' + (eu.lp ? eu.lp.played : 0) + (ourKo ? ':' + ourKo.b : '');
     if (!eu.nextOpp || eu.nextOpp.key !== key) {
       let opp = null;
       if (eu.stage === 'LP' && !eu.lpTable) Engine.euroBuildLp();   // stary zapis w trakcie fazy ligowej
@@ -5193,6 +5273,10 @@ const Engine = {
         const cand = Object.keys(T).filter((n) => n !== US && !(eu.lpPlayed || []).includes(n));
         const name = Utils.rand(cand);
         opp = { name, s: T[name].s, tier: T[name].s >= 3.3 ? 3 : T[name].s >= 3 ? 2 : 1 };
+      } else if (eu.ko && Engine.euroKoOur()) {
+        const t = Engine.euroKoOur();
+        if (t.b) opp = { name: t.b, s: Math.round((Engine.euroKoStr(t.b) + DATA.euro.stages[eu.stage].add - DATA.euro.stages.LP.add) * 100) / 100, tier: 3 };
+        else return { name: 'zwycięzca baraży', s: 3.3, tier: 2 };   // para jeszcze nieznana – nie zapamiętujemy
       } else if (T && ['KPO', 'R16', 'QF', 'SF', 'F'].includes(eu.stage)) {
         // faza pucharowa: rywale z tabeli fazy ligowej (baraż – miejsca 9–24, dalej czołówka)
         const order = Selectors.euroLpStandings().map((r) => r.team).filter((n) => n !== US && !eu.history.some((h) => h.opp === n && h.stage !== 'LP'));
@@ -5276,6 +5360,7 @@ const Engine = {
       if (lp.played >= C.lpGames) {
         const rank = eu.lpTable ? Selectors.euroLpStandings().findIndex((r) => r.team === US) + 1 : Utils.clamp(Math.round(36 - lp.pts * (C.lpGames === 6 ? 3 : 2.2) + Utils.randInt(-2, 2)), 1, 36);   // miejsce z prawdziwej tabeli
         lp.rank = rank;
+        if (eu.lpTable) Engine.euroBuildKo();   // 13.79: drabinka fazy pucharowej
         if (rank <= 8) Engine.euroAdvance('R16', 'Faza ligowa: ' + rank + '. miejsce – prosto do 1/8 finału!');
         else if (rank <= 24) Engine.euroAdvance('KPO', 'Faza ligowa: ' + rank + '. miejsce – baraż o 1/8 finału.');
         else { Engine.euroOut(rank + '. miejsce w fazie ligowej – koniec przygody z Europą.'); good = false; }
@@ -5285,6 +5370,7 @@ const Engine = {
       const opp = Engine.euroNextOpp();
       const m = Engine.euroMatch(opp, false, false, st.label + ' · 1. mecz');
       eu.tie = { stage: eu.stage, k: kolejka, opp, gf: m.gf, ga: m.ga };
+      const kt = Engine.euroKoOur(); if (kt) kt.l1 = [m.gf, m.ga];
       verdict = '1. mecz: ' + m.gf + ':' + m.ga + ' na wyjeździe. Rewanż u siebie za tydzień.';
       good = m.gf >= m.ga;
       eu.history.unshift({ stage: eu.stage, opp: opp.name, text: C.short + ' · ' + st.label + ', 1. mecz: ' + opp.name + ' ' + m.gf + ':' + m.ga + ' (wyjazd)' });
@@ -5297,6 +5383,7 @@ const Engine = {
       if (gf === ga) { const pen = Engine.penalties(t.opp.s); won = pen.won; pens = pen.score; }
       const agg = gf + ':' + ga + (pens ? ', karne ' + pens : '');
       if (['Q2', 'Q3', 'PO'].includes(eu.stage)) Engine.euroMoney('Premia UEFA: ' + st.label, Math.round(C.qualFee * e));
+      const kt = Engine.euroKoOur(); if (kt) { kt.l2 = [m.gf, m.ga]; kt.pens = pens ? (won ? pens : pens) : ''; kt.w = won ? US : kt.b; }
       eu.history.unshift({ stage: eu.stage, opp: t.opp.name, text: C.short + ' · ' + st.label + ': ' + t.opp.name + ' dwumecz ' + agg + (won ? ' ✅' : ' ❌') });
       Engine.euroTieResult(won);
       good = won;
@@ -5307,6 +5394,7 @@ const Engine = {
       const m = Engine.euroMatch(opp, false, true, 'FINAŁ');
       let won = m.gf > m.ga;
       if (m.gf === m.ga) { const pen = Engine.penalties(opp.s); won = pen.won; pens = pen.score; }
+      const kf = Engine.euroKoOur(); if (kf) { kf.l1 = [m.gf, m.ga]; kf.pens = pens; kf.w = won ? US : kf.b; }
       eu.history.unshift({ stage: 'F', opp: opp.name, text: C.short + ' · FINAŁ: ' + opp.name + ' ' + m.gf + ':' + m.ga + (pens ? ' (k. ' + pens + ')' : '') + (won ? ' 🏆' : '') });
       eu.done = true;
       if (won) {
@@ -9714,6 +9802,44 @@ const UI = {
   euroTableView() {
     const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
     if (eu.lp && !eu.lpTable) Engine.euroRebuildLp();   // stary zapis
+    Engine.euroEnsureKo();
+    if (eu.ko) {
+      const v = gameState.ui.euroKoView || 'ko';
+      const segs = UI.segs('euro-ko-view', v, [['ko', '🏆 Drabinka'], ['lp', '📋 Faza ligowa']]);
+      if (v === 'ko') return segs + UI.euroBracketView();
+      return segs + UI.euroLpTableView();
+    }
+    return UI.euroLpTableView();
+  },
+  // 13.79: drabinka faz pucharowych – runda do wyboru, pary z wynikami obu meczów i awansem
+  euroBracketView() {
+    const eu = gameState.euro, C = DATA.euro.comps[eu.comp], ko = eu.ko;
+    const rounds = ['KPO', 'R16', 'QF', 'SF', 'F'].filter((k) => ko[k].length);
+    const short = { KPO: 'Baraż', R16: '1/8', QF: '1/4', SF: '1/2', F: 'Finał' };
+    const live = rounds.filter((k) => ko[k].some((t) => !t.w)).concat(rounds.slice(-1))[0];
+    const r = rounds.includes(gameState.ui.euroKoRound) ? gameState.ui.euroKoRound : live;
+    const tabs = `<div class="grid grid-cols-5 gap-1 mb-1">${['KPO', 'R16', 'QF', 'SF', 'F'].map((k) => {
+      const has = ko[k].length, on = k === r, ours = has && ko[k].some((t) => t.a === US);
+      return `<button data-action="euro-ko-round" data-value="${k}" ${has ? '' : 'disabled'} class="btn-press h-8 rounded-md text-[11.5px] font-semibold ${on ? 'bg-sky-600 text-white' : has ? 'bg-desk-800 text-paper-200' : 'bg-desk-800/50 text-paper-400/50'}">${short[k]}${ours ? ' ⭐' : ''}</button>`;
+    }).join('')}</div>`;
+    const name = (n) => (n === US ? Selectors.clubDisplayName() : n || '…');
+    const sc = (l) => (l ? l[0] + ':' + l[1] : '–');
+    const rows = ko[r].map((t) => {
+      const agg = t.l1 ? (t.l1[0] + (t.l2 ? t.l2[0] : 0)) + ':' + (t.l1[1] + (t.l2 ? t.l2[1] : 0)) : '';
+      const us = t.a === US || t.b === US;
+      const cls = (n) => (t.w ? (t.w === n ? 'font-bold text-ink-900' : 'text-ink-700 line-through decoration-stamp/40') : 'text-ink-900');
+      const sub = r === 'F' ? (t.l1 ? 'finał ' + sc(t.l1) : 'finał – neutralny stadion') : (t.l1 ? '1. ' + sc(t.l1) + (t.l2 ? ' · 2. ' + sc(t.l2) : ' · rewanż ⏳') : 'termin: ' + Selectors.euroKolejka(DATA.euro.stages[r].kolejka) + '. kolejka') + (t.pens ? ' · k. ' + t.pens : '');
+      return `<div class="py-1 border-b border-paper-300 last:border-0 ${us ? 'bg-amber-glow/25 -mx-2 px-2' : ''}">
+        <div class="flex items-center gap-1 text-[12px]"><span class="flex-1 min-w-0 truncate text-right ${cls(t.a)}">${Utils.escape(name(t.a))}</span><b class="w-12 text-center text-[13px]">${agg || 'vs'}</b><span class="flex-1 min-w-0 truncate ${cls(t.b)}">${Utils.escape(name(t.b))}</span></div>
+        <div class="text-center text-[10px] text-ink-700 leading-tight">${sub}${t.w ? ' · awans: <b>' + Utils.escape(name(t.w)) + '</b>' : ''}</div></div>`;
+    }).join('');
+    const champ = ko.F.length && ko.F[0].w;
+    return `<p class="text-[11px] text-paper-400 mb-1 truncate">${C.icon} ${C.name} · faza pucharowa${eu.done ? ' · ' + Utils.escape(eu.result) : ''}</p>${tabs}
+      ${UI.panel({ KPO: 'Baraż o 1/8 finału (miejsca 9–24)', R16: '1/8 finału', QF: 'Ćwierćfinały', SF: 'Półfinały', F: '🏆 Finał' }[r], '', rows)}
+      ${champ ? `<div class="rounded-xl bg-amber-glow/15 border border-amber-glow/40 px-3 py-2 text-center text-[13px] text-paper-100">🏆 Zdobywca: <b class="text-amber-glow">${Utils.escape(name(champ))}</b></div>` : ''}`;
+  },
+  euroLpTableView() {
+    const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
     const rows = eu.lpTable ? Selectors.euroLpStandings()
       : DATA.euro.lp[eu.comp].map((team, i) => ({ team, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
     const edge = (i) => (i < 8 ? 'border-l-grass' : i < 24 ? 'border-l-sky-500' : 'border-l-stamp');
@@ -10648,6 +10774,8 @@ const Actions = {
     if (confirm('Sprzedać ' + Selectors.playerName(p) + ' za ' + Utils.formatMoney(Selectors.sellPrice(p)) + '?' + warn)) { Engine.sellTransfer(p.id); App.commit(); }
   },
 
+  'euro-ko-view'(el) { gameState.ui.euroKoView = el.dataset.value; App.commit(); },
+  'euro-ko-round'(el) { gameState.ui.euroKoRound = el.dataset.value; App.commit(); },
   'fixture-info'(el) { gameState.ui.fixInfo = gameState.ui.fixInfo === el.dataset.key ? null : el.dataset.key; App.commit(); },
   'next-week'() {
     const week = gameState.calendar.week;
