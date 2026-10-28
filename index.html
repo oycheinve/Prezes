@@ -3716,13 +3716,14 @@ const Engine = {
   /* ----- Dzień meczowy ----- */
   // Szacunek bez losowości – używany też w UI do podglądu.
   estimateAttendance(fixture, weather = gameState.weather) {
-    const rival = Selectors.rival(fixture.rival);
+    const rival = fixture.rivalObj || Selectors.rival(fixture.rival) || { derby: false };
     const ticket = DATA.tickets[gameState.matchday.ticket];
     let base = (25 + gameState.morale.fans * 1.1) * Selectors.econ();
     base *= Selectors.upgradeProd('attendance');   // obiekty i ich kolejne poziomy
     base *= Selectors.formFactor();                  // passa przyciąga, kryzys odstrasza
     if (Selectors.coachTrait('mediaStar')) base *= 1.1;   // trener-celebryta ściąga ludzi
     if (rival.derby) base *= 2;
+    base *= fixture.hype || 1;   // mecz pucharowy przyciąga więcej ludzi
     if (Selectors.coach().style === 'off') base *= 1.1;   // na widowisko przychodzi więcej ludzi
     if (Selectors.coach().style === 'def') base *= 0.9;   // na mur przychodzą tylko krzyżówkowicze
     if (gameState.x.hype) base *= 1.15;                   // pompka na Wirtualnym X
@@ -3737,14 +3738,16 @@ const Engine = {
     return Math.max(0, Math.min(Selectors.stadiumCapacity(), Math.round(att)));   // więcej się nie zmieści
   },
 
-  playMatchday() {
-    Engine.closeTransferWindow();   // pierwszy gwizdek sezonu zamyka okno transferowe
-    if (gameState.calendar.round === 0) gameState.season.preview = Selectors.seasonPreview();
-    const fixture = Selectors.currentFixture();
-    const rival = Selectors.rival(fixture.rival);
+  // Jeden silnik dla ligi i pucharu: cup = { opp, oppS, home, neutral, hype, round, oppLeague } – wtedy bez tabeli i kalendarza
+  playMatchday(cup) {
+    if (!cup) Engine.closeTransferWindow();   // pierwszy gwizdek sezonu zamyka okno transferowe
+    if (!cup && gameState.calendar.round === 0) gameState.season.preview = Selectors.seasonPreview();
+    const fixture = cup ? { rival: cup.opp, home: !!cup.home && !cup.neutral, rivalObj: { name: cup.opp, derby: false }, hype: cup.hype || 1 } : Selectors.currentFixture();
+    const rival = cup ? fixture.rivalObj : Selectors.rival(fixture.rival);
     const weather = gameState.weather;
     const kolejka = gameState.calendar.round + 1;
-    const report = gameState.report;
+    const report = gameState.report || {};
+    const leagueSnap = cup ? { lastMatch: gameState.lastMatch, homeMatch: report.homeMatch, result: report.result, matchCtx: report.matchCtx } : null;   // puchar nie nadpisuje meczu ligowego
     const coachState = gameState.coach;
     const coach = Selectors.coach();
     report.homeMatch = fixture.home;
@@ -3757,7 +3760,7 @@ const Engine = {
 
     // --- Skład i chemia (wybiera trener) ---
     const lineup = Engine.pickLineup(absent.map((p) => p.id));
-    if (gameState.dda.youthPromise > 0) {
+    if (!cup && gameState.dda.youthPromise > 0) {
       gameState.dda.youthPromise--;
       const kid = lineup.slice().sort((a, b) => a.age - b.age)[0];
       if (kid) Engine.addLog('🇩🇪 Zgodnie z obietnicą dla „Naszych w Bawarii” gra ' + Selectors.playerName(kid) + ' (' + kid.age + ' l.). Zostało meczów: ' + gameState.dda.youthPromise + '.', 'event');
@@ -3769,12 +3772,12 @@ const Engine = {
     }
 
     // --- Siła i oczekiwane gole ---
-    const ourS = Engine.teamStrength(lineup, chem) * (1 + coachState.carpetBoost);
-    coachState.carpetBoost = 0;
-    const oppS = gameState.season.strength[rival.name];
+    const ourS = Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost));
+    if (!cup) coachState.carpetBoost = 0;
+    const oppS = cup ? cup.oppS : gameState.season.strength[rival.name];
     const style = DATA.styles[coach.style];
     const ratio = ourS / oppS;
-    const homeAdv = fixture.home ? 1.12 * (1 + (Selectors.passPolicy().homeAdv || 0)) : 1 / 1.08;   // karnetowicze robią (albo nie) atmosferę
+    const homeAdv = cup && cup.neutral ? 1 : fixture.home ? 1.12 * (1 + (Selectors.passPolicy().homeAdv || 0)) : 1 / 1.08;   // karnetowicze robią (albo nie) atmosferę
     let ourL = 1.25 * Math.pow(ratio, 1.3) * style.tempo * homeAdv;
     let oppL = 1.25 * Math.pow(1 / ratio, 1.3) * style.tempo / homeAdv;
     // Styl gry trenera: realny wpływ zależny od rywala i pogody
@@ -3795,7 +3798,7 @@ const Engine = {
     const ourReds = cards.filter((c) => c.us && c.card === 'R').length, theirReds = cards.filter((c) => !c.us && c.card === 'R').length;
     if (ourReds) { ourL *= Math.pow(0.82, ourReds); oppL *= Math.pow(1.15, ourReds); }
     if (theirReds) { ourL *= Math.pow(1.15, theirReds); oppL *= Math.pow(0.85, theirReds); }
-    const fixedMatch = gameState.dark.fixed;
+    const fixedMatch = cup ? null : gameState.dark.fixed;
     if (fixedMatch === 'buy') { ourL *= 1.6; oppL *= 0.5; }        // „zmotywowany” sędzia i rywal
     if (lineup.some((p) => p.ace)) ourL += 0.7;                       // Kacper Chudy: z nim bramki padają same
     let gf = Utils.poisson(Math.max(0.15, ourL));
@@ -3803,11 +3806,13 @@ const Engine = {
     if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
     const result = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
 
-    // --- Tabela: nasz mecz + reszta kolejki ---
-    if (fixture.home) Engine.recordResult(US, rival.name, gf, ga);
-    else Engine.recordResult(rival.name, US, ga, gf);
-    const others = Engine.simulateOtherMatches();
-    gameState.season.lastResults = [fixture.home ? { home: US, away: rival.name, hg: gf, ag: ga } : { home: rival.name, away: US, hg: ga, ag: gf }].concat(others);
+    // --- Tabela: nasz mecz + reszta kolejki (tylko liga) ---
+    if (!cup) {
+      if (fixture.home) Engine.recordResult(US, rival.name, gf, ga);
+      else Engine.recordResult(rival.name, US, ga, gf);
+      const others = Engine.simulateOtherMatches();
+      gameState.season.lastResults = [fixture.home ? { home: US, away: rival.name, hg: gf, ag: ga } : { home: rival.name, away: US, hg: ga, ag: gf }].concat(others);
+    }
 
     // --- Kontuzje: dobry fizjoterapeuta = rzadziej i krócej ---
     const fizjo = Selectors.staffLevel('fizjo');
@@ -3826,6 +3831,7 @@ const Engine = {
     // --- Strzelcy i doświadczenie ---
     lineup.forEach((p) => { p.apps++; p.seasonApps++; });
     const scorerCount = {};
+    const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
     for (let i = 0; i < gf; i++) {
       const w = (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.tag === 'freekick' ? 1.5 : 1) * (p.ace ? 2 : 1);
       const scorer = Utils.weightedPick(lineup, w);
@@ -3836,7 +3842,8 @@ const Engine = {
         const ace = mates.find((p) => p.ace);   // Kacper Chudy kreuje większość akcji kolegów
         const assist = ace && Math.random() < 0.55 ? ace : mates.length && Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
         if (assist) { assist.assists = (assist.assists || 0) + 1; assist.seasonAssists = (assist.seasonAssists || 0) + 1; }
-      }
+        goalEvents.push({ p: scorer, a: assist || null });
+      } else goalEvents.push({ p: scorer, a: null });
     }
     const scorers = Object.entries(scorerCount).map(([id, n]) => {
       const p = gameState.squad.find((x) => x.id === id);
@@ -3850,19 +3857,16 @@ const Engine = {
     const derbyTag = rival.derby ? ' (🔥 KOSA)' : '';
     let extra = '';
     if (result === 'W' && oppS > ourS && chaos >= 0.5) extra = ' SENSACJA NA BŁOCIE! Faworyt utonął w kałużach.';
-    Engine.addLog('⚽ Kolejka ' + kolejka + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
+    Engine.addLog((cup ? '🏆 Puchar Polski (' + cup.round + ')' : '⚽ Kolejka ' + kolejka) + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
 
     // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
-    const goals = [];
-    Object.entries(scorerCount).forEach(([id, n]) => {
-      const p = gameState.squad.find((x) => x.id === id);
-      for (let i = 0; i < n; i++) goals.push({ min: Utils.randInt(1, 90), us: true, name: Selectors.shortName(p) });
-    });
+    const goals = goalEvents.map((g) => ({ min: Utils.randInt(1, 90), us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
     for (let i = 0; i < ga; i++) goals.push({ min: Utils.randInt(1, 90), us: false, name: rival.name });
     goals.sort((a, b) => a.min - b.min);
     gameState.lastMatch = {
-      week: gameState.calendar.week, kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
+      week: gameState.calendar.week, key: gameState.calendar.week + (cup ? 'c' : ''), kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
+      cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral } : null,
       weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra, cards: cards.map((c) => ({ min: c.min, us: c.us, card: c.card, name: c.name })),
     };
@@ -3874,10 +3878,13 @@ const Engine = {
 
     // --- Statystyki ---
     const r = gameState.record;
-    r.played++; r.goalsFor += gf; r.goalsAgainst += ga;
-    if (result === 'W') { r.wins++; r.lossStreak = 0; r.winStreak++; }
-    if (result === 'D') { r.draws++; r.lossStreak = 0; r.winStreak = 0; }
-    if (result === 'L') { r.losses++; r.lossStreak++; r.winStreak = 0; }
+    if (!cup) {   // bilans ligowy – puchar liczy się tylko do formy i serii
+      r.played++; r.goalsFor += gf; r.goalsAgainst += ga;
+      r[{ W: 'wins', D: 'draws', L: 'losses' }[result]]++;
+    }
+    if (result === 'W') { r.lossStreak = 0; r.winStreak++; }
+    if (result === 'D') { r.lossStreak = 0; r.winStreak = 0; }
+    if (result === 'L') { r.lossStreak++; r.winStreak = 0; }
     r.form.push(result); if (r.form.length > 5) r.form.shift();
     const st = gameState.stats;
     st.matches++; st.goalsFor += gf; st.goalsAgainst += ga;
@@ -3932,11 +3939,24 @@ const Engine = {
     Engine.updateBadges();
 
     // --- Pieniądze z dnia meczowego ---
-    if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
+    if (cup && cup.neutral) {   // finał na Narodowym: udział w zysku z biletów
+      const att = Math.round(Utils.randRange(18000, 30000));
+      const share = Math.round(att * DATA.tickets[gameState.matchday.ticket].price * 0.15);
+      Engine.money('Finał PP: udział w biletach', share);
+      gameState.lastMatch.attendance = att;
+      gameState.lastMatch.money.push({ label: 'Udział w biletach (Stadion Narodowy)', amount: share });
+    } else if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
     else {
       const fuel = -Utils.randInt(50, 90);
       Engine.money('Paliwo do busa (wyjazd)', fuel);
       if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
+    }
+
+    if (cup) {   // mecz pucharowy gotowy – liga i jej kalendarz zostają nietknięte
+      const cm = gameState.lastMatch;
+      gameState.lastMatch = leagueSnap.lastMatch;
+      Object.assign(report, { homeMatch: leagueSnap.homeMatch, result: leagueSnap.result, matchCtx: leagueSnap.matchCtx });
+      return cm;
     }
 
     // --- Europejski wieczór w środku tygodnia ---
@@ -4575,8 +4595,9 @@ const Engine = {
     const lvl = gameState.club.leagueLevel;
     const nx = c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw();   // rywal wylosowany wcześniej – widoczny w terminarzu
     const { opp, oppLvl, oppS, final, home } = nx;
-    const m = Engine.detailMatch(oppS, final ? false : home, { neutral: final, hype: 1.1 + c.idx * 0.12 + (final ? 0.6 : 0), moneyLabel: 'Puchar Polski: bilety' });
-    gameState.midweekWeek = gameState.calendar.week;
+    gameState.midweekWeek = gameState.calendar.week;   // zmęczenie po meczu w środku tygodnia
+    const m = Engine.playMatchday({ opp, oppS, home: final ? false : home, neutral: final, hype: 1.1 + c.idx * 0.12, round: R.label, oppLeague: DATA.leagueLevels[oppLvl].name });
+    gameState.cupMatch = m;
     let won = m.gf > m.ga, pens = '';
     if (m.gf === m.ga) { const pen = Engine.penalties(oppS); won = pen.won; pens = pen.score; }
     const e = Selectors.econ();
@@ -4586,6 +4607,7 @@ const Engine = {
     if (won) {
       const prize = Math.round(300 * e * (1 + c.idx * 0.6));
       Engine.money('Puchar Polski: premia za ' + R.label, prize);
+      m.money.push({ label: 'Premia PP za awans', amount: prize });
       c.earned += prize; box.money += prize;
       Engine.applyEffects({ fans: final ? +15 : +2 });
       if (final) {
@@ -4604,7 +4626,10 @@ const Engine = {
       c.next = null;
       box.verdict = '❌ Odpadamy z Pucharu Polski (' + R.label + ').';
     }
-    gameState.cupReport = box;   // pełnoekranowe podsumowanie meczu pucharowego po meczu ligowym
+    m.cupInfo.verdict = box.verdict;
+    m.cupInfo.pens = pens;
+    m.cupInfo.won = won;
+    gameState.cupReport = null;
   },
   addTrophy(icon, name, kind, lvl) {
     if (!gameState.trophies) gameState.trophies = [];
@@ -7347,6 +7372,7 @@ const UI = {
   overlay() {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
+    if (o && o.type === 'cupMatch' && gameState.cupMatch) return UI.matchOverlay(gameState.cupMatch);
     if ((gameState.crisisQueue || []).length) return UI.crisisOverlay(gameState.crisisQueue[0]);   // kryzys zatrzymuje grę
     if (o && o.type === 'cup' && gameState.cupReport) return UI.cupOverlay(gameState.cupReport);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
@@ -7372,7 +7398,7 @@ const UI = {
 
   matchOverlay(m) {
     const s = gameState;
-    const live = UI.animatedMatch !== m.week;   // animujemy tylko raz na mecz
+    const live = UI.animatedMatch !== (m.key || m.week);   // animujemy tylko raz na mecz
     const name = Selectors.clubDisplayName();
     const [label, tone] = m.result === 'W' ? ['WYGRANA', 'text-grass'] : m.result === 'L' ? ['PORAŻKA', 'text-stamp'] : ['REMIS', 'text-paper-300'];
     const total = m.money.reduce((sum, l) => sum + l.amount, 0);
@@ -7388,7 +7414,7 @@ const UI = {
     const goals = timeline.map((g) => `
       <li data-min="${g.min}" class="mx-goal ${live ? 'hidden' : ''} flex items-center gap-2 text-[13px] ${g.us === m.home ? '' : 'flex-row-reverse text-right'} ${g.us ? '' : 'text-paper-400'}">
         <span class="w-8 text-[11px] font-bold text-paper-400 ${g.us === m.home ? '' : 'text-right'}">${g.min}'</span>
-        <span class="truncate">${g.card === 'R' ? '🟥' : g.card === 'Y' ? '🟨' : '⚽'} ${Utils.escape(g.card && !g.us ? (m.rival + ' – czerwona') : g.name)}</span>
+        <span class="truncate">${g.card === 'R' ? '🟥' : g.card === 'Y' ? '🟨' : '⚽'} ${Utils.escape(g.card && !g.us ? (m.rival + ' – czerwona') : g.name)}${g.assist ? ' <span class="text-[11px] text-paper-400">(as. ' + Utils.escape(g.assist) + ')</span>' : ''}</span>
       </li>`).join('');
     const scoreAt = (min) => {
       const us = m.goals.filter((g) => g.us && g.min <= min).length, them = m.goals.filter((g) => !g.us && g.min <= min).length;
@@ -7397,8 +7423,8 @@ const UI = {
     const money = m.money.map((l) => `<div class="flex justify-between gap-2 text-[12.5px]"><span class="text-paper-300 truncate">${Utils.escape(l.label)}</span><b class="whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</b></div>`).join('');
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-3 text-paper-100">
-        <div class="text-center text-[11px] uppercase tracking-wider text-paper-400">Kolejka ${m.kolejka} · ${m.home ? 'u siebie' : 'wyjazd'}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
-        <div class="text-center text-[11px] text-paper-400 mt-0.5">${m.weatherIcon} ${Utils.escape(m.weatherLabel)}</div>
+        <div class="text-center text-[11px] uppercase tracking-wider ${m.cupInfo ? 'text-amber-glow font-semibold' : 'text-paper-400'}">${m.cupInfo ? '🏆 Puchar Polski · ' + Utils.escape(m.cupInfo.round) + ' · ' + (m.cupInfo.neutral ? 'Stadion Narodowy' : m.home ? 'u siebie' : 'wyjazd') : 'Kolejka ' + m.kolejka + ' · ' + (m.home ? 'u siebie' : 'wyjazd')}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
+        <div class="text-center text-[11px] text-paper-400 mt-0.5">${m.weatherIcon} ${Utils.escape(m.weatherLabel)}${m.cupInfo ? ' · rywal: ' + Utils.escape(m.cupInfo.oppLeague) : ''}</div>
         <div class="flex items-center gap-2 mt-5">
           ${m.home ? side(ourCrest, name, '') : side(theirCrest, m.rival, '')}
           <div class="flex-shrink-0 text-center">
@@ -7419,6 +7445,7 @@ const UI = {
           </div>
           ${m.euro ? UI.euroBox(m.euro) : ''}
           ${m.cup ? UI.euroBox(m.cup) : ''}
+          ${m.cupInfo && m.cupInfo.verdict ? `<div class="rounded-xl bg-amber-glow/10 border border-amber-glow/40 px-3 py-2 text-center">${m.cupInfo.pens ? `<div class="text-[12px] text-amber-glow">Rzuty karne ${Utils.escape(m.cupInfo.pens)}</div>` : ''}<div class="text-[14px] font-extrabold ${m.cupInfo.won ? 'text-grass' : 'text-stamp'}">${Utils.escape(m.cupInfo.verdict)}</div></div>` : ''}
         </div>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -7447,10 +7474,10 @@ const UI = {
 
   // Mecz „na żywo”: zegar 0'–90', gole pojawiają się w swoich minutach, na końcu wynik finansowy
   animateMatch() {
-    const m = gameState.lastMatch;
     const o = gameState.ui.overlay;
-    if (!o || o.type !== 'match' || !m || UI.animatedMatch === m.week || !document.getElementById('mx-score')) return;
-    UI.animatedMatch = m.week;
+    const m = o && o.type === 'cupMatch' ? gameState.cupMatch : gameState.lastMatch;
+    if (!o || (o.type !== 'match' && o.type !== 'cupMatch') || !m || UI.animatedMatch === (m.key || m.week) || !document.getElementById('mx-score')) return;
+    UI.animatedMatch = m.key || m.week;
     clearInterval(UI.matchTimer);
     let min = 0;
     UI.matchTimer = setInterval(() => {
@@ -9195,8 +9222,9 @@ const Actions = {
   },
   'overlay-close'() {
     const o = gameState.ui.overlay;
-    if (o && o.type === 'match' && gameState.cupReport) { gameState.ui.overlay = { type: 'cup' }; App.commit(); return; }   // podsumowanie meczu pucharowego
-    if (o && o.type === 'cup') { gameState.cupReport = null; gameState.ui.overlay = { type: 'match' }; Actions['overlay-close'](); return; }
+    const cm = gameState.cupMatch;
+    if (o && o.type === 'match' && cm && !cm.seen && gameState.lastMatch && cm.week === gameState.lastMatch.week) { gameState.ui.overlay = { type: 'cupMatch' }; App.commit(); return; }   // mecz pucharowy – ten sam ekran meczowy
+    if (o && o.type === 'cupMatch') { if (cm) cm.seen = true; gameState.ui.overlay = { type: 'match' }; Actions['overlay-close'](); return; }
     const sm = gameState.seasonSummary;
     const t = gameState.transfer;
     if (o && o.type === 'season' && sm) {
