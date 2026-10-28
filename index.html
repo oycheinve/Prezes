@@ -114,6 +114,9 @@ const CONFIG = {
   debtBailiff: -3500,
   debtGameOver: -5000,
   debtGameOverWeeks: 3,
+  fedFine: 5,               // kartoteka w Związku: grzywna
+  fedBan: 8,                // ban transferowy na okienko
+  fedHeavy: 12,             // ban na 2 okienka albo degradacja
   debtBailiffRatio: 12,     // komornik: dług = 12 tygodni przychodów klubu
   debtBankruptRatio: 20,    // bankructwo: dług ponad 20 tygodni przychodów przez kilka tygodni z rzędu
   municipalGrant: 80,       // tygodniowa dotacja gminy na sport (×ekonomia ligi)
@@ -1596,6 +1599,7 @@ const DATA = {
           effects: () => ({ budget: -Math.round(600 * Selectors.econ()) }),
           log: 'Agent przeliczył banknoty pod stołem i wręczył umowę.',
           onChoose: () => {
+            if (Selectors.transferBanned()) { Engine.addLog('⛔ Ban transferowy: Związek odrzucił rejestrację zawodnika od agenta. Prowizja przepadła.', 'event'); return; }
             if (gameState.squad.length >= CONFIG.maxSquad) { Engine.addLog('🕶️ Kadra pełna – zawodnik zostaje u agenta, prowizji nikt nie oddał.', 'event'); return; }
             const b = Selectors.levelSkillBonus();
             const p = Engine.generatePlayer({ ageMin: 21, ageMax: 28, skillMin: 6 + b, skillMax: 8 + b, wageMin: Math.round(25 * Selectors.econ()), wageMax: Math.round(35 * Selectors.econ()) });
@@ -3336,6 +3340,7 @@ function createInitialState() {
     monthly: { fans: 0, tickets: 0, merch: 0, gastro: 0 },
     budka: { level: 1, prices: {}, cheapMeat: 0, last: {} },   // budka: ceny pozycji menu, tanie mięso od rzeźnika
     echoes: [],                 // odłożone skutki decyzji ze scenek
+    federation: { points: 0, log: [] },   // kartoteka skandali w Związku: punkty karne i wpisy
     u19Loans: [],               // juniorzy na wypożyczeniu: { player, club, until }
     u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
@@ -3510,7 +3515,19 @@ const Engine = {
     gameState.season.scandals = (gameState.season.scandals || 0) + 1;
     Engine.addLog('📰 Skandal w kartotece klubu: ' + reason + ' (łącznie: ' + gameState.club.scandals + ').', 'event');
     if (!quiet) {
+      // Nieuchronne skutki – niezależnie od późniejszej reakcji PR
+      const r = reason.toLowerCase();
+      const sev = /korupc|prowokac|passat|sprzedan|dopin|antydop|koperta|unikanie kontroli/.test(r) ? 4 : /zamieszk|pirotech|chuligan|zatruc|skarb|domiar|sanepid|nadzór|kontrol/.test(r) ? 2 : 1;
+      const cost = Math.round(sev * 60 * Selectors.econ() / 10) * 10;
+      Engine.applyEffects({ fans: -sev });
+      Engine.money('Koszty prawne i wizerunkowe afery', -cost);
+      Engine.shiftDNA(-1);
+      const fed = gameState.federation || (gameState.federation = { points: 0, log: [] });
+      fed.points += sev;
+      fed.log = [{ season: gameState.calendar.season, week: gameState.calendar.week, reason, pts: sev }].concat(fed.log || []).slice(0, 12);
       Engine.crisis('scandal', '📰', 'AFERA W KLUBIE!', reason.charAt(0).toUpperCase() + reason.slice(1) + '.');
+      const cq = (gameState.crisisQueue || []).find((x) => x.kind === 'scandal' && x.week === gameState.calendar.week);
+      if (cq) cq.fixed = { fans: ((cq.fixed && cq.fixed.fans) || 0) + sev, money: ((cq.fixed && cq.fixed.money) || 0) + cost, pts: ((cq.fixed && cq.fixed.pts) || 0) + sev };
       const c = (gameState.crisisQueue || []).find((x) => x.kind === 'scandal' && x.week === gameState.calendar.week);
       const src = Engine.leakSource(reason);
       if (c && !(c.sources || []).includes(src)) c.sources = (c.sources || []).concat([src]).slice(-3);
@@ -3552,11 +3569,11 @@ const Engine = {
     if (c.kind === 'scandal' && choice === 'apology') {
       const cost = Math.round(150 * e * Math.min(3, c.lines.length) / 10) * 10;
       Engine.money('Oświadczenie i przeprosiny (PR)', -cost);
-      Engine.applyEffects({ fans: +2 });
+      Engine.applyEffects({ fans: +1 });
       Engine.shiftDNA(+1);
-      Engine.addLog('📢 Prezes wydaje oświadczenie i przeprasza. Agencja PR z powiatu liczy ' + Utils.formatMoney(cost) + '. [kibice +2%]', 'decision');
+      Engine.addLog('📢 Prezes wydaje oświadczenie i przeprasza. Agencja PR z powiatu liczy ' + Utils.formatMoney(cost) + '. Część kibiców wybacza. [kibice +1%]', 'decision');
     } else if (c.kind === 'scandal' && choice === 'attack') {
-      Engine.applyEffects({ fans: +1, lockerRoom: +2 });
+      Engine.applyEffects({ lockerRoom: +2 });
       Engine.shiftDNA(-2);
       if (Selectors.hasRealSponsor()) gameState.sponsor.strikes = (gameState.sponsor.strikes || 0) + 1;
       Engine.addLog('⚔️ Prezes atakuje media: „Nagonka na nasz klub!”. Szatnia i ultrasi kiwają głowami, sponsor marszczy brwi.', 'decision');
@@ -4699,7 +4716,7 @@ const Engine = {
           u.squad = u.squad.filter((x) => x.id !== p.id);
           delete p.watch; delete p.watchClub;   // na wypożyczeniu nikt go nie podkradnie
           gameState.u19Loans = (gameState.u19Loans || []).concat([{ player: p, club, until: t.season }]);
-          dir.windowLoans.push({ name: Selectors.playerName(p), pos: DATA.positions[p.pos].label + ' · U19', ovr: Selectors.ovr(p), fee: 0, club, junior: true });
+          dir.windowLoans.push({ id: p.id, name: Selectors.playerName(p), pos: DATA.positions[p.pos].label + ' · U19', ovr: Selectors.ovr(p), fee: 0, club, junior: true });
           Engine.addLog('📤 Dyrektor wypożycza juniora ' + Selectors.playerName(p) + ' (' + p.age + ' l.) do ' + club + ' – sezon regularnej gry w seniorach.', 'decision');
         });
     }
@@ -4718,7 +4735,7 @@ const Engine = {
       if (Selectors.ovr(best) < Selectors.teamOvr() - 6 && need[best.pos] <= 0) break;   // nie kupuje zapchajdziur
       const fee = best.fee;
       Engine.buyTransfer(best.id);
-      dir.windowBuys = (dir.windowBuys || []).concat([{ name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage }]);
+      dir.windowBuys = (dir.windowBuys || []).concat([{ id: best.id, name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage }]);
       budget -= fee; need[best.pos]--;
       bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
     }
@@ -5682,7 +5699,7 @@ const Engine = {
   },
 
   coachBringsPlayer() {
-    if (gameState.squad.length >= CONFIG.maxSquad) return;
+    if (gameState.squad.length >= CONFIG.maxSquad || Selectors.transferBanned()) return;   // ban: Związek nie zarejestruje nikogo nowego
     const p = Engine.generatePlayer({ ageMin: 26, ageMax: 32, skillMin: 6 + Selectors.levelSkillBonus(), skillMax: 8 + Selectors.levelSkillBonus(), wageMin: Math.round(30 * Selectors.econ()), wageMax: Math.round(45 * Selectors.econ()) });
     Engine.addLog('🤝 Trener ' + Selectors.coach().name + ' ściągnął „kolegę z dawnych lat”: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + '). Chce ' + p.wage + ' zł/tydz. „na paliwo”.', 'event');
   },
@@ -6180,12 +6197,37 @@ const Engine = {
     return text;
   },
   // Rozliczenie dyscyplinarne po sezonie bez sprawy korupcyjnej: seria afer = ban transferowy
+  // Rozliczenie kartoteki po sezonie: surowe kary tylko za grube, skumulowane przewinienia
   seasonDiscipline() {
-    const n = gameState.season.scandals || 0;
-    if (n < 3 || gameState.dark.caseOpen || Math.random() >= 0.15 * (n - 2)) return null;
+    const fed = gameState.federation || (gameState.federation = { points: 0, log: [] });
+    const pts = fed.points || 0;
     const s = gameState.calendar.season;
-    gameState.transferBan = { from: s, until: s + 1 };
-    const text = 'Wydział Dyscypliny za ' + n + ' afery w sezonie: BAN TRANSFEROWY na najbliższe okienko (zakaz rejestracji nowych zawodników).';
+    const e = Selectors.econ();
+    let text = null;
+    if (pts >= CONFIG.fedHeavy) {
+      const fine = Math.round(3000 * e);
+      Engine.money('Kara Związku (kartoteka skandali)', -fine);
+      if (gameState.club.leagueLevel > 1 && Math.random() < 0.5) {
+        gameState.season.forcedRelegation = true;
+        text = 'Kartoteka ' + pts + ' pkt – rażące, powtarzające się przewinienia: DEGRADACJA o klasę niżej i kara ' + Utils.formatMoney(fine) + '.';
+      } else {
+        gameState.transferBan = { from: s, until: s + 2 };
+        text = 'Kartoteka ' + pts + ' pkt – rażące, powtarzające się przewinienia: BAN TRANSFEROWY na 2 okienka i kara ' + Utils.formatMoney(fine) + '.';
+      }
+      fed.points = Math.max(0, pts - 8);
+    } else if (pts >= CONFIG.fedBan) {
+      const fine = Math.round(1500 * e);
+      Engine.money('Kara Związku (kartoteka skandali)', -fine);
+      gameState.transferBan = { from: s, until: s + 1 };
+      text = 'Kartoteka ' + pts + ' pkt: BAN TRANSFEROWY na najbliższe okienko (zakaz rejestracji nowych zawodników) i kara ' + Utils.formatMoney(fine) + '.';
+      fed.points = Math.max(0, pts - 5);
+    } else if (pts >= CONFIG.fedFine) {
+      const fine = Math.round(500 * e);
+      Engine.money('Grzywna Związku (kartoteka skandali)', -fine);
+      text = 'Kartoteka ' + pts + ' pkt: upomnienie i grzywna ' + Utils.formatMoney(fine) + '. Następne afery mogą skończyć się banem.';
+    }
+    fed.points = Math.floor(fed.points * 0.6);   // stare grzechy z czasem bledną
+    if (!text) return null;
     Engine.crisis('verdict', '⚖️', 'KARA ZWIĄZKU', text);
     Engine.addLog('⚖️ ' + text, 'system');
     return text;
@@ -6656,6 +6698,15 @@ const Engine = {
     function squadTopUp() {
       // Za mało ludzi? Trener łapie kogoś spod sklepu.
       while (gameState.squad.length < CONFIG.minSquad) {
+        const u = gameState.u19;
+        if (Selectors.transferBanned() && u && u.squad.length) {   // ban: zamiast łapanki – najstarszy junior z własnej akademii
+          const j = u.squad.slice().sort((a, b) => b.age - a.age || b.skill - a.skill)[0];
+          u.squad = u.squad.filter((x) => x.id !== j.id);
+          j.wage = Selectors.gradWage(j);
+          gameState.squad.push(j);
+          Engine.addLog('⛔ Ban transferowy – brakuje ludzi, więc do kadry awansuje junior ' + Selectors.playerName(j) + ' (' + j.age + ' l.).', 'event');
+          continue;
+        }
         const p = Engine.generatePlayer({ ageMin: 18, ageMax: 34, skillMin: 2 + Selectors.levelSkillBonus(), skillMax: 4 + Selectors.levelSkillBonus(), wageMin: 5, wageMax: Math.round(10 * Selectors.econ()) });
         Engine.addLog('🙋 Z łapanki spod sklepu: ' + Selectors.playerName(p) + ' (' + p.age + ' l.). „Grałem kiedyś w trampkarzach, to się nada.”', 'event');
       }
@@ -8165,13 +8216,16 @@ const UI = {
   // Raport Dyrektora Sportowego po zamknięciu okienka: kogo kupił i za ile
   directorReportOverlay(r) {
     const sells = r.sells || [], loans = r.loans || [];
+    const pid = gameState.ui.reportPlayer;
+    const pl = pid && (gameState.squad.find((x) => x.id === pid) || ((gameState.u19Loans || []).find((l) => l.player.id === pid) || {}).player);
+    if (pl) return UI.reportPlayerView(pl, r);
     const many = r.buys.length + sells.length + loans.length >= 4;
     const line = (b, sub, money, tone) => `
-      <div class="rounded-xl bg-desk-800 px-3 ${many ? 'py-1' : 'py-2'} flex items-center gap-2">
+      <${b.id ? `button data-action="report-player" data-id="${b.id}"` : 'div'} class="w-full text-left rounded-xl bg-desk-800 ${b.id ? 'btn-press border border-desk-600 active:bg-desk-700' : ''} px-3 ${many ? 'py-1' : 'py-2'} flex items-center gap-2">
         <span class="inline-block min-w-[26px] px-1 rounded text-[11px] leading-[18px] font-extrabold text-center bg-ink-900 text-paper-100">${b.ovr}</span>
         <div class="min-w-0 flex-1"><div class="text-[13px] font-bold truncate">${Utils.escape(b.name)}</div><div class="text-[10.5px] text-paper-400 truncate">${sub}</div></div>
-        <b class="text-[13.5px] ${tone} whitespace-nowrap">${money}</b>
-      </div>`;
+        <b class="text-[13.5px] ${tone} whitespace-nowrap">${money}</b>${b.id ? '<span class="text-paper-400 text-[14px]">›</span>' : ''}
+      </${b.id ? 'button' : 'div'}>`;
     const h = (t) => `<div class="text-[10px] uppercase tracking-wide text-paper-400 font-semibold mt-2 mb-1">${t}</div>`;
     const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + ' · pensja ' + b.wage + ' zł/tydz.', Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
       + (sells.length ? h('💸 Sprzedani') + sells.map((b) => line(b, Utils.escape(b.pos) + ' · ' + Utils.escape(b.why || ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '')
@@ -8183,6 +8237,7 @@ const UI = {
         <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">Raport Dyrektora Sportowego</h2>
         <div class="text-center text-[12px] text-paper-400 mt-0.5">${Utils.escape(r.name)} · sezon ${r.season}</div>
         <div class="space-y-1 mt-2">${rows || '<div class="rounded-xl bg-desk-800 px-3 py-3 mt-2 text-center text-[13px] text-paper-300">„Prezesie, nie znalazłem nikogo wartego tych pieniędzy. Budżet nietknięty.”</div>'}</div>
+        ${r.buys.some((b) => b.id) || loans.some((b) => b.id) ? '<p class="text-center text-[10.5px] text-paper-400 mt-1.5">Stuknij zawodnika, żeby zobaczyć jego profil</p>' : ''}
         ${rows ? `<div class="flex justify-between mt-3 px-1 text-[13.5px]"><span class="text-paper-300">Wydane ${Utils.formatMoney(r.total)} · wpływy ${Utils.formatMoney(r.income || 0)}</span><b class="${(r.income || 0) - r.total >= 0 ? 'text-grass' : 'text-stamp'}">${Utils.signedMoney((r.income || 0) - r.total)}</b></div>` : ''}
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -8243,8 +8298,8 @@ const UI = {
     const b = (v, label, sub, tone) => `<button data-action="crisis-answer" data-value="${v}" class="btn-press w-full rounded-xl ${tone} px-3 py-2.5 text-left"><div class="text-[14.5px] font-extrabold">${label}</div>${sub ? `<div class="text-[11px] opacity-80 leading-snug">${sub}</div>` : ''}</button>`;
     const n = Math.min(3, c.lines.length);
     const btns = c.kind === 'scandal'
-      ? b('apology', '📢 Oświadczenie i przeprosiny', 'Agencja PR: ' + Utils.formatMoney(Math.round(150 * e * n / 10) * 10) + ' · kibice +2% · DNA w górę', 'bg-amber-glow text-ink-900')
-        + b('attack', '⚔️ „To nagonka mediów!”', 'Szatnia +2%, kibice +1% · DNA w dół · sponsor notuje skandal', 'bg-desk-700 text-paper-100 border border-desk-600')
+      ? b('apology', '📢 Oświadczenie i przeprosiny', 'Agencja PR: ' + Utils.formatMoney(Math.round(150 * e * n / 10) * 10) + ' · kibice +1% · DNA w górę (skutków afery to nie cofnie)', 'bg-amber-glow text-ink-900')
+        + b('attack', '⚔️ „To nagonka mediów!”', 'Szatnia +2% · DNA w dół · sponsor notuje skandal', 'bg-desk-700 text-paper-100 border border-desk-600')
         + b('silent', '🤐 Bez komentarza', 'Przeczekać burzę – bez kosztów', 'bg-desk-800 text-paper-300 border border-desk-600')
       : c.kind === 'sponsor'
         ? b('sponsor', '💼 Szukam nowego sponsora', 'Przejdź do Finanse → Sponsor', 'bg-amber-glow text-ink-900') + b('ok', 'Później', '', 'bg-desk-800 text-paper-300 border border-desk-600')
@@ -8261,11 +8316,38 @@ const UI = {
           <ul class="mt-4 space-y-1.5">${c.lines.map((l) => `<li class="rounded-xl bg-stamp/15 border border-stamp/40 px-3 py-2 text-[13px] leading-snug text-paper-100">${Utils.escape(l)}</li>`).join('')}</ul>
           ${c.echo ? `<div class="mt-2 rounded-xl bg-amber-glow/15 border border-amber-glow/40 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-amber-glow font-semibold">🔙 To wraca – Twoja decyzja z tygodnia ${c.echo.week}</div><div class="text-[12.5px] text-paper-100 leading-snug mt-0.5">${c.echo.from ? Utils.escape(c.echo.from) + ': ' : ''}„${Utils.escape(c.echo.choice)}”</div></div>` : ''}
           ${c.sources && c.sources.length ? `<div class="mt-2 rounded-xl bg-desk-800 border border-desk-600 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-amber-glow font-semibold">📡 Skąd wyciekło</div>${c.sources.map((x) => `<div class="text-[12.5px] text-paper-100 leading-snug mt-0.5">${Utils.escape(x)}</div>`).join('')}</div>` : ''}
-          ${c.kind === 'scandal' ? `<p class="text-center text-[11.5px] text-paper-400 mt-3">Skandale w kartotece: <b class="text-paper-200">${gameState.club.scandals}</b> · sponsorzy i Związek patrzą. Jak reaguje Prezes?</p>` : ''}
+          ${c.fixed ? `<div class="mt-2 rounded-xl bg-stamp/10 border border-stamp/30 px-3 py-1.5 text-[12px] text-paper-200">⚠️ Już poniesione: <b class="text-stamp">kibice -${c.fixed.fans}% · ${Utils.formatMoney(c.fixed.money)} kosztów · DNA w dół</b></div>` : ''}
+          ${c.kind === 'scandal' ? `<p class="text-center text-[11.5px] text-paper-400 mt-2">📁 Kartoteka w Związku: <b class="text-paper-200">${(gameState.federation || {}).points || 0} pkt</b> (+${(c.fixed && c.fixed.pts) || 1}) · kara od ${CONFIG.fedFine} · ban od ${CONFIG.fedBan} · degradacja od ${CONFIG.fedHeavy}. Jak reaguje Prezes?</p>` : ''}
         </div>
         <div class="flex-shrink-0 px-4 pb-4 pt-2 space-y-1.5">${btns}</div>
       </div>
     </div>`;
+  },
+
+  // Profil zawodnika otwarty z raportu dyrektora: wiek, potencjał, charakter, statystyki
+  reportPlayerView(p, r) {
+    const stars = Selectors.potentialStars(p);
+    const potOvr = Selectors.ovr({ ...p, skill: Selectors.potential(p), formHistory: [] });
+    const ps = p.prevSeason || {};
+    const loan = (gameState.u19Loans || []).find((l) => l.player.id === p.id);
+    const row = (k, v) => `<div class="flex justify-between gap-2 py-1 border-b border-desk-700 last:border-0 text-[12.5px]"><span class="text-paper-400">${k}</span><b class="text-right">${v}</b></div>`;
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-paper-100 flex flex-col justify-center">
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Raport Dyrektora · profil zawodnika</div>
+        ${UI.playerCard(p, true)}
+        <div class="rounded-xl bg-desk-800 border border-desk-600 px-3 py-1.5 mt-2">
+          ${row('Wiek', p.age + ' lat' + (loan ? ' · 📤 wypożyczony do ' + Utils.escape(loan.club) : ''))}
+          ${row('Potencjał', '<span class="text-amber-glow">' + '★'.repeat(stars) + '</span>' + '☆'.repeat(5 - stars) + ' · sufit ~OVR ' + potOvr)}
+          ${row('Charakter', Utils.escape(Selectors.temperLabel(p)))}
+          ${row('Cecha', '„' + Utils.escape(p.trait) + '”')}
+          ${row('Pasuje do stylu', Utils.escape(DATA.profiles[p.profile].label))}
+          ${row('Poprzedni sezon', ps.apps != null ? ps.apps + ' m · ' + (ps.goals || 0) + ' g · ' + (ps.assists || 0) + ' as.' + (ps.avg != null ? ' · nota ' + Selectors.ratingText(ps.avg) : '') : '–')}
+          ${row('Pensja', p.wage + ' zł/tydz.')}
+        </div>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="report-player" data-id="" class="btn-press w-full h-14 rounded-xl bg-desk-700 text-paper-100 text-[16px] font-extrabold tracking-wide">← WRÓĆ DO RAPORTU</button>
+      </div>`, 'bg-[#0b0f16]');
   },
 
   // Po okienku: inny klub podkradł niezabezpieczoną perełkę z akademii
@@ -8515,8 +8597,9 @@ const UI = {
     // Jeden widok naraz: sprawy, gdy coś czeka, inaczej pulpit klubu (chyba że gracz wybrał sam).
     const view = gameState.ui.deskView === 'club' || (gameState.ui.deskView !== 'decisions' && !pending) ? 'club' : 'decisions';
     const v = gameState.ui.deskView === 'trophies' ? 'trophies' : view;
-    return UI.segs('desk-view', v, [['decisions', '❗ Sprawy' + (pending ? ' (' + pending + ')' : '')], ['club', '🏠 Klub'], ['trophies', '🏆 Gablotka']])
-      + (v === 'trophies' ? UI.trophyCabinet() : v === 'decisions' ? UI.decisions() : UI.clubDashboard());
+    const vv = gameState.ui.deskView === 'federation' ? 'federation' : v;
+    return UI.segs('desk-view', vv, [['decisions', '❗ Sprawy' + (pending ? ' (' + pending + ')' : '')], ['club', '🏠 Klub'], ['trophies', '🏆 Gablotka'], ['federation', '📁 Związek']])
+      + (vv === 'federation' ? UI.federationCard() : vv === 'trophies' ? UI.trophyCabinet() : vv === 'decisions' ? UI.decisions() : UI.clubDashboard());
   },
 
   // Jedna sprawa naraz – mieści się na ekranie razem z odpowiedziami
@@ -8670,6 +8753,26 @@ const UI = {
       8: `<path d="M13 2h14l2 5H11z" fill="${M[1]}"/><path d="M7 7h26l-3 15c-1 6-5 8-10 8s-9-2-10-8z" fill="url(#${g})" stroke="${M[1]}"/><path d="M7 9C-1 9 0 24 10 23M33 9c8 0 7 15-3 14" fill="none" stroke="${M[1]}" stroke-width="2.6"/><path d="M16 30h8v4h-8z" fill="${M[1]}"/><path d="M7 34h26v9H7z" fill="#151515"/><path d="M7 36h13v3H7z" fill="#fff"/><path d="M20 36h13v3H20z" fill="#d23c3c"/><text x="20" y="20" text-anchor="middle" font-size="8" font-weight="800" fill="${M[1]}">PL</text>`,
     };
     return `<svg viewBox="0 0 40 46" width="40" height="46">${grad(M[0], M[1])}${shapes[Utils.clamp(lvl, 1, 8)]}<rect x="${lvl >= 6 ? 7 : 10}" y="43" width="${lvl >= 6 ? 26 : 20}" height="3" fill="#111" opacity=".5"/></svg>`;
+  },
+
+  // Kartoteka skandali w Związku: punkty karne i progi sankcji
+  federationCard() {
+    const fed = gameState.federation || { points: 0, log: [] };
+    const pts = fed.points || 0;
+    const ban = Selectors.transferBanned();
+    const next = pts >= CONFIG.fedHeavy ? 'degradacja lub ban na 2 okienka' : pts >= CONFIG.fedBan ? 'ban transferowy' : pts >= CONFIG.fedFine ? 'grzywna' : 'brak kary';
+    const rows = (fed.log || []).slice(0, 8).map((x) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 pr-1 text-ink-700 whitespace-nowrap text-[11px]">S${x.season} T${x.week}</td><td class="max-w-0 w-full truncate">${Utils.escape(x.reason)}</td><td class="text-right font-bold ${x.pts >= 4 ? 'text-stamp' : ''}">+${x.pts}</td></tr>`).join('');
+    const pct = Utils.clamp(pts / CONFIG.fedHeavy * 100, 0, 100);
+    return UI.tiles([
+      UI.tile('Punkty karne', pts + ' pkt', 'po sezonie: ' + next, pts >= CONFIG.fedBan ? 'text-stamp' : ''),
+      UI.tile('Afery łącznie', String(gameState.club.scandals), 'w historii klubu'),
+      UI.tile('Ban transferowy', ban ? 'TAK' : 'nie', ban ? 'do sezonu ' + gameState.transferBan.until : 'rejestracja wolna', ban ? 'text-stamp' : ''),
+    ]) + UI.panel('📁 Kartoteka w Wydziale Dyscypliny', 'Każda afera to wpis i punkty karne. Drobne sprawy kończą się grzywną; ban i degradacja tylko za grube, skumulowane przewinienia. Rozliczenie po sezonie, potem punkty bledną (−40%).', `
+      <div class="h-2 rounded-full bg-paper-300 overflow-hidden relative"><div class="h-full ${pts >= CONFIG.fedBan ? 'bg-stamp' : pts >= CONFIG.fedFine ? 'bg-amber-glow' : 'bg-grass'}" style="width:${pct}%"></div></div>
+      <div class="flex justify-between text-[10px] text-ink-700 mt-0.5"><span>0</span><span>grzywna ${CONFIG.fedFine}</span><span>ban ${CONFIG.fedBan}</span><span>degradacja ${CONFIG.fedHeavy}</span></div>
+      ${rows ? `<table class="w-full text-[12px] mt-1.5">${rows}</table>` : '<p class="text-[12px] italic text-ink-700 mt-1.5">Kartoteka czysta. Pan z Wydziału nawet nie zna nazwy klubu.</p>'}
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Waga: 1 pkt – drobna afera · 2 pkt – zamieszki, Sanepid, skarbówka · 4 pkt – korupcja, doping, koperty.</p>
+    `);
   },
 
   trophyCabinet() {
@@ -9591,7 +9694,7 @@ const Actions = {
     if (o && o.type === 'outcome' && o.back === 'transfer' && t.open) { gameState.ui.overlay = { type: 'transfer' }; App.commit(); return; }
     // Przełom sezonów: mecz → podsumowanie roczne → pożegnania (kariera, sztab) → giełda ze wszystkimi ofertami naraz
     if (o && o.type === 'match' && gameState.directorReport && (!sm || sm.seen)) { gameState.ui.overlay = { type: 'dirReport' }; App.commit(); return; }   // raport dyrektora po okienku
-    if (o && o.type === 'dirReport') gameState.directorReport = null;
+    if (o && o.type === 'dirReport') { gameState.directorReport = null; gameState.ui.reportPlayer = null; }
     if (o && (o.type === 'match' || o.type === 'dirReport') && gameState.poachReport && (!sm || sm.seen)) { gameState.ui.overlay = { type: 'poach' }; App.commit(); return; }   // komunikat o podkradzionej perełce
     if (o && o.type === 'poach') gameState.poachReport = null;
     if (o && (o.type === 'dirReport' || o.type === 'poach')) { gameState.ui.overlay = null; App.commit(); return; }
@@ -9668,6 +9771,7 @@ const Actions = {
     App.commit();
   },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
+  'report-player'(el) { gameState.ui.reportPlayer = el.dataset.id || null; App.commit(); },
   'show-bilans'()    { gameState.ui.showBilans = !gameState.ui.showBilans; App.commit(); },
   'merch-price'(el)  { Engine.merchSetPrice(el.dataset.id, +el.dataset.value || 0); App.commit(); },
   'shop-upgrade'()   { Engine.shopUpgrade(); App.commit(); },
@@ -9705,7 +9809,7 @@ const Actions = {
     if (m && confirm('Zwolnić ze sztabu: ' + m.name + '?')) { Engine.fireStaff(el.dataset.slot); App.commit(); }
   },
   'desk-view'(el) {
-    if (['decisions', 'club', 'trophies'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
+    if (['decisions', 'club', 'trophies', 'federation'].includes(el.dataset.value)) gameState.ui.deskView = el.dataset.value;
     App.commit();
   },
   'sub-view'(el) {
