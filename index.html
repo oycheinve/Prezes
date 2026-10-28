@@ -4216,6 +4216,7 @@ const Engine = {
       cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral, comp: cup.comp || 'Puchar Polski', venue: cup.venue ? cup.venue.name : null } : null,
       weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra, cards: cards.map((c) => ({ min: c.min, us: c.us, card: c.card, name: c.name })),
+      lineupIds: lineup.map((p) => p.id), scorerCount: { ...scorerCount },
     };
     servedBan.forEach((p) => { p.suspended = Math.max(0, p.suspended - 1); });
     Engine.applyCardBans(cards);
@@ -5123,35 +5124,50 @@ const Engine = {
     const tier = s < 2.6 ? 0 : s < 2.95 ? 1 : s < 3.35 ? 2 : 3;
     const used = eu.history.map((x) => x.opp);
     const pool = DATA.euro.clubs[tier].filter((n) => !used.includes(n));
-    return { name: Utils.rand(pool.length ? pool : DATA.euro.clubs[tier]), s };
+    return { name: Utils.rand(pool.length ? pool : DATA.euro.clubs[tier]), s, tier };
   },
-  euroMatch(opp, home, neutral) {
+  // 13.73: mecz europejski na pełnym silniku meczowym (jak liga i Puchar Polski): skład, zmęczenie, kartki, asysty, noty, MVP, bilety i gastro
+  // Rywal najbliższego meczu losowany z wyprzedzeniem (widoczny w terminarzu)
+  euroNextOpp() {
     const eu = gameState.euro;
-    const lineup = Engine.pickLineup([]);
-    const ourS = Engine.teamStrength(lineup, Engine.chemistry(lineup));
-    const ratio = ourS / opp.s;
-    const adv = neutral ? 1 : home ? (eu.venue === 'narodowy' ? 1.04 : 1.12) : 1 / 1.1;
-    const gf = Utils.poisson(Math.max(0.12, 1.15 * Math.pow(ratio, 1.4) * adv));
-    const ga = Utils.poisson(Math.max(0.12, 1.15 * Math.pow(1 / ratio, 1.4) / adv));
-    lineup.forEach((p) => { p.euroApps = (p.euroApps || 0) + 1; p.euroSeasonApps = (p.euroSeasonApps || 0) + 1; });
-    const scorers = [];
-    for (let i = 0; i < gf; i++) {
-      const sc = Utils.weightedPick(lineup, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill);
-      if (sc) { sc.euroGoals = (sc.euroGoals || 0) + 1; scorers.push(sc.last); }
-    }
-    if (home && !neutral) {
+    const key = eu.stage + ':' + (eu.lp ? eu.lp.played : 0);
+    if (!eu.nextOpp || eu.nextOpp.key !== key) eu.nextOpp = { key, opp: Engine.euroOpponent(eu.stage) };
+    return eu.nextOpp.opp;
+  },
+  euroMatch(opp, home, neutral, label) {
+    const eu = gameState.euro;
+    const C = DATA.euro.comps[eu.comp];
+    const st = DATA.euro.stages[eu.stage];
+    const venue = neutral ? { name: 'stadion finału ' + C.name, att: [50000, 72000] } : null;
+    const m = Engine.playMatchday({ opp: opp.name, oppS: opp.s, home, neutral, venue, comp: C.name, hype: 1.5 + st.add, round: label || st.label, oppLeague: ['skromny mistrz', 'europejski średniak', 'europejska czołówka', 'gigant Europy'][opp.tier || 0] });
+    m.key = gameState.calendar.week + 'e';
+    m.cupInfo.icon = C.icon;
+    m.cupInfo.euro = true;
+    gameState.euroMatch = m;
+    Engine._euroM = m;
+    (m.lineupIds || []).forEach((id) => { const p = gameState.squad.find((x) => x.id === id); if (p) { p.euroApps = (p.euroApps || 0) + 1; p.euroSeasonApps = (p.euroSeasonApps || 0) + 1; } });
+    Object.entries(m.scorerCount || {}).forEach(([id, n]) => { const p = gameState.squad.find((x) => String(x.id) === String(id)); if (p) p.euroGoals = (p.euroGoals || 0) + n; });
+    if (home && !neutral) {   // europejski wieczór: komplet na trybunach i ceny ×2 (zwykła bramka już policzona przez silnik meczu)
       const seats = eu.venue === 'narodowy' ? 25000 : Selectors.stadiumCapacity();
-      const gate = Math.round(seats * Utils.randRange(0.85, 1) * DATA.tickets[gameState.matchday.ticket].price * 2);   // europejskie ceny biletów
-      Engine.euroMoney('Bilety: mecz europejski', gate);
+      const price = DATA.tickets[gameState.matchday.ticket].price;
+      const full = Math.max(m.attendance || 0, Math.round(seats * Utils.randRange(0.85, 1)));
+      const extra = Math.max(0, full * price * 2 - (m.attendance || 0) * price);
+      Engine.euroMoney('Bilety: europejski komplet (' + full + ' widzów, ceny UEFA ×2)', extra);
+      m.attendance = full;
       if (eu.venue === 'narodowy') Engine.euroMoney('Wynajem Stadionu Narodowego', -Math.round(2000 * Selectors.econ()));
     }
-    return { gf, ga, scorers };
+    // Ranking UEFA: punkty za wynik
+    const pts = m.gf > m.ga ? 2 : m.gf === m.ga ? 1 : 0;
+    gameState.stats.uefaPts = (gameState.stats.uefaPts || 0) + pts;
+    eu.uefaPts = (eu.uefaPts || 0) + pts;
+    m.cupInfo.uefa = pts;
+    return { gf: m.gf, ga: m.ga, scorers: m.goals.filter((g) => g.us).map((g) => g.name), m };
   },
   euroMoney(label, amount) {
     if (!amount) return;
     Engine.money(label, amount);
     if (amount > 0) gameState.euro.earned += amount;
-    if (gameState.lastMatch && gameState.lastMatch.euro) gameState.lastMatch.euro.money += amount;
+    if (Engine._euroM) Engine._euroM.money.push({ label, amount });   // linia na ekranie meczu europejskiego
   },
   // Wywoływane w każdej kolejce ligowej: jeśli w tym tygodniu jest europejski wieczór – gramy
   euroWeek(kolejka) {
@@ -5160,56 +5176,69 @@ const Engine = {
     const st = DATA.euro.stages[eu.stage];
     const C = DATA.euro.comps[eu.comp];
     const e = Selectors.econ();
+    // 13.73: dwumecz rozłożony na dwa tygodnie – rewanż w następnej kolejce po pierwszym meczu
+    const returnLeg = eu.tie && eu.tie.stage === eu.stage && kolejka > eu.tie.k;
     let due = false;
-    if (eu.stage === 'LP') due = eu.lp && Selectors.euroKolejka(st.kolejki[eu.lp.played]) === kolejka;
+    if (returnLeg) due = true;
+    else if (eu.tie) due = false;
+    else if (eu.stage === 'LP') due = eu.lp && Selectors.euroKolejka(st.kolejki[eu.lp.played]) === kolejka;
     else due = Selectors.euroKolejka(st.kolejka) === kolejka;
     if (!due) return;
-    const box = { title: C.icon + ' ' + C.name + ' · ' + st.label, legs: [], verdict: '', money: 0 };
     gameState.midweekWeek = gameState.calendar.week;
-    if (gameState.lastMatch) gameState.lastMatch.euro = box;
     Engine.applyEffects({ fans: +2 });
-    const opp = Engine.euroOpponent(eu.stage);
     const stageBefore = eu.stage;
+    let verdict = '';
+    let pens = '';
+    let good = true;   // ton ramki z werdyktem (zielony/czerwony)
     if (eu.stage === 'LP') {
+      const opp = Engine.euroNextOpp();
       const lp = eu.lp;
       const home = lp.played % 2 === 0;
-      const m = Engine.euroMatch(opp, home, false);
+      const m = Engine.euroMatch(opp, home, false, st.label + ' · ' + (lp.played + 1) + '. kolejka');
       lp.played++; lp.gf += m.gf; lp.ga += m.ga;
       const res = m.gf > m.ga ? 'W' : m.gf === m.ga ? 'D' : 'L';
       lp.pts += { W: 3, D: 1, L: 0 }[res];
-      box.legs.push({ label: lp.played + '. kolejka', opp: opp.name, home, gf: m.gf, ga: m.ga, scorers: m.scorers });
       Engine.euroMoney('Premia UEFA za wynik', Math.round({ W: 6000, D: 2000, L: 0 }[res] * C.mult * e));
       eu.history.unshift({ stage: 'LP', opp: opp.name, text: C.short + ' · ' + lp.played + '. kolejka fazy ligowej: ' + (home ? 'dom' : 'wyjazd') + ' ' + m.gf + ':' + m.ga + ' z ' + opp.name });
-      box.verdict = 'Faza ligowa: ' + lp.pts + ' pkt po ' + lp.played + ' meczach';
+      verdict = 'Faza ligowa: ' + lp.pts + ' pkt po ' + lp.played + ' z ' + C.lpGames + ' meczów';
+      good = res !== 'L';
       if (lp.played >= C.lpGames) {
         const rank = Utils.clamp(Math.round(36 - lp.pts * (C.lpGames === 6 ? 3 : 2.2) + Utils.randInt(-2, 2)), 1, 36);
         lp.rank = rank;
         if (rank <= 8) Engine.euroAdvance('R16', 'Faza ligowa: ' + rank + '. miejsce – prosto do 1/8 finału!');
         else if (rank <= 24) Engine.euroAdvance('KPO', 'Faza ligowa: ' + rank + '. miejsce – baraż o 1/8 finału.');
-        else Engine.euroOut(rank + '. miejsce w fazie ligowej – koniec przygody z Europą.');
-        box.verdict = eu.done ? eu.result : 'Faza ligowa zakończona: ' + rank + '. miejsce (' + lp.pts + ' pkt)';
+        else { Engine.euroOut(rank + '. miejsce w fazie ligowej – koniec przygody z Europą.'); good = false; }
+        verdict = eu.done ? eu.result : '✅ Faza ligowa zakończona: ' + rank + '. miejsce (' + lp.pts + ' pkt) · dalej: ' + DATA.euro.stages[eu.stage].label;
       }
+    } else if (st.tie && !returnLeg) {
+      const opp = Engine.euroNextOpp();
+      const m = Engine.euroMatch(opp, false, false, st.label + ' · 1. mecz');
+      eu.tie = { stage: eu.stage, k: kolejka, opp, gf: m.gf, ga: m.ga };
+      verdict = '1. mecz: ' + m.gf + ':' + m.ga + ' na wyjeździe. Rewanż u siebie za tydzień.';
+      good = m.gf >= m.ga;
+      eu.history.unshift({ stage: eu.stage, opp: opp.name, text: C.short + ' · ' + st.label + ', 1. mecz: ' + opp.name + ' ' + m.gf + ':' + m.ga + ' (wyjazd)' });
     } else if (st.tie) {
-      const a = Engine.euroMatch(opp, false, false), b = Engine.euroMatch(opp, true, false);
-      box.legs.push({ label: '1. mecz', opp: opp.name, home: false, gf: a.gf, ga: a.ga, scorers: a.scorers }, { label: 'Rewanż', opp: opp.name, home: true, gf: b.gf, ga: b.ga, scorers: b.scorers });
-      const gf = a.gf + b.gf, ga = a.ga + b.ga;
+      const t = eu.tie;
+      const m = Engine.euroMatch(t.opp, true, false, st.label + ' · rewanż');
+      eu.tie = null;
+      const gf = t.gf + m.gf, ga = t.ga + m.ga;
       let won = gf > ga;
-      let pens = '';
-      if (gf === ga) { const pen = Engine.penalties(opp.s); won = pen.won; pens = pen.score; }
-      box.agg = gf + ':' + ga + (pens ? ', karne ' + pens : '');
+      if (gf === ga) { const pen = Engine.penalties(t.opp.s); won = pen.won; pens = pen.score; }
+      const agg = gf + ':' + ga + (pens ? ', karne ' + pens : '');
       if (['Q2', 'Q3', 'PO'].includes(eu.stage)) Engine.euroMoney('Premia UEFA: ' + st.label, Math.round(C.qualFee * e));
-      eu.history.unshift({ stage: eu.stage, opp: opp.name, text: C.short + ' · ' + st.label + ': ' + opp.name + ' ' + box.agg + (won ? ' ✅' : ' ❌') });
+      eu.history.unshift({ stage: eu.stage, opp: t.opp.name, text: C.short + ' · ' + st.label + ': ' + t.opp.name + ' dwumecz ' + agg + (won ? ' ✅' : ' ❌') });
       Engine.euroTieResult(won);
-      box.verdict = eu.done ? eu.result : (won ? '✅ Awans! Dalej: ' : '↘️ Odpadamy, ale gramy dalej: ') + DATA.euro.comps[eu.comp].name + ' · ' + DATA.euro.stages[eu.stage].label;
+      good = won;
+      verdict = 'Dwumecz ' + agg + ' · ' + (eu.done ? eu.result : (won ? '✅ Awans! Dalej: ' : '↘️ Odpadamy, ale gramy dalej: ') + DATA.euro.comps[eu.comp].name + ' · ' + DATA.euro.stages[eu.stage].label);
     } else {
       // Finał: jeden mecz na neutralnym stadionie
-      const m = Engine.euroMatch(opp, false, true);
-      let won = m.gf > m.ga, pens = '';
+      const opp = Engine.euroNextOpp();
+      const m = Engine.euroMatch(opp, false, true, 'FINAŁ');
+      let won = m.gf > m.ga;
       if (m.gf === m.ga) { const pen = Engine.penalties(opp.s); won = pen.won; pens = pen.score; }
-      box.legs.push({ label: 'Finał · neutralny stadion', opp: opp.name, home: true, gf: m.gf, ga: m.ga, pens, scorers: m.scorers });
       eu.history.unshift({ stage: 'F', opp: opp.name, text: C.short + ' · FINAŁ: ' + opp.name + ' ' + m.gf + ':' + m.ga + (pens ? ' (k. ' + pens + ')' : '') + (won ? ' 🏆' : '') });
+      eu.done = true;
       if (won) {
-        eu.done = true;
         eu.result = '🏆 ZDOBYWCA PUCHARU: ' + C.name + '!';
         gameState.stats.euroTrophies = (gameState.stats.euroTrophies || 0) + 1;
         Engine.euroMoney('Premia UEFA za zwycięstwo w finale', Math.round(60000 * C.mult * e));
@@ -5217,12 +5246,20 @@ const Engine = {
         Engine.addLog('🏆🏆🏆 ' + Selectors.clubDisplayName() + ' WYGRYWA ' + C.name.toUpperCase() + '! Od remizy do europejskiego tronu! [kibice +25%, szatnia +15%]', 'system');
         Engine.xPost('portal', 'NIEPRAWDOPODOBNE! ' + Selectors.clubDisplayName() + ' z pucharem ' + C.name + '! Pan Heniek kosi boisko w kształcie pucharu. 🏆🇪🇺');
       } else {
-        eu.done = true;
         eu.result = '🥈 Finał ' + C.name + ' – przegrany, ale co za sezon!';
         Engine.applyEffects({ fans: +10 });
       }
-      box.verdict = eu.result;
+      verdict = eu.result;
+      good = won;
     }
+    const em = Engine._euroM;
+    if (em) {
+      em.cupInfo.verdict = verdict;
+      em.cupInfo.won = good;
+      em.cupInfo.uefaLine = '📊 Ranking UEFA: +' + (em.cupInfo.uefa || 0) + ' pkt · sezon ' + (eu.uefaPts || 0) + ' · łącznie ' + (gameState.stats.uefaPts || 0);
+      em.cupInfo.pens = pens;
+    }
+    Engine._euroM = null;
     if (eu.stage !== stageBefore || eu.done) Engine.euroBest();
     // Europejskie wieczory rodzą unikalne historie
     if (!gameState.pendingDecisions.some((id) => DATA.decisions[id].cutscene)) Engine.maybeEuroCutscene(stageBefore === 'Q2' || (stageBefore === 'Q3' && eu.origin === 'UEL'));
@@ -7844,6 +7881,19 @@ const Selectors = {
     if (!R || Selectors.euroKolejka(R.k) !== kolejka) return null;
     return { R, next: c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw() };
   },
+  // 13.73: europejski mecz w tygodniu danej kolejki (do terminarza)
+  euroAt: (k) => {
+    if (!Selectors.euroLive()) return null;
+    const eu = gameState.euro, st = DATA.euro.stages[eu.stage], C = DATA.euro.comps[eu.comp];
+    if (eu.tie) return k === eu.tie.k + 1 ? { C, label: st.label + ' · rewanż', where: 'u siebie', opp: eu.tie.opp.name } : null;
+    if (eu.stage === 'LP') {
+      const i = eu.lp ? eu.lp.played : 0;
+      if (Selectors.euroKolejka(st.kolejki[i]) !== k) return null;
+      return { C, label: (i + 1) + '. kolejka fazy ligowej', where: i % 2 === 0 ? 'u siebie' : 'wyjazd', opp: Engine.euroNextOpp().name };
+    }
+    if (Selectors.euroKolejka(st.kolejka) !== k) return null;
+    return { C, label: st.label + (st.tie ? ' · 1. mecz' : ''), where: st.tie ? 'wyjazd' : 'finał', opp: Engine.euroNextOpp().name };
+  },
   euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34)),
   // Kwalifikacja z miejsca w Ekstraklasie: 1. el. LM (mistrzowska), 2. el. LM (ligowa), 3. el. LE, 4. el. LKE
   euroQualFor: (pos) => ({ 1: { comp: 'UCL', path: 'champ' }, 2: { comp: 'UCL', path: 'league' }, 3: { comp: 'UEL', path: 'league' }, 4: { comp: 'UECL', path: 'league' } }[pos] || null),
@@ -8315,6 +8365,7 @@ const UI = {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if (o && o.type === 'cupMatch' && gameState.cupMatch) return UI.matchOverlay(gameState.cupMatch);
+    if (o && o.type === 'euroMatch' && gameState.euroMatch) return UI.matchOverlay(gameState.euroMatch);
     if ((gameState.crisisQueue || []).length) return UI.crisisOverlay(gameState.crisisQueue[0]);   // kryzys zatrzymuje grę
     if (o && o.type === 'cup' && gameState.cupReport) return UI.cupOverlay(gameState.cupReport);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
@@ -8366,7 +8417,7 @@ const UI = {
     const money = m.money.map((l) => `<div class="flex justify-between gap-2 text-[12.5px]"><span class="text-paper-300 truncate">${Utils.escape(l.label)}</span><b class="whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</b></div>`).join('');
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-3 text-paper-100">
-        <div class="text-center text-[11px] uppercase tracking-wider ${m.cupInfo ? 'text-amber-glow font-semibold' : 'text-paper-400'}">${m.cupInfo ? '🏆 ' + Utils.escape(m.cupInfo.comp || 'Puchar Polski') + ' · ' + Utils.escape(m.cupInfo.round) + ' · ' + (m.cupInfo.neutral ? Utils.escape(m.cupInfo.venue || 'stadion neutralny') : m.home ? 'u siebie' : 'wyjazd') : 'Kolejka ' + m.kolejka + ' · ' + (m.home ? 'u siebie' : 'wyjazd')}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
+        <div class="text-center text-[11px] uppercase tracking-wider ${m.cupInfo ? (m.cupInfo.euro ? 'text-sky-300' : 'text-amber-glow') + ' font-semibold' : 'text-paper-400'}">${m.cupInfo ? (m.cupInfo.icon || '🏆') + ' ' + Utils.escape(m.cupInfo.comp || 'Puchar Polski') + ' · ' + Utils.escape(m.cupInfo.round) + ' · ' + (m.cupInfo.neutral ? Utils.escape(m.cupInfo.venue || 'stadion neutralny') : m.home ? 'u siebie' : 'wyjazd') : 'Kolejka ' + m.kolejka + ' · ' + (m.home ? 'u siebie' : 'wyjazd')}${m.derby ? ' · <span class="text-stamp font-bold">🔥 KOSA</span>' : ''}</div>
         <div class="text-center text-[11px] text-paper-400 mt-0.5">${m.weatherIcon} ${Utils.escape(m.weatherLabel)}${m.cupInfo ? ' · rywal: ' + Utils.escape(m.cupInfo.oppLeague) : ''}</div>
         <div class="flex items-center gap-2 mt-5">
           ${m.home ? side(ourCrest, name, '') : side(theirCrest, m.rival, '')}
@@ -8392,7 +8443,7 @@ const UI = {
           </div>
           ${m.euro ? UI.euroBox(m.euro) : ''}
           ${m.cup ? UI.euroBox(m.cup) : ''}
-          ${m.cupInfo && m.cupInfo.verdict ? `<div class="rounded-xl bg-amber-glow/10 border border-amber-glow/40 px-3 py-2 text-center">${m.cupInfo.pens ? `<div class="text-[12px] text-amber-glow">Rzuty karne ${Utils.escape(m.cupInfo.pens)}</div>` : ''}<div class="text-[14px] font-extrabold ${m.cupInfo.won ? 'text-grass' : 'text-stamp'}">${Utils.escape(m.cupInfo.verdict)}</div></div>` : ''}
+          ${m.cupInfo && m.cupInfo.verdict ? `<div class="rounded-xl bg-amber-glow/10 border border-amber-glow/40 px-3 py-2 text-center">${m.cupInfo.pens ? `<div class="text-[12px] text-amber-glow">Rzuty karne ${Utils.escape(m.cupInfo.pens)}</div>` : ''}<div class="text-[14px] font-extrabold ${m.cupInfo.won ? 'text-grass' : 'text-stamp'}">${Utils.escape(m.cupInfo.verdict)}</div>${m.cupInfo.uefaLine ? `<div class="text-[11px] text-sky-300 mt-0.5">${Utils.escape(m.cupInfo.uefaLine)}</div>` : ''}</div>` : ''}
         </div>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -8422,8 +8473,8 @@ const UI = {
   // Mecz „na żywo”: zegar 0'–90', gole pojawiają się w swoich minutach, na końcu wynik finansowy
   animateMatch() {
     const o = gameState.ui.overlay;
-    const m = o && o.type === 'cupMatch' ? gameState.cupMatch : gameState.lastMatch;
-    if (!o || (o.type !== 'match' && o.type !== 'cupMatch') || !m || UI.animatedMatch === (m.key || m.week) || !document.getElementById('mx-score')) return;
+    const m = o && o.type === 'cupMatch' ? gameState.cupMatch : o && o.type === 'euroMatch' ? gameState.euroMatch : gameState.lastMatch;
+    if (!o || (o.type !== 'match' && o.type !== 'cupMatch' && o.type !== 'euroMatch') || !m || UI.animatedMatch === (m.key || m.week) || !document.getElementById('mx-score')) return;
     UI.animatedMatch = m.key || m.week;
     clearInterval(UI.matchTimer);
     let min = 0;
@@ -9616,6 +9667,8 @@ const UI = {
     for (let i = gameState.calendar.round; i < Math.min(gameState.calendar.round + 6, gameState.season.rounds.length); i++) {
       const f = Selectors.fixtureAt(i);
       upcoming.push(`<li class="flex gap-2"><span class="w-8 text-ink-700">K${i + 1}</span><span class="w-16 text-ink-700">${f.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(f.rival)}</b>${Selectors.rival(f.rival).derby ? '<span class="text-stamp">🔥 KOSA</span>' : ''}</li>`);
+      const eur = Selectors.euroAt(i + 1);
+      if (eur) upcoming.push(`<li class="flex gap-2 rounded bg-sky-500/15 -mx-1 px-1"><span class="w-8 text-ink-700 whitespace-nowrap">${eur.C.icon}</span><span class="w-16 text-ink-700 truncate">${eur.where}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(eur.opp)}</b><span class="text-[10.5px] text-ink-700 truncate max-w-[40%]">${Utils.escape(eur.C.short + ' · ' + eur.label)}</span></li>`);
       const cup = Selectors.cupAt(i + 1);
       if (cup && cup.next) upcoming.push(`<li class="flex gap-2 rounded bg-amber-glow/20 -mx-1 px-1"><span class="w-8 text-ink-700 whitespace-nowrap">🏆</span><span class="w-16 text-ink-700 truncate">${cup.next.final ? 'Narodowy' : cup.next.home ? 'u siebie' : 'wyjazd'}</span><b class="flex-1 min-w-0 truncate">${Utils.escape(cup.next.opp)}</b><span class="text-[10.5px] text-ink-700 whitespace-nowrap">PP · ${Utils.escape(cup.R.label.split(' – ')[0])} · śr.</span></li>`);
     }
@@ -10383,8 +10436,12 @@ const Actions = {
   'overlay-close'() {
     const o = gameState.ui.overlay;
     const cm = gameState.cupMatch;
+    const em = gameState.euroMatch;
+    const emDue = em && !em.seen && gameState.lastMatch && em.week === gameState.lastMatch.week;
     if (o && o.type === 'match' && cm && !cm.seen && gameState.lastMatch && cm.week === gameState.lastMatch.week) { gameState.ui.overlay = { type: 'cupMatch' }; App.commit(); return; }   // mecz pucharowy – ten sam ekran meczowy
+    if ((o && o.type === 'match' || o && o.type === 'cupMatch') && emDue) { if (o.type === 'cupMatch' && cm) cm.seen = true; gameState.ui.overlay = { type: 'euroMatch' }; App.commit(); return; }   // 13.73: europejski wieczór – pełny ekran meczu
     if (o && o.type === 'cupMatch') { if (cm) cm.seen = true; gameState.ui.overlay = { type: 'match' }; Actions['overlay-close'](); return; }
+    if (o && o.type === 'euroMatch') { if (em) em.seen = true; gameState.ui.overlay = { type: 'match' }; Actions['overlay-close'](); return; }
     const sm = gameState.seasonSummary;
     const t = gameState.transfer;
     if (o && o.type === 'season' && sm && gameState.loanReport && gameState.loanReport.rows.length) { sm.seen = true; gameState.ui.overlay = { type: 'loanReport' }; App.commit(); return; }   // najpierw powroty z wypożyczeń
