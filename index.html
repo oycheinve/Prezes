@@ -2504,13 +2504,6 @@ const DATA = {
           onChoose: () => { gameState.star.promised = gameState.calendar.season; const p = Selectors.starPlayer(); if (p) delete p.benched; gameState.star.rebel = false; },
         },
         {
-          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
-          hint: () => { const p = Selectors.starPlayer(); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.), forma i humor w dół, charakter utemperowany · szatnia dostaje nauczkę' + (p.favorite ? ' · kibice -4%' : '') : ''; },
-          effects: {},
-          log: () => { const p = Selectors.starPlayer(); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”. ' + Selectors.playerName(p) + ' zabiera torbę bez słowa.' : 'Zesłanie bez zawodnika.'; },
-          onChoose: () => { const p = Selectors.starPlayer(); if (p) Engine.exileToU19(p, 'żądanie transferu'); },
-        },
-        {
           label: 'Zignorować – nie ma mowy, zostajesz',
           hint: 'Gwałtowny bunt w szatni: szatnia -8%, kryzys formy zespołu na 4 tygodnie, potem chemia -15 i słabsza gra, dopóki go nie sprzedasz albo nie uspokoisz',
           effects: { lockerRoom: -8 },
@@ -2565,6 +2558,62 @@ const DATA = {
       ],
     },
 
+    // Prawdziwa awantura (po odmowie podwyżki): dopiero tu prezes może zesłać zawodnika do rezerw
+    playerRow: {
+      id: 'playerRow',
+      cutscene: { icon: '💥', place: 'Szatnia · trzaśnięte drzwi', scripted: true },
+      player: () => gameState.squad.find((x) => x.id === gameState.calls.rowId) || null,
+      from: 'Kapitan drużyny',
+      title: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); return p ? 'Awantura: ' + Selectors.nickQ(p) : 'Awantura w szatni'; },
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); return p ? '„Prezesie, ' + Selectors.playerName(p) + ' po odmowie podwyżki rzucił korkami o ścianę, wyzwał trenera i podburza młodych. Albo coś Pan z tym zrobi, albo szatnia się rozleci.”' : 'Szatnia się uspokoiła.'; },
+      options: [
+        {
+          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
+          hint: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.). Może przeprosić w trakcie sezonu – jeśli nie, po sezonie wymusi tanią sprzedaż' : ''; },
+          effects: {},
+          log: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”.' : ''; },
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); if (p) Engine.exileToU19(p, 'awantura o podwyżkę'); },
+        },
+        {
+          label: 'Kara z premii i rozmowa na dywaniku',
+          hint: 'Szatnia +1%, zawodnik obrażony (forma w dół)',
+          effects: { lockerRoom: +1 },
+          log: 'Prezes potrąca premię i czyta regulamin klubu na głos.',
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.rowId); if (p) p.formHistory = (p.formHistory || []).concat([5.5]).slice(-5); },
+        },
+        {
+          label: 'Machnąć ręką',
+          hint: 'Szatnia -4% – reszta widzi, że można',
+          effects: { lockerRoom: -4 },
+          log: 'Prezes udaje, że nie słyszał trzaskania drzwiami.',
+        },
+      ],
+    },
+    // Zesłany przeprasza w trakcie sezonu
+    exileApology: {
+      id: 'exileApology',
+      cutscene: { icon: '🙏', place: 'Gabinet prezesa · po treningu juniorów', scripted: true },
+      player: () => gameState.squad.find((x) => x.id === gameState.calls.apologyId) || null,
+      from: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); return p ? Selectors.playerName(p) + ' (zesłany do U19)' : 'Szatnia juniorów'; },
+      title: 'Skrucha zesłańca',
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); return p ? 'Puka nieśmiało, czapka w rękach: „Prezesie, przesadziłem. Trenuję z dzieciakami od ' + (gameState.calendar.week - p.exiled.week) + ' tygodni i zrozumiałem. Przepraszam. Proszę o jeszcze jedną szansę w pierwszej drużynie.”' : 'Nikt nie przyszedł.'; },
+      options: [
+        {
+          label: 'Przyjąć przeprosiny – wraca do składu',
+          hint: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); return p ? 'Wraca od razu ze starą pensją (' + p.exiled.wage + ' zł/tydz.), szatnia +2%, lojalny do końca sezonu' : ''; },
+          effects: { lockerRoom: +2 },
+          log: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); return p ? 'Prezes podaje rękę. ' + Selectors.playerName(p) + ' wraca do pierwszej drużyny.' : ''; },
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); if (p) Engine.endExile(p, true); },
+        },
+        {
+          label: 'Nie – zostaje w rezerwach do końca sezonu',
+          hint: 'Kara trwa. Po sezonie zawodnik zażąda odejścia – wymuszona, tania sprzedaż',
+          effects: {},
+          log: 'Prezes nie odpuszcza: „Kara to kara”.',
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.apologyId); if (p && p.exiled) p.exiled.refused = true; },
+        },
+      ],
+    },
     wageDemand: {
       id: 'wageDemand',
       cutscene: { icon: '📞', place: 'Telefon · 23:40', scripted: true },   // pełny ekran: dużo opcji swojskich negocjacji
@@ -2661,13 +2710,6 @@ const DATA = {
           },
         },
         {
-          label: '⬇️ Zesłanie do rezerw (U19 do końca sezonu)',
-          hint: () => { const p = Selectors.callPlayer(); return p ? 'Gra z juniorami za pół pensji (' + Math.round(p.wage / 2) + ' zł/tydz.), forma i humor w dół, charakter utemperowany · szatnia dostaje nauczkę' + (p.favorite ? ' · kibice -4%' : '') : ''; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes wskazuje drzwi do szatni juniorów: „Do końca sezonu grasz w U19”. ' + Selectors.playerName(p) + ' zabiera torbę bez słowa.' : 'Zesłanie bez zawodnika.'; },
-          onChoose: () => { const p = Selectors.callPlayer(); if (p) Engine.exileToU19(p, 'awantura o podwyżkę'); },
-        },
-        {
           label: () => (gameState.club.leagueLevel >= 7 ? 'Szczerze: klubu na to nie stać' : 'Nie ma kasy. Klub to rodzina.'),
           hint: () => { const a = Math.round(Selectors.refusalAcceptChance(Selectors.callPlayer()) * 100); return 'Ok. ' + a + '% że przyjmie to spokojnie' + (gameState.club.leagueLevel >= 7 ? ', inaczej bunt w szatni i odejście po sezonie' : ', inaczej foch albo odejście po sezonie'); },
           effects: {},
@@ -2686,12 +2728,14 @@ const DATA = {
               Engine.applyEffects({ lockerRoom: -12 });
               Engine.teamSlump(2);
               Engine.alert('🔥', 'Bunt w szatni', Selectors.playerName(p) + ' ogłasza w mediach, że odchodzi po sezonie. Szatnia staje po jego stronie – forma leci w dół.', 'bad');
+              gameState.calls.rowId = p.id; Engine.pushDecision('playerRow');
               return;
             }
             const r = Math.random();
             if (r < 0.6) {
               Engine.applyEffects({ lockerRoom: -10 });
               Engine.addLog('😤 ' + Selectors.nickQ(p) + ' strzelił focha. W szatni ciche dni, na treningu biega w słuchawkach. [szatnia -10%]', 'event');
+              if (Math.random() < 0.6) { gameState.calls.rowId = p.id; Engine.pushDecision('playerRow'); }   // foch przechodzi w awanturę
             } else {
               // W trakcie ligi składy są zamknięte – odejdzie przy podsumowaniu sezonu
               p.wantsOut = gameState.calls.rival;
@@ -4125,6 +4169,17 @@ const Engine = {
     hungover.forEach((p) => Engine.addLog('🥴 ' + Selectors.nickQ(p) + ' grał z wyraźnym kacem po weselu – nota ' + p.lastRating.toFixed(1) + '. Na rozgrzewce pomylił bramki.', 'event'));
     const best = rated[0], worst = rated[rated.length - 1];
     if (gameState.lastMatch) gameState.lastMatch.best = { name: Selectors.playerName(best.p), r: best.r };
+    // MVP meczu: przy porażce wyróżnienie dostaje najlepszy zawodnik rywali
+    const lm = gameState.lastMatch;
+    if (lm) {
+      if (result === 'L') {
+        const n = { first: Utils.rand(DATA.names.first), nick: Utils.rand(DATA.names.nick), last: Utils.rand(DATA.names.last) };
+        const r = Math.round(Utils.clamp(Utils.randRange(7.3, 8.4) + (ga - gf) * 0.25, 7, 9.6) * 10) / 10;
+        const pos = Utils.rand(ga >= 2 ? ['napastnik', 'napastnik', 'pomocnik'] : ['pomocnik', 'obrońca', 'bramkarz', 'napastnik']);
+        lm.mvp = { name: n.first + ' „' + n.nick + '” ' + n.last, r, rival: true, team: lm.rival, role: pos };
+      } else lm.mvp = { name: Selectors.playerName(best.p), r: best.r, rival: false, team: Selectors.clubDisplayName(), role: DATA.positions[best.p.pos].label.toLowerCase() };
+      Engine.addLog('🏅 MVP meczu: ' + lm.mvp.name + ' (' + lm.mvp.team + ', ' + lm.mvp.r.toFixed(1) + ')' + (lm.mvp.rival ? ' – rywale mieli dziś najlepszego na boisku.' : '.'), 'match');
+    }
     Engine.addLog('⭐ Gracz meczu: ' + Selectors.playerName(best.p) + ' (' + best.r.toFixed(1) + ') · 🪵 Najsłabszy na boisku: ' + Selectors.playerName(worst.p) + ' (' + worst.r.toFixed(1) + ')', 'match');
   },
 
@@ -5381,7 +5436,7 @@ const Engine = {
   // Kara dyscyplinarna: awanturnik do końca sezonu gra w U19 za pół pensji
   exileToU19(p, reason) {
     if (!p || p.exiled || p.loan) return;
-    p.exiled = { season: gameState.calendar.season, wage: p.wage, reason };
+    p.exiled = { season: gameState.calendar.season, wage: p.wage, reason, week: gameState.calendar.week };
     p.wage = Math.max(5, Math.round(p.wage / 2 / 5) * 5);   // presja płacowa z pierwszego zespołu zdjęta
     p.temper = Math.max(0.05, (p.temper != null ? p.temper : 0.4) * 0.6);   // nauczka temperuje charakter
     p.formHistory = (p.formHistory || []).concat([5, 5]).slice(-5);         // upokorzenie odbija się na formie
@@ -5391,13 +5446,34 @@ const Engine = {
     Engine.applyEffects({ lockerRoom: +3, fans: p.favorite ? -4 : 0 });
     Engine.addLog('⬇️ ' + Selectors.playerName(p) + ' zesłany do U19 do końca sezonu (' + reason + '). Pensja ' + p.wage + ' zł/tydz. Reszta szatni nagle bardzo grzeczna. [szatnia +3%' + (p.favorite ? ', kibice -4%' : '') + ']', 'decision');
   },
-  // Koniec sezonu: zesłani wracają do pierwszej drużyny ze starą pensją
+  // Przyjęte przeprosiny: powrót do pierwszej drużyny ze starą pensją
+  endExile(p, forgiven) {
+    if (!p || !p.exiled) return;
+    p.wage = p.exiled.wage;
+    delete p.exiled;
+    if (forgiven) { p.loyalUntil = Math.max(p.loyalUntil || 0, gameState.calendar.season); delete p.wantsOut; }
+  },
+  // Co tydzień: zesłaniec może przyjść z przeprosinami (raz, po kilku tygodniach)
+  exileTick() {
+    if (gameState.pendingDecisions.includes('exileApology')) return;
+    const p = gameState.squad.find((x) => x.exiled && !x.exiled.asked && gameState.calendar.week - x.exiled.week >= 3);
+    if (!p || Math.random() > 0.2) return;
+    p.exiled.asked = true;
+    gameState.calls.apologyId = p.id;
+    Engine.pushDecision('exileApology');
+  },
+  // Koniec sezonu: kto przetrwał karę bez przeprosin, żąda odejścia – wymuszona, tania sprzedaż
   endExiles(summary) {
     gameState.squad.filter((p) => p.exiled).forEach((p) => {
-      p.wage = p.exiled.wage;
-      delete p.exiled;
-      if (summary) summary.loanBack.push(Selectors.playerName(p) + ' ← U19 (koniec kary)');
-      Engine.addLog('⬆️ ' + Selectors.playerName(p) + ' wraca z karnego zesłania w U19. Pokorniejszy.', 'event');
+      const value = Selectors.sellPrice({ ...p, wage: p.exiled.wage, listed: false });
+      const price = Math.max(10, Math.round(value * 0.35 / 10) * 10);
+      const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : 1);
+      gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+      Engine.money('Wymuszona sprzedaż: ' + Selectors.playerName(p), price);
+      Engine.applyEffects({ fans: p.favorite ? -5 : 0, lockerRoom: -2 });
+      if (summary) summary.left.push(Selectors.playerName(p) + ' → ' + club + ' (wymuszona sprzedaż za ' + Utils.formatMoney(price) + ')');
+      Engine.addLog('🚪 ' + Selectors.playerName(p) + ' po sezonie w rezerwach żąda natychmiastowego odejścia. Kluby wiedzą, że musimy go oddać: ' + club + ' płaci tylko ' + Utils.formatMoney(price) + ' (wartość ' + Utils.formatMoney(value) + ').', 'event');
+      Engine.alert('🚪', 'Wymuszona sprzedaż zesłańca', Selectors.playerName(p) + ' odchodzi do ' + club + ' za ' + Utils.formatMoney(price) + ' – ok. 35% wartości. Kara bez przeprosin skończyła się rozstaniem.', 'bad', true);
     });
   },
 
@@ -6597,6 +6673,9 @@ const Engine = {
     function academy() {
       if (Selectors.isMatchWeek()) Engine.u19Poachers();
     },
+    function exiles() {
+      if (gameState.calendar.week > CONFIG.preseasonWeeks) Engine.exileTick();   // skruszeni zesłańcy
+    },
     function echoes() {
       Engine.echoTick();   // skutki dawnych decyzji
     },
@@ -7629,7 +7708,11 @@ const UI = {
         <ul class="space-y-1.5 mt-4">${goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
         <div id="mx-final" class="${live ? 'hidden' : ''} mt-5 space-y-3">
           <div class="text-center text-[22px] font-extrabold tracking-wide ${tone}">${label}${m.sensation ? ' · SENSACJA!' : ''}</div>
-          ${m.best ? `<div class="text-center text-[12.5px] text-paper-300">⭐ Gracz meczu: <b class="text-paper-100">${Utils.escape(m.best.name)}</b> (${m.best.r.toFixed(1)})</div>` : ''}
+          ${m.mvp ? `<div class="mx-auto max-w-[340px] rounded-xl ${m.mvp.rival ? 'bg-stamp/15 border border-stamp/40' : 'bg-amber-glow/15 border border-amber-glow/40'} px-3 py-1.5 flex items-center gap-2">
+            <span class="text-[24px] leading-none">🏅</span>
+            <span class="min-w-0 flex-1"><span class="block text-[10px] uppercase tracking-wider ${m.mvp.rival ? 'text-stamp' : 'text-amber-glow'} font-semibold">MVP meczu${m.mvp.rival ? ' · z drużyny rywali' : ''}</span><span class="block text-[13px] font-bold text-paper-100 truncate">${Utils.escape(m.mvp.name)}</span><span class="block text-[10.5px] text-paper-400 truncate">${Utils.escape(m.mvp.role || '')} · ${Utils.escape(m.mvp.team)}</span></span>
+            <b class="text-[16px] ${m.mvp.rival ? 'text-stamp' : 'text-amber-glow'}">${m.mvp.r.toFixed(1)}</b>
+          </div>` : m.best ? `<div class="text-center text-[12.5px] text-paper-300">⭐ Gracz meczu: <b class="text-paper-100">${Utils.escape(m.best.name)}</b> (${m.best.r.toFixed(1)})</div>` : ''}
           <div class="rounded-xl bg-desk-800 px-3 py-2.5 space-y-1">
             ${m.attendance != null ? `<div class="flex justify-between text-[12.5px]"><span class="text-paper-300">🏟️ Frekwencja</span><b>${m.attendance} widzów</b></div>` : ''}
             ${money}
