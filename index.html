@@ -114,6 +114,8 @@ const CONFIG = {
   debtBailiff: -3500,
   debtGameOver: -5000,
   debtGameOverWeeks: 3,
+  debtBailiffRatio: 12,     // komornik: dług = 12 tygodni przychodów klubu
+  debtBankruptRatio: 20,    // bankructwo: dług ponad 20 tygodni przychodów przez kilka tygodni z rzędu
   municipalGrant: 80,       // tygodniowa dotacja gminy na sport (×ekonomia ligi)
 };
 
@@ -5068,7 +5070,8 @@ const Engine = {
       Engine.applyEffects({ lockerRoom: -3 });
       Engine.addLog('💸 Odsetki karne z Banku Spółdzielczego: ' + Utils.formatMoney(interest) + '. W szatni strajk: „Nie ma na paliwo, nie ma gry”. [szatnia -3%, słabsza gra]', 'event');
     }
-    if (gameState.finance.budget < t.bailiff) {
+    const ratio = Selectors.debtRatio();
+    if (ratio > CONFIG.debtBailiffRatio) {   // egzekucja: dług ponad siły klubu względem jego przychodów
       const fee = Math.round(-gameState.finance.budget * 0.04);
       Engine.money('Koszty egzekucji komorniczej', -fee);
       const owned = Object.keys(gameState.stadium.upgrades).filter((k) => gameState.stadium.upgrades[k]);
@@ -5084,10 +5087,13 @@ const Engine = {
         Engine.addLog('⚖️ KOMORNIK NA OBIEKCIE! Zajął utarg z bramki i sklepiku na poczet długu, opisał kosiarkę i nalicza koszty egzekucji (' + Utils.formatMoney(fee) + ').', 'event');
       }
     }
-    if (gameState.finance.budget < t.gameOver) {
+    if (Selectors.debtRatio() > CONFIG.debtBankruptRatio) {
       d.deepWeeks++;
       const left = CONFIG.debtGameOverWeeks - d.deepWeeks;
-      if (left > 0) Engine.addLog('☠️ WALNE ZGROMADZENIE ZWOŁANE! Dług ponad ' + Utils.formatMoney(-t.gameOver) + '. Jeśli nie wyjdziemy z tego w ' + left + ' tyg., członkowie w remizie odwołają Prezesa!', 'event');
+      if (left > 0) {
+        Engine.addLog('☠️ GROŹBA UPADŁOŚCI! Dług (' + Utils.formatMoney(Selectors.debtHole()) + ') to ponad ' + CONFIG.debtBankruptRatio + ' tygodni wszystkich przychodów klubu. Jeśli nie zejdziemy poniżej w ' + left + ' tyg., sąd ogłosi bankructwo!', 'event');
+        Engine.alert('☠️', 'Groźba upadłości', 'Dług = ' + Math.round(Selectors.debtRatio()) + ' tyg. przychodów (limit ' + CONFIG.debtBankruptRatio + '). Zostało ' + left + ' tyg. na ratunek: cięcia, wyprzedaż, sponsor.', 'bad', true);
+      }
     } else {
       d.deepWeeks = 0;
     }
@@ -5118,10 +5124,13 @@ const Engine = {
     const owed = gameState.loans.taken.reduce((s, l) => s + l.remaining * l.rate, 0);
     const hole = Math.max(0, -gameState.finance.budget) + owed;
     const missed = gameState.loans.taken.reduce((s, l) => s + (l.penalties || 0), 0);
-    if (missed >= 2 && gameState.finance.budget < Selectors.debtThresholds().gameOver * 0.4 && hole > -Selectors.debtThresholds().gameOver * 1.5) {   // spirala długu: utrata płynności (nieopłacone raty) + dziura ponad siły klubu
-      Engine.gameOver('BANKRUCTWO. Dziura w kasie i niespłacone pożyczki sięgnęły ' + Utils.formatMoney(hole) + '. Sąd ogłosił upadłość klubu, syndyk zaplombował blaszak, a lichwiarze podzielili się sprzętem: Zdzisiek wziął kosiarkę, Mietek – siatki z bramek.', 'bankrupt');
+    const ratio = Selectors.debtRatio();
+    const weeks = Math.round(ratio);
+    const story = ' Przy przychodach ok. ' + Utils.formatMoney(Math.round(Selectors.incomeWeekly())) + ' na tydzień to ' + weeks + ' tygodni pracy całego klubu tylko na spłatę.';
+    if (missed >= 2 && ratio > CONFIG.debtBankruptRatio * 0.8) {   // spirala długu: utrata płynności (nieopłacone raty) + dziura ponad siły klubu
+      Engine.gameOver('BANKRUCTWO. Dziura w kasie i niespłacone pożyczki sięgnęły ' + Utils.formatMoney(hole) + '.' + story + ' Sąd ogłosił upadłość, syndyk zaplombował blaszak, a lichwiarze podzielili się sprzętem: Zdzisiek wziął kosiarkę, Mietek – siatki z bramek.', 'bankrupt');
     } else if (gameState.debt.deepWeeks >= CONFIG.debtGameOverWeeks) {
-      Engine.gameOver('Dług przekroczył ' + Utils.formatMoney(-Selectors.debtThresholds().gameOver) + ' przez ' + CONFIG.debtGameOverWeeks + ' tygodnie z rzędu. Walne Zgromadzenie w remizie odwołało Prezesa jednogłośnie (wstrzymał się tylko Pan Heniek).');
+      Engine.gameOver('BANKRUCTWO. Zadłużenie ' + Utils.formatMoney(hole) + ' przez ' + CONFIG.debtGameOverWeeks + ' tygodnie z rzędu przekraczało ' + CONFIG.debtBankruptRatio + ' tygodni przychodów klubu.' + story + ' Komornik zajął wszystko, sąd ogłosił upadłość, a Walne Zgromadzenie w remizie odwołało Prezesa (wstrzymał się tylko Pan Heniek).', 'bankrupt');
     } else if (gameState.morale.lockerRoom <= 0 && gameState.morale.fans <= 0) {
       Engine.gameOver('Szatnia i kibice w totalnym buncie (0% i 0%). Walne Zgromadzenie zebrało się w remizie bez zaproszenia Prezesa.');
     }
@@ -6470,7 +6479,7 @@ const Engine = {
       if (Selectors.hasRealSponsor()) {
         const t = Selectors.debtThresholds();
         const row = gameState.season.table[US];
-        const catastrophe = gameState.finance.budget < t.bailiff || (row && row.p >= 8 && Selectors.ourPosition() === Selectors.leagueSize() && gameState.record.lossStreak >= 4);
+        const catastrophe = Selectors.debtRatio() > CONFIG.debtBailiffRatio || (row && row.p >= 8 && Selectors.ourPosition() === Selectors.leagueSize() && gameState.record.lossStreak >= 4);
         const unhappy = sp.breaks(gameState) || catastrophe;
         s.strikes = unhappy ? (s.strikes || 0) + 1 : Math.max(0, (s.strikes || 0) - 1);
         if (unhappy && s.strikes === 2) Engine.alert('😟', 'Sponsor niezadowolony', sp.name + ' dzwoni z pretensjami: „Jeszcze trochę i się rozstaniemy”. Popraw sytuację w ciągu kilku tygodni.', 'warn');
@@ -6576,6 +6585,10 @@ const Engine = {
       const rep = gameState.report;
       rep.total = rep.lines.reduce((sum, l) => sum + l.amount, 0);
       rep.budgetAfter = gameState.finance.budget;
+      // Regularne przychody (bez pożyczek i wyprzedaży) – miara, ile klub jest w stanie udźwignąć długu
+      const inc = rep.lines.filter((l) => l.amount > 0 && !/^Pożyczka|^Wyprzedaż|^Sprzedaż|^Klauzula|^Licytacja|^Ekwiwalent/.test(l.label)).reduce((sum, l) => sum + l.amount, 0);
+      const f = gameState.finance;
+      f.incomeAvg = Math.round((f.incomeAvg != null ? f.incomeAvg * 0.85 + inc * 0.15 : inc) * 10) / 10;
       Engine.addLog('📊 Bilans tygodnia: ' + Utils.signedMoney(rep.total) + '. Stan konta: ' + Utils.formatMoney(rep.budgetAfter) + '.', 'summary');
       if (gameState.finance.budget < 0) Engine.addLog('⚠️ Konto na minusie! Pani z Banku Spółdzielczego dzwoni trzeci raz. Prezes udaje, że nie ma zasięgu.', 'event');
       gameState.lastReport = rep;
@@ -7051,6 +7064,10 @@ const Selectors = {
   merchDemand: (id) => Utils.clamp(Math.pow(DATA.merch[id].basePrice / Math.max(1, Engine.merchPrice(id)), 1.8), 0.08, 2.2),
   shopPriceIndex: () => { const it = Selectors.shopItems(); return it.reduce((s, id) => s + Engine.merchPrice(id), 0) / Math.max(1, it.reduce((s, id) => s + DATA.merch[id].basePrice, 0)); },
   // Kryzys finansowy: głęboki dług otwiera cięcia i wyprzedaż „po taniości”
+  // Dług w relacji do zarobków: ile tygodni wszystkich przychodów klubu potrzeba na spłatę dziury i rat
+  incomeWeekly: () => Math.max(60 * Selectors.econ(), gameState.finance.incomeAvg != null ? gameState.finance.incomeAvg : 300 * Selectors.econ()),
+  debtHole: () => Math.max(0, -gameState.finance.budget) + gameState.loans.taken.reduce((s, l) => s + l.remaining * l.rate, 0),
+  debtRatio: () => (gameState.finance.budget < 0 ? Selectors.debtHole() / Selectors.incomeWeekly() : 0),
   debtCrisis: () => gameState.finance.budget < Selectors.debtThresholds().warn,
   fireSalePrice: (p) => Math.max(10, Math.round((p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)) * 0.45 / 10) * 10),
   budkaMenu: () => { const lvl = (gameState.budka && gameState.budka.level) || 1; return DATA.budka.levels.slice(1, lvl + 1).flatMap((L) => L.items); },
@@ -8921,8 +8938,9 @@ const UI = {
     const t = Selectors.debtThresholds();
     const b = gameState.finance.budget;
     const items = [];
-    if (gameState.debt.deepWeeks > 0) items.push('<span class="text-stamp font-bold">☠️ Walne zebranie za ' + (CONFIG.debtGameOverWeeks - gameState.debt.deepWeeks) + ' tyg.!</span>');
-    else if (b < t.bailiff) items.push('<span class="text-stamp font-bold">⚖️ Komornik na obiekcie</span>');
+    const ratio = Selectors.debtRatio();
+    if (gameState.debt.deepWeeks > 0) items.push('<span class="text-stamp font-bold">☠️ Upadłość za ' + (CONFIG.debtGameOverWeeks - gameState.debt.deepWeeks) + ' tyg.! (dług ' + Math.round(ratio) + '/' + CONFIG.debtBankruptRatio + ' tyg. przychodów)</span>');
+    else if (ratio > CONFIG.debtBailiffRatio) items.push('<span class="text-stamp font-bold">⚖️ Komornik · dług ' + Math.round(ratio) + '/' + CONFIG.debtBankruptRatio + ' tyg. przychodów</span>');
     else if (b < t.warn) items.push('<span class="text-amber-glow font-bold">💸 Odsetki + strajk</span>');
     if (gameState.dark.caseOpen) items.push('<span class="text-stamp font-bold">⚖️ Postępowanie w Związku</span>');
     if (gameState.season.promotionBan) items.push('<span class="text-stamp font-bold">⛔ Zakaz awansu</span>');
@@ -9060,7 +9078,10 @@ const UI = {
         ${UI.ovrBadge(p)}<span class="min-w-0 flex-1 truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}</span>
         <span class="whitespace-nowrap text-[11px]"><s class="text-ink-700">${Utils.formatMoney(Selectors.sellPrice(p))}</s> <b class="text-stamp">${Utils.formatMoney(Selectors.fireSalePrice(p))}</b></span>${UI.smallBtn('fire-sale', `data-id="${p.id}"`, 'Sprzedaj', !canSell, 'stamp')}
       </div>`).join('');
-    return UI.panel('🔥 Ratowanie budżetu', 'Klub tonie w długach (' + Utils.formatMoney(gameState.finance.budget) + '). Cięcia oszczędzają co tydzień, ale zabierają bonusy sztabu.', `
+    const ratio = Selectors.debtRatio();
+    const pct = Utils.clamp(ratio / CONFIG.debtBankruptRatio * 100, 0, 100);
+    const meter = `<div class="rounded-md bg-paper-200 px-2 py-1 mb-1"><div class="flex justify-between gap-2 text-[11px] whitespace-nowrap"><span>Dług ${Utils.formatMoney(Selectors.debtHole())} = <b class="${ratio > CONFIG.debtBailiffRatio ? 'text-stamp' : ''}">${Math.round(ratio)} tyg.</b> przychodów</span><span class="text-ink-700">upadłość: ${CONFIG.debtBankruptRatio} tyg.</span></div><div class="h-1.5 rounded-full bg-paper-300 mt-0.5 overflow-hidden"><div class="h-full ${ratio > CONFIG.debtBailiffRatio ? 'bg-stamp' : 'bg-amber-glow'}" style="width:${pct}%"></div></div><div class="text-[10px] text-ink-700 mt-0.5">Przychody klubu ~${Utils.formatMoney(Math.round(Selectors.incomeWeekly()))}/tydz. · komornik od ${CONFIG.debtBailiffRatio} tyg.</div></div>`;
+    return UI.panel('🔥 Ratowanie budżetu', 'Liczy się dług względem przychodów, nie sam minus. Cięcia oszczędzają co tydzień, ale zabierają bonusy sztabu.', meter + `
       ${UI.h4('✂️ Zwolnienia w sztabie')}
       ${cuts || '<p class="text-[11.5px] text-ink-700">Nie ma już kogo zwalniać – zostali sami społecznicy.</p>'}
       ${UI.h4('💸 Wyprzedaż „po taniości” – kluby widzą naszą desperację (~45% wartości)')}
@@ -9240,7 +9261,7 @@ const UI = {
       <div class="flex items-center justify-between rounded-md bg-paper-200 px-2 py-1.5 text-[12px]">
         <span>Zdolność kredytowa: <b>${dot} ${label}</b></span><span class="text-ink-700">${'●'.repeat(level)}${'○'.repeat(5 - level)}</span>
       </div>
-      ${crisis ? `<p class="text-[10.5px] text-stamp leading-snug mt-0.5 font-semibold">🌀 Klub na minusie (${Utils.formatMoney(gameState.finance.budget)}): pożyczki ratunkowe są droższe. Nieopłacone raty = odsetki karne i utrata płynności. Dziura ${Utils.formatMoney(-Selectors.debtThresholds().gameOver * 1.5)} (minus + raty) = bankructwo.${owedAll ? ' Raty do spłaty: ' + Utils.formatMoney(owedAll) + '.' : ''}</p>` : `<p class="text-[10.5px] text-ink-700 leading-snug mt-0.5">Limity rosną i maleją razem ze stanem konta klubu (obecnie: <b>${Utils.formatMoney(gameState.finance.budget)}</b>) i kasą pożyczkodawcy.</p>`}
+      ${crisis ? `<p class="text-[10.5px] text-stamp leading-snug mt-0.5 font-semibold">🌀 Klub na minusie (${Utils.formatMoney(gameState.finance.budget)}): pożyczki ratunkowe są droższe. Nieopłacone raty = odsetki karne. Dług to już ${Math.round(Selectors.debtRatio())} tyg. przychodów – komornik od ${CONFIG.debtBailiffRatio}, bankructwo powyżej ${CONFIG.debtBankruptRatio}.${owedAll ? ' Raty do spłaty: ' + Utils.formatMoney(owedAll) + '.' : ''}</p>` : `<p class="text-[10.5px] text-ink-700 leading-snug mt-0.5">Limity rosną i maleją razem ze stanem konta klubu (obecnie: <b>${Utils.formatMoney(gameState.finance.budget)}</b>) i kasą pożyczkodawcy.</p>`}
       ${UI.h4('Pożycz od innego prezesa lub z banku')}
       ${takenRows}
       <p class="text-[11px] text-ink-700 mt-1">Raty schodzą automatycznie co tydzień. ${crisis ? 'Na minusie pożyczają nawet ci, którzy ci nie ufają – za cenę wyższych odsetek.' : 'Im więcej kasy na koncie, tym wyższy limit.'}</p>
