@@ -182,14 +182,18 @@ const DATA = {
       pool: ['Jedność Spółdzielcza', 'Sparta Mleczarnia', 'Płomień Tartaczny', 'Ogniwo Kombinat', 'Rolnik Żytnie Pole', 'Stal Gminne Zakłady', 'Orlęta Rynkowo', 'Tur Wielkopole', 'KS Cukrownia Kąty', 'Włókniarz Przędzalnia', 'Ruch Kolejowo', 'GKS Kopalnia Węglowo', 'Victoria Starościn', 'Pogoń Nadrzecze', 'Warta Brzegowo', 'LZS Piekarnia Chlebowo', 'Czarni Smolno'] },
     { name: 'IV Liga',        econ: 4,   rivalBase: 1.81, skillBonus: 4, teams: 18, up: 1, upPO: [2], down: 4, downPO: null,
       pool: ['Unia Powiatowa', 'Polonia Starostwo', 'Pilica Nadrzeczna', 'Wisła Brzeżna', 'Start Miasteczko', 'Orlęta Garnizonowe', 'Lechia Powiatowa', 'KS Gród Wojewódzki', 'Olimpia Grudziądzkowo', 'Gwardia Koszarowo', 'Chemik Fabryczno', 'Avia Lotniskowo', 'Sokół Wieżyca', 'Mazur Jeziorany', 'Zagłębie Hutnicze', 'Garbarnia Skórzewo', 'Hutnik Piecowo', 'Resovia Rzeczna'] },
-    { name: 'III Liga',       econ: 6.5, rivalBase: 2.00, skillBonus: 5, teams: 18, up: 1, upPO: null, down: 4, downPO: null,
-      pool: ['Lech II Rezerwowy', 'Legia II Stołeczna', 'Ślęza Podgórska', 'Bałtyk Gdyński', 'Świt Nowodworski', 'Jagiellonia II Białostocka', 'Błękitni Portowo', 'Elana Toruńskie Pola', 'Concordia Zgoda', 'KSZO Ostrowiec Mały', 'Wda Nadwdzie', 'Unia Skierniewka', 'Polonia Przemysłowa', 'Legionovia Garnizon', 'Stilon Gorzowiec', 'Siarka Kopalniana', 'Pelikan Łowiczek', 'Motor Silnikowo'] },
-    { name: 'II Liga',        econ: 10,  rivalBase: 2.19, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: null,
-      pool: ['Hutnik Krakowski', 'Olimpia Grudziądzka', 'Pogoń Siedlecka', 'Kalisz Prosna', 'Rekord Bielski', 'Skra Częstochowska', 'Zagłębie Sosnowe', 'Radomiak Miejski', 'Wigry Suwalskie', 'Olimpia Elbląska', 'Stomil Olsztynek', 'GKS Tychowo', 'Odra Opolna', 'Znicz Pruszkowo', 'Chojniczanka Borowa', 'Kotwica Kołobrzeżek', 'Sandecja Sądecka', 'Garbarnia Podgórska'] },
+    { name: 'III Liga',       econ: 6.5, rivalBase: 2.00, skillBonus: 5, teams: 18, up: 1, upPO: [2], down: 3, downPO: null,   // 4 grupy regionalne: mistrz awansuje, wicemistrz gra baraż z 14. drużyną II ligi
+      pool: ['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża', 'Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik', 'Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa', 'Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica'],
+      groups: [['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża'],
+        ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
+        ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
+        ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
+    { name: 'II Liga',        econ: 10,  rivalBase: 2.19, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+      pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
     { name: 'I Liga',         econ: 16,  rivalBase: 2.38, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
-      pool: ['Znicz Pruszkowski', 'Odra Opolska', 'Stal Stalowowolska', 'Chrobry Głogowski', 'Kotwica Kołobrzeska', 'Wisła Krakowska II', 'Arka Portowa', 'Miedź Legnicka', 'Ruch Chorzowski', 'Bruk-Bet Niecieczka', 'Polonia Stołeczna', 'Stal Rzeszowska', 'Termalica Cieplicka', 'GKS Katowicki', 'Warta Poznańska', 'Puszcza Niepołomicka', 'Górnik Łęczyński', 'Wisła Płocka'] },
+      pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
     { name: 'Ekstraklasa',    econ: 25,  rivalBase: 2.57, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
-      pool: ['Piast Gliwicki', 'Stal Mielecka', 'Radomiak Radomski', 'Motor Lubelski', 'GKS Katowice Stal', 'Lechia Gdańska', 'Legia Stołeczna', 'Lech Poznański', 'Raków Częstochowski', 'Wisła Krakowska', 'Jagiellonia Białostocka', 'Pogoń Szczecińska', 'Górnik Zabrski', 'Śląsk Wrocławski', 'Cracovia Pasy', 'Widzew Łódzki', 'Zagłębie Lubińskie', 'Korona Kielecka'] },
+      pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
   /* ----- Skauting: ewolucja siatki ----- */
@@ -3482,6 +3486,7 @@ const Engine = {
     if (card.character === 'suburban') gameState.finance.budget += 500;
     if (card.character === 'rural') gameState.morale.lockerRoom += 5;
 
+    gameState.club.region = Utils.randInt(0, DATA.cupRegions.length - 1);   // województwo klubu: grupa III ligi i wojewódzki PP
     Engine.newSeason();
     gameState.weather = Utils.rand(DATA.weather);
     // Kadra startowa: te same role i charaktery, ale nazwiska i ksywy losowane z dużej puli – każdy klub inny
@@ -5187,6 +5192,14 @@ const Engine = {
       res.won = single('Finał', finOpp, st[finOpp] || 2, pos < fin);
       return res;
     }
+    if (kind === 'up' && level === 5) {
+      // III liga: wicemistrz grupy gra dwumecz z 14. drużyną II ligi (realne zasady PZPN)
+      const U = DATA.leagueLevels[6];
+      const opp = U.pool[Utils.randInt(12, 13)];
+      res.title = 'Baraż o II ligę: wicemistrz grupy vs ' + opp;
+      res.won = twoLegs(opp, U.rivalBase * Utils.randRange(0.9, 0.97));
+      return res;
+    }
     if (kind === 'up') {
       // Baraż wicemistrzów: rywal to wicelider równoległej grupy TEJ SAMEJ klasy rozgrywkowej
       const L = DATA.leagueLevels[level];
@@ -5211,9 +5224,19 @@ const Engine = {
   /* ----- Liga: nowi rywale po awansie/spadku ----- */
   buildLeague(level) {
     const L = DATA.leagueLevels[level];
-    gameState.league.rivals = level === 1
-      ? DATA.rivals.map((r) => ({ ...r }))
-      : Utils.shuffle(L.pool).slice(0, (L.teams || 10) - 1).map((name, i) => ({
+    const pool = Selectors.leaguePool(level);
+    if (level === 1) gameState.league.rivals = DATA.rivals.map((r) => ({ ...r }));
+    else if (L.ordered) {
+      // Prawdziwe kluby: siła zależna od miejsca w tabeli (czołówka mocniejsza), nasz klub zastępuje jedną drużynę ze środka/dołu
+      const n = (L.teams || 18) - 1;
+      const out = Utils.randInt(4, pool.length - 1);
+      const names = pool.filter((_, i) => i !== out).slice(0, n);
+      const derbies = Utils.shuffle(names.slice(3)).slice(0, 2);
+      gameState.league.rivals = names.map((name, i) => ({
+        name, derby: derbies.includes(name),
+        strength: Math.round(L.rivalBase * (1.13 - (i / Math.max(1, n - 1)) * 0.26) * Utils.randRange(0.97, 1.03) * 100) / 100,
+      }));
+    } else gameState.league.rivals = Utils.shuffle(pool).slice(0, (L.teams || 10) - 1).map((name, i) => ({
         name, derby: i < 2,
         strength: Math.round((L.rivalBase + Utils.randRange(-0.25, 0.25)) * 100) / 100,
       }));
@@ -7442,6 +7465,9 @@ const Selectors = {
   },
   // Prawa TV za mecz (po zainstalowaniu kamer): rosną z ligą
   tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.econ() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) / 5) * 5 : 0),
+  // Pula klubów ligi; III liga – grupa wg województwa klubu (I: Mazowsze/Podlasie/Warmia/Łódzkie, II: Wielkopolska/Pomorze/Kujawy, III: Śląsk/Dolny Śląsk/Opolskie/Lubuskie, IV: Małopolska/Podkarpacie/Lubelskie/Świętokrzyskie)
+  leagueGroup: () => { const r = gameState.club.region != null ? gameState.club.region : 1; return [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] || 0; },
+  leaguePool: (level) => { const L = DATA.leagueLevels[level]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
   cupRounds: (c = gameState.cup) => (c && c.path === 'regional' ? DATA.cupRegional : DATA.cupCentral),
   cupName: (c = gameState.cup) => (c && c.path === 'regional' ? Selectors.cupRegion()[0] + ' Puchar Polski' : 'Puchar Polski'),
   cupRegion: () => { const i = gameState.club.region != null ? gameState.club.region : 0; return DATA.cupRegions[i] || DATA.cupRegions[0]; },
@@ -7589,6 +7615,20 @@ const Storage = {
     }
     if (state.loans) state.loans.given = [];
     if (!state.trophies) state.trophies = [];
+    // 13.62: prawdziwe kluby od III ligi – podmiana nazw rywali w trwającym sezonie
+    const lvl62 = state.club && state.club.leagueLevel;
+    const L62 = lvl62 >= 5 && DATA.leagueLevels[lvl62];
+    if (L62 && state.league && state.league.rivals && !state.league.rivals.some((r) => L62.pool.includes(r.name))) {
+      const keep = state.club.region;
+      const g = L62.groups ? L62.groups[[2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][keep != null ? keep : 1] || 0] : L62.pool;
+      const map = {};
+      state.league.rivals.forEach((r, i) => { map[r.name] = g[i % g.length]; r.name = map[r.name]; });
+      const ren = (o) => { const out = {}; Object.keys(o || {}).forEach((k) => { out[map[k] || k] = o[k]; }); return out; };
+      const sn = state.season || {};
+      sn.table = ren(sn.table); sn.strength = ren(sn.strength);
+      (sn.rounds || []).forEach((rd) => rd.forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; }));
+      (sn.lastResults || []).forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; });
+    }
     (state.squad || []).forEach((p) => { delete p.bargain; delete p.fireSale; });   // 13.59: własni zawodnicy bez etykiet z giełdy
     if (saved.merch && saved.merch.level == null) state.merch.level = 3;   // 13.50: stare zapisy miały kubki, szaliki i koszulki
     (state.squad || []).filter((p) => p.ace).forEach((p) => { p.nick = 'Chudy'; p.noNick = true; });   // 13.46: bez „Kacperinho”
