@@ -3301,10 +3301,21 @@ const Engine = {
     Engine.addLog('Karta rejestracyjna przyjęta przez OZPN. Obiekt: ' + gameState.stadium.baseName + '.' + (Selectors.colorsNick() ? ' Barwy: ' + DATA.clubColors[card.colors].label.toLowerCase() + '.' : ''), 'system');
     Engine.addLog('Poprzedni prezes zostawił na biurku klucze (nie wiadomo do czego) i niedopitą kawę z 2019. Drużynę tymczasowo prowadzi Pan Mirek, konserwator.', 'flavor');
     Engine.addLog('Liga (' + Selectors.leagueSize() + ' drużyn, ' + gameState.season.rounds.length + ' kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
+    if (/^amator\s+maszewo$/i.test((card.name || '').trim().replace(/\s+/g, ' '))) Engine.kacperChudy();   // 🥚 easter egg
     Engine.u19Init();
     Engine.pushDecision('welcomeWojt');
     Engine.offerTicketPolicy();
     Engine.ensureSponsor();
+  },
+
+  // Easter egg: w Amatorze Maszewo od 1. kolejki gra Kacper Chudy – snajper i asystent z sufitem OVR 99
+  kacperChudy() {
+    const weakest = gameState.squad.filter((p) => p.pos === 'FWD').sort((a, b) => a.skill - b.skill)[0];
+    if (weakest && gameState.squad.length >= CONFIG.maxSquad) gameState.squad = gameState.squad.filter((x) => x.id !== weakest.id);
+    const p = Engine.generatePlayer({ ageMin: 20, ageMax: 20, pos: 'FWD', skillMin: 10, skillMax: 10, wageMin: 10, wageMax: 10 });
+    Object.assign(p, { first: 'Kacper', last: 'Chudy', nick: 'Kacperinho', age: 20, skill: 10 + Selectors.levelSkillBonus(), potential: CONFIG.maxSkill, talent: true, favorite: true, ace: true,
+      loyalUntil: 9999, profile: 'off', tag: 'freekick', temper: 0.15, trait: 'Wychowanek Maszewa. Strzela z każdej pozycji, a jak nie strzela – to podaje.' });
+    Engine.addLog('🥚 W szatni Amatora Maszewo trenuje 20-letni Kacper Chudy. Pan Mirek mówi tylko: „Takiego talentu tu jeszcze nie było”.', 'event');
   },
 
   addLog(text, type = 'flavor') {
@@ -3339,7 +3350,30 @@ const Engine = {
     gameState.club.scandals += 1;
     gameState.season.scandals = (gameState.season.scandals || 0) + 1;
     Engine.addLog('📰 Skandal w kartotece klubu: ' + reason + ' (łącznie: ' + gameState.club.scandals + ').', 'event');
-    if (!quiet) Engine.crisis('scandal', '📰', 'AFERA W KLUBIE!', reason.charAt(0).toUpperCase() + reason.slice(1) + '.');
+    if (!quiet) {
+      Engine.crisis('scandal', '📰', 'AFERA W KLUBIE!', reason.charAt(0).toUpperCase() + reason.slice(1) + '.');
+      const c = (gameState.crisisQueue || []).find((x) => x.kind === 'scandal' && x.week === gameState.calendar.week);
+      const src = Engine.leakSource(reason);
+      if (c && !(c.sources || []).includes(src)) c.sources = (c.sources || []).concat([src]).slice(-3);
+    }
+  },
+  // Skąd wyciekła afera – zależy od jej rodzaju i od tego, kto ma powód, żeby gadać
+  leakSource(reason) {
+    const r = reason.toLowerCase();
+    const bench = gameState.squad.filter((p) => !p.seasonApps && !p.loan).concat(gameState.squad.filter((p) => p.benched));
+    const rival = (gameState.league.rivals[0] || {}).name || 'rywala';
+    const opts = [];
+    if (/korupc|passat|prowokac|nagrani|sprzedan/.test(r)) opts.push('🔎 Śledztwo lokalnego dziennikarza – „Kurier Powiatowy” miał ukrytą kamerę', '🕵️ Anonimowy donos do Wydziału Dyscypliny od działacza konkurencji');
+    if (/zadym|chulig|pirotech|derb/.test(r)) opts.push('👮 Notatka policyjna z meczu trafiła do lokalnej prasy', '📱 Nagranie kibica rywala obiegło Wirtualnego X');
+    if (/skarb|podatk|kas |domiar|nadzór|licencj|raty|finans/.test(r)) opts.push('🧾 Przeciek z urzędu gminy – ktoś przeczytał nasze faktury', '💼 Afera wyszła na jaw przez skłóconego byłego księgowego');
+    if (/obyczaj|piw|whisk|kiełbas|wódk|tabloid/.test(r)) opts.push('🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' („' + bench[0].nick + '” ' + bench[0].last + ')' : ''), '📸 Zdjęcie z imprezy wrzucone przez kelnerkę z remizy');
+    if (/dop|kontrol/.test(r)) opts.push('🧪 Raport komisji antydopingowej wyciekł do mediów');
+    if (/sanepid|zatruc|budk/.test(r)) opts.push('🤢 Wpis zatrutego kibica na grupie „Nasza Gmina”');
+    if (Selectors.hasRealSponsor() && Math.random() < 0.35) opts.push('💼 Afera wyszła na jaw przez skłóconego sponsora (' + Selectors.sponsor().name + ')');
+    opts.push('📱 Wpis zazdrosnego rywala na Wirtualnym X (@Fanatycy' + Selectors.handleFrom(rival) + ')', '🗣️ Przeciek od niezadowolonego rezerwowego' + (bench[0] ? ' („' + bench[0].nick + '” ' + bench[0].last + ')' : ''), '🔎 Śledztwo lokalnego dziennikarza');
+    const pick = Utils.rand(opts.slice(0, Math.max(2, opts.length - 2)));
+    if (pick.startsWith('📱 Wpis zazdrosnego')) Engine.xPostRaw('😈', '@Fanatycy' + Selectors.handleFrom(rival), 'Hahaha, co tam się dzieje w ' + Selectors.clubDisplayName() + '? ' + reason + ' 🤡 Cała gmina już wie.');
+    return pick;
   },
   // Pełnoekranowy komunikat kryzysowy (afera, zerwany sponsor, wyrok, bunt gwiazd) – zatrzymuje grę do reakcji prezesa
   crisis(kind, icon, title, line) {
@@ -3667,6 +3701,7 @@ const Engine = {
     if (theirReds) { ourL *= Math.pow(1.15, theirReds); oppL *= Math.pow(0.85, theirReds); }
     const fixedMatch = gameState.dark.fixed;
     if (fixedMatch === 'buy') { ourL *= 1.6; oppL *= 0.5; }        // „zmotywowany” sędzia i rywal
+    if (lineup.some((p) => p.ace)) ourL += 0.7;                       // Kacper Chudy: z nim bramki padają same
     let gf = Utils.poisson(Math.max(0.15, ourL));
     let ga = Utils.poisson(Math.max(0.15, oppL));
     if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
@@ -3696,13 +3731,14 @@ const Engine = {
     lineup.forEach((p) => { p.apps++; p.seasonApps++; });
     const scorerCount = {};
     for (let i = 0; i < gf; i++) {
-      const w = (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.tag === 'freekick' ? 1.5 : 1);
+      const w = (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.tag === 'freekick' ? 1.5 : 1) * (p.ace ? 2 : 1);
       const scorer = Utils.weightedPick(lineup, w);
       scorer.goals++; scorer.seasonGoals++;
       scorerCount[scorer.id] = (scorerCount[scorer.id] || 0) + 1;
       if (Math.random() < 0.75) {   // asysta: najczęściej pomocnik albo skrzydłowy, nigdy sam strzelec
         const mates = lineup.filter((x) => x !== scorer);
-        const assist = mates.length && Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
+        const ace = mates.find((p) => p.ace);   // Kacper Chudy kreuje większość akcji kolegów
+        const assist = ace && Math.random() < 0.55 ? ace : mates.length && Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
         if (assist) { assist.assists = (assist.assists || 0) + 1; assist.seasonAssists = (assist.seasonAssists || 0) + 1; }
       }
     }
@@ -4010,8 +4046,8 @@ const Engine = {
       }
     }
     gameState.lastSeason = { pos, outcome, league: leagueName };
-    if (pos === 1) Engine.addTrophy(level === maxLevel ? '🏆' : '🥇', level === maxLevel ? 'Mistrzostwo Polski' : 'Mistrzostwo: ' + leagueName);
-    if (outcome === 'promo') Engine.addTrophy('🏅', 'Awans do: ' + DATA.leagueLevels[newLevel].name);
+    if (pos === 1) Engine.addTrophy(level === maxLevel ? '🏆' : '🥇', level === maxLevel ? 'Mistrzostwo Polski' : 'Mistrzostwo: ' + leagueName, 'title', level);
+    if (outcome === 'promo') Engine.addTrophy('🏅', 'Awans do: ' + DATA.leagueLevels[newLevel].name, 'medal', newLevel);
     if (Selectors.euroThisSeason() && gameState.euro.result && gameState.euro.result.startsWith('🏆')) Engine.addTrophy('🌟', 'Puchar ' + DATA.euro.comps[gameState.euro.comp].name);
     if (outcome === 'promo') {
       gameState.stats.promotions++;
@@ -4420,12 +4456,13 @@ const Engine = {
     const oppS = L.rivalBase * Utils.randRange(0.9, 1.1);
     const final = c.idx === DATA.cupRounds.length - 1;
     const home = !final && (oppLvl > lvl ? false : oppLvl < lvl ? Math.random() < 0.5 : Math.random() < 0.5);   // gospodarzem zwykle niżej notowany
-    const m = Engine.playoffMatch(oppS, home);
+    const m = Engine.detailMatch(oppS, final ? false : home, { neutral: final, hype: 1.1 + c.idx * 0.12 + (final ? 0.6 : 0), moneyLabel: 'Puchar Polski: bilety' });
     gameState.midweekWeek = gameState.calendar.week;
     let won = m.gf > m.ga, pens = '';
     if (m.gf === m.ga) { const pen = Engine.penalties(oppS); won = pen.won; pens = pen.score; }
     const e = Selectors.econ();
-    const box = { header: '🏆 Puchar Polski', title: R.label + ' · ' + DATA.leagueLevels[oppLvl].name, legs: [{ label: final ? 'Finał' : 'Mecz', opp, home: final ? true : home, gf: m.gf, ga: m.ga, pens }], verdict: '', money: 0 };
+    const box = { header: '🏆 Puchar Polski', title: R.label + ' · ' + DATA.leagueLevels[oppLvl].name, round: R.label, oppLeague: DATA.leagueLevels[oppLvl].name, final,
+      legs: [{ label: final ? 'Finał' : 'Mecz', opp, home: final ? true : home, neutral: final, gf: m.gf, ga: m.ga, pens, goals: m.goals, cards: m.cards, att: m.att, income: m.income }], verdict: '', money: 0 };
     c.history.unshift(R.label + ': ' + opp + ' ' + m.gf + ':' + m.ga + (pens ? ' (k. ' + pens + ')' : '') + (won ? ' ✅' : ' ❌'));
     if (won) {
       const prize = Math.round(300 * e * (1 + c.idx * 0.6));
@@ -4434,7 +4471,7 @@ const Engine = {
       Engine.applyEffects({ fans: final ? +15 : +2 });
       if (final) {
         c.alive = false; c.won = true;
-        Engine.addTrophy('🏆', 'Puchar Polski');
+        Engine.addTrophy('🏆', 'Puchar Polski', 'pp');
         box.verdict = '🏆 PUCHAR POLSKI W GABLOCIE!';
         Engine.alert('🏆', 'PUCHAR POLSKI!', Selectors.clubDisplayName() + ' zdobywa Puchar Polski! Trofeum trafia do gablotki.' + (lvl === 8 ? ' Do tego eliminacje Ligi Europy.' : ''), 'good', true);
         Engine.xPost('portal', 'SENSACJA NA NARODOWYM! ' + Selectors.clubDisplayName() + ' z Pucharem Polski! 🏆');
@@ -4446,11 +4483,11 @@ const Engine = {
       c.alive = false;
       box.verdict = '❌ Odpadamy z Pucharu Polski (' + R.label + ').';
     }
-    if (gameState.lastMatch) gameState.lastMatch.cup = box;
+    gameState.cupReport = box;   // pełnoekranowe podsumowanie meczu pucharowego po meczu ligowym
   },
-  addTrophy(icon, name) {
+  addTrophy(icon, name, kind, lvl) {
     if (!gameState.trophies) gameState.trophies = [];
-    gameState.trophies.push({ icon, name, season: gameState.calendar.season, league: Selectors.leagueName() });
+    gameState.trophies.push({ icon, name, season: gameState.calendar.season, league: Selectors.leagueName(), kind: kind || null, lvl: lvl || gameState.club.leagueLevel });
   },
 
   /* ----- Europejskie puchary ----- */
@@ -4644,6 +4681,42 @@ const Engine = {
     const adv = home ? 1.12 : 1 / 1.08;
     return { gf: Utils.poisson(Math.max(0.15, 1.2 * Math.pow(ratio, 1.3) * adv)), ga: Utils.poisson(Math.max(0.15, 1.2 * Math.pow(1 / ratio, 1.3) / adv)) };
   },
+  // Mecz pucharowy/barażowy z pełnym raportem: strzelcy, asysty, kartki, frekwencja i zysk z bramki
+  detailMatch(oppS, home, opts = {}) {
+    const neutral = !!opts.neutral;
+    const m = Engine.playoffMatch(oppS, home && !neutral);
+    const lineup = Engine.pickLineup([]);
+    const nm = (p) => '„' + p.nick + '” ' + p.last;
+    const goals = [];
+    for (let i = 0; i < m.gf; i++) {
+      const sc = Utils.weightedPick(lineup, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.ace ? 2 : 1));
+      if (!sc) continue;
+      sc.goals++; sc.cupGoals = (sc.cupGoals || 0) + 1;
+      let as = null;
+      if (Math.random() < 0.75) {
+        const mates = lineup.filter((x) => x !== sc), ace = mates.find((p) => p.ace);
+        as = ace && Math.random() < 0.55 ? ace : Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
+        if (as) as.assists = (as.assists || 0) + 1;
+      }
+      goals.push({ min: Utils.randInt(2, 90), us: true, s: nm(sc), a: as ? as.last : null });
+    }
+    for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false });
+    goals.sort((a, b) => a.min - b.min);
+    const cards = Engine.rollCards(lineup, !!opts.derby).filter((c) => c.us).map((c) => ({ card: c.card, min: c.min, name: c.name }));
+    const e = Selectors.econ();
+    const ticket = DATA.tickets[gameState.matchday.ticket];
+    const hype = opts.hype || 1.2;
+    let att, income = 0;
+    if (neutral) {
+      att = Math.round(Selectors.stadiumCapacity() * Utils.randRange(0.9, 1.6) * hype);
+      income = Math.round(att * ticket.price * 0.3);   // udział w zysku z neutralnego stadionu
+    } else if (home) {
+      att = Math.max(20, Math.min(Selectors.stadiumCapacity(), Math.round((25 + gameState.morale.fans * 1.1) * e * Selectors.upgradeProd('attendance') * ticket.attendance * hype * Utils.randRange(0.9, 1.1))));
+      income = att * ticket.price;
+    } else att = Math.round(Selectors.stadiumCapacity() * Utils.randRange(0.6, 1.3) * hype);
+    if (income) Engine.money(opts.moneyLabel || 'Bilety: mecz pucharowy', income);
+    return { gf: m.gf, ga: m.ga, goals, cards, att, income, scorers: goals.filter((g) => g.us).map((g) => g.s.split('” ')[1] || g.s) };
+  },
   // Rzuty karne: lekko faworyzują lepszą drużynę i dobrego bramkarza
   penalties(oppS) {
     const lineup = Engine.pickLineup([]);
@@ -4659,9 +4732,10 @@ const Engine = {
     const st = gameState.season.strength;
     const table = Selectors.standings();
     const res = { kind, legs: [], won: false };
+    const leg = (label, opp, home, m, neutral) => ({ label, opp, home, neutral: !!neutral, gf: m.gf, ga: m.ga, goals: m.goals, cards: m.cards, att: m.att, income: m.income });
     const twoLegs = (opp, oppS) => {
-      const a = Engine.playoffMatch(oppS, false), b = Engine.playoffMatch(oppS, true);
-      res.legs.push({ label: '1. mecz', opp, home: false, gf: a.gf, ga: a.ga }, { label: 'Rewanż', opp, home: true, gf: b.gf, ga: b.ga });
+      const a = Engine.detailMatch(oppS, false, { hype: 1.4 }), b = Engine.detailMatch(oppS, true, { hype: 1.5, moneyLabel: 'Bilety: baraż' });
+      res.legs.push(leg('1. mecz', opp, false, a), leg('Rewanż', opp, true, b));
       const gf = a.gf + b.gf, ga = a.ga + b.ga;
       res.agg = gf + ':' + ga;
       if (gf !== ga) return gf > ga;
@@ -4669,13 +4743,13 @@ const Engine = {
       res.pens = pen.score;
       return pen.won;
     };
-    const single = (label, opp, oppS, home) => {
-      const m = Engine.playoffMatch(oppS, home);
-      const leg = { label, opp, home, gf: m.gf, ga: m.ga };
-      res.legs.push(leg);
+    const single = (label, opp, oppS, home, neutral) => {
+      const m = Engine.detailMatch(oppS, home, { neutral, hype: 1.6, moneyLabel: 'Bilety: baraż' });
+      const l = leg(label, opp, home, m, neutral);
+      res.legs.push(l);
       if (m.gf !== m.ga) return m.gf > m.ga;
       const pen = Engine.penalties(oppS);
-      leg.pens = pen.score;
+      l.pens = pen.score;
       return pen.won;
     };
     if (kind === 'up' && r.upPO.length > 1) {
@@ -4694,11 +4768,16 @@ const Engine = {
       return res;
     }
     if (kind === 'up') {
-      // Dwumecz z drużyną z dołu ligi wyżej
+      // Baraż wicemistrzów: rywal to wicelider równoległej grupy TEJ SAMEJ klasy rozgrywkowej
+      const L = DATA.leagueLevels[level];
       const U = DATA.leagueLevels[level + 1];
-      const opp = Utils.rand(U.pool);
-      res.title = 'Baraż o ' + U.name;
-      res.won = twoLegs(opp, U.rivalBase * Utils.randRange(0.88, 0.98));
+      const ours = new Set(table.map((r) => r.team));
+      const pool = (L.pool || DATA.rivals.map((x) => x.name)).filter((n) => !ours.has(n));
+      const opp = Utils.rand(pool.length ? pool : DATA.rivals.map((x) => x.name)) + ' (gr. ' + (Math.random() < 0.5 ? 'II' : 'III') + ')';
+      const top = table.slice(0, 3).filter((r) => r.team !== table[pos - 1].team).map((r) => st[r.team] || L.rivalBase);
+      const oppS = (top.reduce((a, b) => a + b, 0) / Math.max(1, top.length)) * Utils.randRange(0.93, 1.05);
+      res.title = 'Baraż wicemistrzów ' + L.name + ' o ' + U.name;
+      res.won = level <= 2 ? single('Mecz o awans · boisko neutralne', opp, oppS, true, true) : twoLegs(opp, oppS);   // niżej jeden mecz, wyżej dwumecz
       return res;
     }
     // Baraż o utrzymanie: dwumecz z wiceliderem ligi niżej
@@ -4914,8 +4993,8 @@ const Engine = {
 
   // Rozwój na koniec sezonu: im więcej gry, tym szybciej; regularna gra na wypożyczeniu = pewny postęp
   develop(p, apps, onLoan) {
-    const cap = Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
-    if (p.age > 24 || p.skill >= cap) return 0;
+    const cap = p.ace ? Selectors.potential(p) : Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
+    if (p.age > (p.ace ? 28 : 24) || p.skill >= cap) return 0;
     const share = Utils.clamp(apps / Math.max(1, gameState.season.rounds.length || 18), 0, 1);
     let gain = 0;
     if (onLoan) {
@@ -7091,6 +7170,7 @@ const UI = {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if ((gameState.crisisQueue || []).length) return UI.crisisOverlay(gameState.crisisQueue[0]);   // kryzys zatrzymuje grę
+    if (o && o.type === 'cup' && gameState.cupReport) return UI.cupOverlay(gameState.cupReport);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
     if (o && o.type === 'dirReport' && gameState.directorReport) return UI.directorReportOverlay(gameState.directorReport);
     if (o && o.type === 'poach' && gameState.poachReport) return UI.poachOverlay(gameState.poachReport);
@@ -7363,13 +7443,14 @@ const UI = {
       const tone = l.gf > l.ga ? 'text-grass' : l.gf < l.ga ? 'text-stamp' : 'text-paper-200';
       return `
       <div class="rounded-xl bg-desk-800 px-3 py-2.5">
-        <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold">${l.label} · ${l.home ? 'u siebie' : 'wyjazd'}</div>
+        <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold">${l.label}${l.neutral ? '' : ' · ' + (l.home ? 'u siebie' : 'wyjazd')}</div>
         <div class="flex items-center gap-2 mt-1">
           <span class="flex-1 min-w-0 truncate text-right text-[13px] ${l.home ? 'font-bold' : ''}">${Utils.escape(h)}</span>
           <b class="text-[24px] font-extrabold ${tone}">${hg}:${ag}</b>
           <span class="flex-1 min-w-0 truncate text-[13px] ${l.home ? '' : 'font-bold'}">${Utils.escape(a)}</span>
         </div>
         ${l.pens ? `<div class="text-center text-[11.5px] text-amber-glow mt-0.5">rzuty karne ${l.pens}</div>` : ''}
+        ${UI.matchDetails(l, true)}
       </div>`;
     }).join('');
     const verdict = po.kind === 'up' ? (po.won ? ['⬆️ AWANS PRZEZ BARAŻE!', 'text-grass'] : ['💔 Baraż przegrany', 'text-stamp'])
@@ -7597,6 +7678,52 @@ const UI = {
       </div>`, 'bg-[#0b0f16]');
   },
 
+  // Szczegóły meczu pucharowego/barażowego: gole z asystami, kartki, widzowie, bramka
+  matchDetails(l, compact) {
+    if (!l.goals) return '';
+    const ours = l.goals.filter((g) => g.us);
+    const goals = ours.map((g) => `${g.min}' ${Utils.escape(g.s)}${g.a ? ' <span class="text-paper-400">(as. ' + Utils.escape(g.a) + ')</span>' : ''}`);
+    const cards = (l.cards || []).map((c) => (c.card === 'R' ? '🟥 ' : '🟨 ') + c.min + "' " + Utils.escape(c.name));
+    if (compact) return `
+        ${goals.length ? `<div class="text-[11px] text-paper-200 mt-1 truncate">⚽ ${goals.join(' · ')}</div>` : ''}
+        <div class="text-[10.5px] text-paper-400 mt-0.5 truncate">${cards.length ? cards.length + '× kartka · ' : ''}👥 ${l.att} widzów${l.income ? ' · 💰 <b class="text-grass">' + Utils.signedMoney(l.income) + '</b>' : ''}</div>`;
+    return `
+        <div class="rounded-xl bg-desk-800 px-3 py-2 mt-3">
+          <div class="text-[10px] uppercase tracking-wider text-paper-400 font-semibold">⚽ Bramki</div>
+          ${l.goals.length ? l.goals.map((g) => `<div class="text-[12.5px] leading-snug ${g.us ? 'text-paper-100' : 'text-paper-400'}">${g.min}' ${g.us ? Utils.escape(g.s) + (g.a ? ' <span class="text-paper-400">· asysta: ' + Utils.escape(g.a) + '</span>' : '') : 'gol rywala'}</div>`).join('') : '<div class="text-[12.5px] text-paper-400">Bez bramek.</div>'}
+          ${cards.length ? `<div class="text-[10px] uppercase tracking-wider text-paper-400 font-semibold mt-1.5">Kartki</div>${cards.map((c) => `<div class="text-[12px]">${c}</div>`).join('')}` : ''}
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2 text-center">
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Frekwencja</div><b class="text-[15px]">👥 ${l.att}</b></div>
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Zysk z bramki</div><b class="text-[15px] ${l.income ? 'text-grass' : 'text-paper-300'}">${l.income ? Utils.signedMoney(l.income) : (l.home ? '–' : 'wyjazd')}</b></div>
+        </div>`;
+  },
+  // Pełnoekranowe podsumowanie meczu pucharowego
+  cupOverlay(r) {
+    const l = r.legs[0];
+    const name = Selectors.clubDisplayName();
+    const [h, a, hg, ag] = l.home ? [name, l.opp, l.gf, l.ga] : [l.opp, name, l.ga, l.gf];
+    const won = r.verdict.startsWith('✅') || r.verdict.startsWith('🏆');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-2 text-paper-100 flex flex-col justify-center">
+        <div class="text-center text-[44px] leading-none">🏆</div>
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-2">Puchar Polski · ${Utils.escape(r.round)}${l.neutral ? ' · neutralny stadion' : ''}</div>
+        <div class="text-center text-[11.5px] text-paper-400 mt-0.5">Rywal z ligi: ${Utils.escape(r.oppLeague)}</div>
+        <div class="flex items-center gap-2 mt-3">
+          <span class="flex-1 min-w-0 text-right text-[14px] font-bold leading-tight">${Utils.escape(h)}</span>
+          <b class="text-[40px] font-extrabold leading-none ${l.gf > l.ga || (l.pens && won) ? 'text-grass' : l.gf < l.ga || l.pens ? 'text-stamp' : ''}">${hg}:${ag}</b>
+          <span class="flex-1 min-w-0 text-[14px] font-bold leading-tight">${Utils.escape(a)}</span>
+        </div>
+        ${l.pens ? `<div class="text-center text-[12.5px] text-amber-glow mt-1">rzuty karne ${Utils.escape(l.pens)}</div>` : ''}
+        ${UI.matchDetails(l, false)}
+        <div class="text-center text-[18px] font-extrabold mt-3 ${won ? 'text-grass' : 'text-stamp'}">${Utils.escape(r.verdict)}</div>
+        ${r.money ? `<div class="text-center text-[12.5px] text-paper-300">Premia za awans: <b class="text-grass">${Utils.signedMoney(r.money)}</b></div>` : ''}
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">KONTYNUUJ</button>
+      </div>`, 'bg-[#0b0f16]');
+  },
+
   // Komunikat kryzysowy na cały ekran – wymaga reakcji prezesa
   crisisOverlay(c) {
     const e = Selectors.econ();
@@ -7619,6 +7746,7 @@ const UI = {
           <div class="text-center text-[10.5px] uppercase tracking-[0.25em] text-stamp font-bold mt-3">🚨 ${head} · tydzień ${c.week}</div>
           <h2 class="text-center text-[24px] font-extrabold tracking-tight mt-1 text-white">${Utils.escape(c.title)}</h2>
           <ul class="mt-4 space-y-1.5">${c.lines.map((l) => `<li class="rounded-xl bg-stamp/15 border border-stamp/40 px-3 py-2 text-[13px] leading-snug text-paper-100">${Utils.escape(l)}</li>`).join('')}</ul>
+          ${c.sources && c.sources.length ? `<div class="mt-2 rounded-xl bg-desk-800 border border-desk-600 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-amber-glow font-semibold">📡 Skąd wyciekło</div>${c.sources.map((x) => `<div class="text-[12.5px] text-paper-100 leading-snug mt-0.5">${Utils.escape(x)}</div>`).join('')}</div>` : ''}
           ${c.kind === 'scandal' ? `<p class="text-center text-[11.5px] text-paper-400 mt-3">Skandale w kartotece: <b class="text-paper-200">${gameState.club.scandals}</b> · sponsorzy i Związek patrzą. Jak reaguje Prezes?</p>` : ''}
         </div>
         <div class="flex-shrink-0 px-4 pb-4 pt-2 space-y-1.5">${btns}</div>
@@ -7998,6 +8126,36 @@ const UI = {
   },
 
   // Gablotka: wszystkie trofea w historii klubu + bieżąca edycja Pucharu Polski
+  // Trofeum jako grafika: puchar inny dla każdego szczebla, medal za awans, Puchar Polski i europejskie
+  trophyArt(t) {
+    const name = t.name || '';
+    const lvlOf = (s) => { const i = DATA.leagueLevels.findIndex((L) => L && s.includes(L.name)); return i > 0 ? i : 0; };
+    const kind = t.kind || (name.startsWith('Awans') ? 'medal' : name === 'Puchar Polski' ? 'pp' : name.startsWith('Mistrzostwo Polski') ? 'title' : name.startsWith('Mistrzostwo') ? 'title' : name.startsWith('Puchar ') ? 'euro' : 'title');
+    const lvl = t.kind ? (t.lvl || 1) : name.startsWith('Mistrzostwo Polski') ? 8 : lvlOf(name) || 1;
+    // metal: brąz → srebro → złoto; Ekstraklasa z biało-czerwoną wstęgą
+    const M = [null, ['#c98a4b', '#7a4a1f'], ['#d9dee4', '#8b95a1'], ['#7fc8a0', '#2f6f4c'], ['#9cc3ff', '#3d5f97'], ['#e8b86b', '#8a5a1c'], ['#f2d36b', '#9a7a14'], ['#ffe27a', '#a97f00'], ['#ffe9a0', '#b8860b']][Utils.clamp(lvl, 1, 8)];
+    const g = 'g' + Math.random().toString(36).slice(2, 7);
+    const grad = (a, b) => `<defs><linearGradient id="${g}" x1="0" x2="1"><stop offset="0" stop-color="${b}"/><stop offset=".45" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+    if (kind === 'medal') {
+      const roman = ['', 'B', 'A', 'KO', 'IV', 'III', 'II', 'I', 'E'][Utils.clamp(lvl, 1, 8)];
+      return `<svg viewBox="0 0 40 50" width="38" height="48">${grad(M[0], M[1])}<path d="M10 0h8l4 16h-8zM30 0h-8l-4 16h8z" fill="${lvl >= 8 ? '#d23c3c' : lvl >= 5 ? '#1e4fa3' : '#2f8f4c'}"/><path d="M14 0h3l3 14h-3z" fill="#fff" opacity=".8"/><circle cx="20" cy="32" r="13" fill="url(#${g})" stroke="${M[1]}" stroke-width="1.5"/><circle cx="20" cy="32" r="9.5" fill="none" stroke="${M[1]}" stroke-width=".8" stroke-dasharray="2 1.5"/><text x="20" y="35.5" text-anchor="middle" font-size="${roman.length > 2 ? 7.5 : 9.5}" font-weight="800" fill="${M[1]}">${roman}</text></svg>`;
+    }
+    if (kind === 'pp') return `<svg viewBox="0 0 40 50" width="38" height="48">${grad('#f4f1ff', '#7a6fb0')}<path d="M8 6h24c0 12-4 20-12 22C12 26 8 18 8 6z" fill="url(#${g})" stroke="#5a4f90"/><path d="M8 9C2 9 2 19 10 20M32 9c6 0 6 10-2 11" fill="none" stroke="#7a6fb0" stroke-width="2"/><path d="M17 28h6v9h-6z" fill="#7a6fb0"/><path d="M11 37h18v6H11z" fill="#3b2f73"/><path d="M14 13l6-4 6 4-6 8z" fill="#d23c3c" opacity=".85"/><rect x="11" y="44" width="18" height="3" fill="#2a2155"/></svg>`;
+    if (kind === 'euro') return `<svg viewBox="0 0 40 50" width="38" height="48">${grad('#e6f0ff', '#6a86b8')}<path d="M10 4h20l-2 16c-1 6-4 9-8 9s-7-3-8-9z" fill="url(#${g})" stroke="#4a6696"/><path d="M10 6C1 6 3 22 12 21M30 6c9 0 7 16-2 15" fill="none" stroke="#6a86b8" stroke-width="2.4"/><path d="M17 29h6v8h-6z" fill="#6a86b8"/><path d="M10 37h20v8H10z" fill="#1d2f57"/><text x="20" y="18" text-anchor="middle" font-size="9" fill="#ffd54a">★</text></svg>`;
+    // puchar mistrzowski: kształt zależny od szczebla
+    const shapes = {
+      1: `<path d="M12 10h16l-2 10c-1 4-3 6-6 6s-5-2-6-6z" fill="url(#${g})" stroke="${M[1]}"/><path d="M18 26h4v8h-4z" fill="${M[1]}"/><path d="M13 34h14v6H13z" fill="#5a3a1a"/>`,
+      2: `<path d="M10 8h20l-3 13c-1 4-4 6-7 6s-6-2-7-6z" fill="url(#${g})" stroke="${M[1]}"/><path d="M10 11c-5 0-5 8 2 8M30 11c5 0 5 8-2 8" fill="none" stroke="${M[1]}" stroke-width="1.8"/><path d="M18 27h4v8h-4z" fill="${M[1]}"/><path d="M12 35h16v6H12z" fill="#3a3f47"/>`,
+      3: `<path d="M9 9h22c0 9-4 17-11 18C13 26 9 18 9 9z" fill="url(#${g})" stroke="${M[1]}"/><path d="M9 11c-6 0-5 10 3 9M31 11c6 0 5 10-3 9" fill="none" stroke="${M[1]}" stroke-width="2"/><path d="M18 27h4v7h-4z" fill="${M[1]}"/><path d="M11 34h18v7H11z" fill="#1f3d2c"/>`,
+      4: `<path d="M13 4h14l-1 6h-12z" fill="${M[1]}"/><path d="M11 10h18l-2 12c-1 4-4 6-7 6s-6-2-7-6z" fill="url(#${g})" stroke="${M[1]}"/><path d="M18 28h4v7h-4z" fill="${M[1]}"/><path d="M11 35h18v7H11z" fill="#1f2d4a"/>`,
+      5: `<ellipse cx="20" cy="9" rx="12" ry="3" fill="${M[1]}"/><path d="M8 9h24l-4 14c-1 4-4 5-8 5s-7-1-8-5z" fill="url(#${g})" stroke="${M[1]}"/><path d="M8 11c-6 1-4 9 2 9M32 11c6 1 4 9-2 9" fill="none" stroke="${M[1]}" stroke-width="2"/><path d="M17 28h6v6h-6z" fill="${M[1]}"/><path d="M10 34h20v8H10z" fill="#4a2f12"/>`,
+      6: `<path d="M12 3h16v4H12z" fill="${M[1]}"/><path d="M9 7h22l-2 15c-1 5-5 7-9 7s-8-2-9-7z" fill="url(#${g})" stroke="${M[1]}"/><path d="M9 9C1 9 2 22 11 21M31 9c8 0 7 13-2 12" fill="none" stroke="${M[1]}" stroke-width="2.2"/><path d="M17 29h6v6h-6z" fill="${M[1]}"/><path d="M9 35h22v8H9z" fill="#2b2b2b"/>`,
+      7: `<circle cx="20" cy="4" r="2.5" fill="${M[1]}"/><path d="M11 6h18l-1 4H12z" fill="${M[1]}"/><path d="M8 10h24l-3 13c-1 5-5 7-9 7s-8-2-9-7z" fill="url(#${g})" stroke="${M[1]}"/><path d="M8 12C0 12 1 25 10 24M32 12c8 0 7 13-2 12" fill="none" stroke="${M[1]}" stroke-width="2.4"/><path d="M17 30h6v5h-6z" fill="${M[1]}"/><path d="M8 35h24v8H8z" fill="#1b1b1b"/><path d="M8 38h24v2H8z" fill="${M[0]}" opacity=".7"/>`,
+      8: `<path d="M13 2h14l2 5H11z" fill="${M[1]}"/><path d="M7 7h26l-3 15c-1 6-5 8-10 8s-9-2-10-8z" fill="url(#${g})" stroke="${M[1]}"/><path d="M7 9C-1 9 0 24 10 23M33 9c8 0 7 15-3 14" fill="none" stroke="${M[1]}" stroke-width="2.6"/><path d="M16 30h8v4h-8z" fill="${M[1]}"/><path d="M7 34h26v9H7z" fill="#151515"/><path d="M7 36h13v3H7z" fill="#fff"/><path d="M20 36h13v3H20z" fill="#d23c3c"/><text x="20" y="20" text-anchor="middle" font-size="8" font-weight="800" fill="${M[1]}">PL</text>`,
+    };
+    return `<svg viewBox="0 0 40 46" width="40" height="46">${grad(M[0], M[1])}${shapes[Utils.clamp(lvl, 1, 8)]}<rect x="${lvl >= 6 ? 7 : 10}" y="43" width="${lvl >= 6 ? 26 : 20}" height="3" fill="#111" opacity=".5"/></svg>`;
+  },
+
   trophyCabinet() {
     const all = (gameState.trophies || []).slice().reverse();
     const shown = all.slice(0, 12);
@@ -8007,17 +8165,17 @@ const UI = {
       ? (cup.won ? '🏆 Zdobyty w tym sezonie!' : cup.alive ? 'W grze · następna runda: <b>' + DATA.cupRounds[cup.idx].label + '</b>' : 'Odpadliśmy: ' + Utils.escape(cup.history[0] || ''))
       : 'Nowa edycja wystartuje z sezonem.';
     const tiles = shown.map((t) => `
-      <div class="rounded-lg bg-paper-200 px-1.5 py-2 text-center">
-        <div class="text-[30px] leading-none">${t.icon}</div>
-        <div class="text-[11px] font-bold leading-tight mt-1 line-clamp-2">${Utils.escape(t.name)}</div>
+      <div class="rounded-lg bg-gradient-to-b from-paper-100 to-paper-300 border border-paper-300 px-1.5 pt-1.5 pb-1 text-center">
+        <div class="h-[50px] flex items-end justify-center">${UI.trophyArt(t)}</div>
+        <div class="text-[10px] font-bold leading-tight mt-0.5 line-clamp-2">${Utils.escape(t.name.replace('Mistrzostwo: ', 'Mistrz ').replace('Awans do: ', 'Awans: '))}</div>
         <div class="text-[10px] text-ink-700">sezon ${t.season}</div>
       </div>`).join('');
     return UI.tiles([
       UI.tile('Puchary Polski', String(count((t) => t.name === 'Puchar Polski')), 'w gablotce'),
       UI.tile('Mistrzostwa', String(count((t) => t.name.startsWith('Mistrzostwo'))), 'wszystkie szczeble'),
-      UI.tile('Awanse', String(count((t) => t.name.startsWith('Awans'))), 'puchary za awans'),
+      UI.tile('Awanse', String(count((t) => t.name.startsWith('Awans'))), 'medale za awans'),
     ]) + UI.panel('🏆 Gablotka w gabinecie prezesa', 'Każde trofeum zostaje tu na zawsze. Pani Halinka przeciera je co piątek.',
-      (tiles ? `<div class="grid grid-cols-3 gap-1.5">${tiles}</div>${all.length > 12 ? '<p class="text-[10.5px] text-ink-700 mt-1">…i ' + (all.length - 12) + ' starszych trofeów na zapleczu.</p>' : ''}` : '<p class="text-[12px] italic text-ink-700">Gablotka pusta. Na razie stoi w niej tylko proporczyk z turnieju halowego z 1987 roku.</p>'))
+      (tiles ? `<div class="grid grid-cols-4 gap-1">${tiles}</div>${all.length > 12 ? '<p class="text-[10.5px] text-ink-700 mt-1">…i ' + (all.length - 12) + ' starszych trofeów na zapleczu.</p>' : ''}` : '<p class="text-[12px] italic text-ink-700">Gablotka pusta. Na razie stoi w niej tylko proporczyk z turnieju halowego z 1987 roku.</p>'))
       + UI.panel('🏆 Puchar Polski · sezon ' + gameState.calendar.season, '', `<p class="text-[12px] leading-snug">${cupLine}</p>${cup && cup.history.length ? '<ul class="text-[11.5px] text-ink-700 mt-1 space-y-0.5">' + cup.history.slice(0, 3).map((x) => '<li class="truncate">' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}`);
   },
 
@@ -8825,6 +8983,8 @@ const Actions = {
   },
   'overlay-close'() {
     const o = gameState.ui.overlay;
+    if (o && o.type === 'match' && gameState.cupReport) { gameState.ui.overlay = { type: 'cup' }; App.commit(); return; }   // podsumowanie meczu pucharowego
+    if (o && o.type === 'cup') { gameState.cupReport = null; gameState.ui.overlay = { type: 'match' }; Actions['overlay-close'](); return; }
     const sm = gameState.seasonSummary;
     const t = gameState.transfer;
     if (o && o.type === 'season' && sm) {
