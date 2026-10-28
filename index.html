@@ -782,17 +782,17 @@ const DATA = {
   ],
 
   // Puchar Polski: kluby z niższych lig zaczynają od rund okręgowych; [min, max] – poziom ligi rywala; k – kolejka (przy 34)
-  // Wartości rynkowe w stylu Transfermarkt (€ na zawodnika): średnia i twarde widełki na każdym szczeblu
+  // 13.80: wartości rynkowe w ZŁOTYCH (nie 1:1 z euro z Transfermarktu): średnia i twarde widełki na każdym szczeblu
+  // amatorzy – setki/tysiące zł, IV–III liga – kilkanaście/kilkadziesiąt tys. zł, II–I liga – setki tys. zł, Ekstraklasa – miliony zł
   tmValues: [null,
-    { avg: 30,     min: 0,     max: 400 },        // B-klasa
-    { avg: 80,     min: 0,     max: 1200 },       // A-klasa
-    { avg: 200,    min: 10,    max: 3000 },       // Klasa Okręgowa
-    { avg: 550,    min: 25,    max: 8000 },       // IV liga (kilkaset € – kilka tys. zł za zawodnika)
-    // (V liga – poziom 3.5 – dopisana niżej: śr. ok. 330 €)
-    { avg: 3500,   min: 300,   max: 40000 },      // III liga (grupy: ok. 1–5 tys. €)
-    { avg: 9000,   min: 1000,  max: 120000 },     // II liga (ok. 7 tys. €)
-    { avg: 111000, min: 10000, max: 1500000 },    // I liga (śr. 111 tys. €, kadry 2–8 mln €)
-    { avg: 750000, min: 50000, max: 9000000 },    // Ekstraklasa (śr. ok. 750 tys. €, kadry 10–57 mln €)
+    { avg: 400,     min: 50,     max: 4000 },       // B-klasa
+    { avg: 800,     min: 100,    max: 8000 },       // A-klasa
+    { avg: 1800,    min: 200,    max: 15000 },      // Klasa Okręgowa
+    { avg: 18000,   min: 1500,   max: 120000 },     // IV liga
+    { avg: 40000,   min: 4000,   max: 300000 },     // III liga
+    { avg: 200000,  min: 20000,  max: 1500000 },    // II liga
+    { avg: 600000,  min: 60000,  max: 6000000 },    // I liga
+    { avg: 4000000, min: 300000, max: 45000000 },   // Ekstraklasa
   ],
   // Puchar Polski jak w PZPN: szczebel regionalny (strefa → województwo) i centralny z finałem na PGE Narodowym
   cupRegional: [
@@ -3422,7 +3422,7 @@ const DATA = {
 };
 // 13.68: V liga jako poziom 3.5 – wpisy w tabelach indeksowanych poziomem ligi
 DATA.leagueLevels[3.5] = DATA.vLiga;
-DATA.tmValues[3.5] = { avg: 330, min: 15, max: 5000 };   // V liga: niżej niż IV liga
+DATA.tmValues[3.5] = { avg: 3000, min: 300, max: 25000 };   // V liga (zł): między okręgówką a IV ligą
 DATA.licenseCapacity[3.5] = 0;
 DATA.coachLicenseReq[3.5] = 1;
 DATA.coachTitles[3.5] = 'trener z V ligi';
@@ -3671,7 +3671,8 @@ const Utils = {
     return items[items.length - 1];
   },
   val: (x) => (typeof x === 'function' ? x() : x),
-  formatEur: (v) => (v >= 1e6 ? (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' mln €' : v >= 1000 ? Math.round(v / 1000) + ' tys. €' : Math.round(v) + ' €'),
+  // Wartość rynkowa w złotych: 850 zł · 14 tys. zł · 2,4 mln zł
+  formatValue: (v) => (v >= 1e6 ? (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' mln zł' : v >= 1000 ? Math.round(v / 1000) + ' tys. zł' : Math.round(v) + ' zł'),
   formatMoney: (n) => Math.round(n).toLocaleString('pl-PL').replace(/,/g, ' ') + ' zł',
   signedMoney: (n) => (n > 0 ? '+' : '') + Utils.formatMoney(n),
   escape: (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
@@ -7975,7 +7976,7 @@ const Selectors = {
     return out;
   },
   // Prawa TV za mecz (po zainstalowaniu kamer): rosną z ligą
-  // Wartość rynkowa (€): OVR względem typowego zawodnika ligi, wiek, talent, potencjał; stałe odchylenie osobnicze i widełki ligi
+  // Wartość rynkowa (zł): OVR względem typowego zawodnika ligi, wiek, talent, potencjał; stałe odchylenie osobnicze i widełki ligi
   marketValue: (p, lvl = gameState.club.leagueLevel) => {
     const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1], T = DATA.tmValues[lvl] || DATA.tmValues[1];
     const avgOvr = 32 + 3.6 * (5.5 + L.skillBonus);
@@ -8730,7 +8731,7 @@ const UI = {
           <div class="grid grid-cols-4 gap-1.5 mt-2 text-center">
             ${stat('Mecze', p.seasonApps)}${stat('Gole', p.seasonGoals)}${stat('Asysty', p.seasonAssists || 0)}${stat('Klub M/G/A', p.apps + '/' + p.goals + '/' + (p.assists || 0))}
           </div>
-          <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · cena: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 💶 TM: <b class="text-ink-900">' + Utils.formatEur(Selectors.marketValue(p)) + '</b>'}</div>
+          <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · odstępne: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
         </div>
         <div class="flex-shrink-0 px-4 pb-3 pt-2 border-t border-paper-300">${actions}</div>
       </div>
@@ -8988,7 +8989,7 @@ const UI = {
           <div class="grid grid-cols-4 gap-1 mt-1.5 text-center">
             ${stat('Mecze', ps ? ps.apps : p.seasonApps)}${stat('G / A', (ps ? ps.goals : p.seasonGoals) + ' / ' + ((ps ? ps.assists : p.seasonAssists) || 0))}${stat('Nota', ps ? Selectors.ratingText(ps.avg) : Selectors.ratingText(Selectors.avgRating(p)))}${stat('Pensja', p.wage + ' zł')}
           </div>
-          <div class="flex justify-between gap-2 text-[11.5px] mt-1.5"><span class="text-paper-200">💰 ${p.loan && p.fee != null ? 'Opłata za wypożyczenie' : 'Cena rynkowa'}: <b class="text-paper-100">${Utils.formatMoney(p.fee != null ? p.fee : (p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)))}</b></span><span class="text-paper-400 whitespace-nowrap">💶 ${Utils.formatEur(Selectors.marketValue(p))} · OVR ${Selectors.ovr(p)}</span></div>
+          <div class="flex justify-between gap-2 text-[11.5px] mt-1.5"><span class="text-paper-200">💰 ${p.loan && p.fee != null ? 'Opłata za wypożyczenie' : 'Odstępne'}: <b class="text-paper-100">${Utils.formatMoney(p.fee != null ? p.fee : (p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)))}</b></span><span class="text-paper-400 whitespace-nowrap">📈 ${Utils.formatValue(Selectors.marketValue(p))} · OVR ${Selectors.ovr(p)}</span></div>
           ${(() => { const pc = Selectors.prosCons(p); return pc.pros.length || pc.cons.length ? `<div class="grid grid-cols-2 gap-1.5 mt-1.5">
             <ul class="rounded-lg bg-grass/15 px-2 py-1 space-y-0.5">${pc.pros.map((x) => `<li class="text-[11px] text-paper-100 leading-snug">➕ ${Utils.escape(x)}</li>`).join('') || '<li class="text-[11px] text-paper-400">brak wyraźnych plusów</li>'}</ul>
             <ul class="rounded-lg bg-stamp/15 px-2 py-1 space-y-0.5">${pc.cons.map((x) => `<li class="text-[11px] text-paper-100 leading-snug">➖ ${Utils.escape(x)}</li>`).join('') || '<li class="text-[11px] text-paper-400">brak wyraźnych minusów</li>'}</ul>
@@ -10106,7 +10107,7 @@ const UI = {
 
     return UI.tiles([
       UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
-      UI.tile('Kadra', gameState.squad.length + '/' + CONFIG.maxSquad, 'OVR ' + Selectors.teamOvr() + ' · 💶 ' + Utils.formatEur(Selectors.squadValue())),
+      UI.tile('Kadra', gameState.squad.length + '/' + CONFIG.maxSquad, 'OVR ' + Selectors.teamOvr() + ' · 📈 ' + Utils.formatValue(Selectors.squadValue())),
       UI.tile('Koszt', Utils.formatMoney(Selectors.squadWages()), 'na tydzień'),
       UI.tile('Baza szatni', Selectors.lockerBaseline() + '%', 'legendy, sztab, bojler'),
     ], 4)
