@@ -7793,7 +7793,7 @@ const UI = {
         <h2 class="text-center ${compact ? 'text-[20px]' : 'text-[24px]'} font-extrabold tracking-tight leading-tight mt-1">${Utils.escape(Utils.val(d.title))}</h2>
         <div class="text-center text-[11px] text-paper-400 mt-0.5">${Utils.escape(Utils.val(d.from))}</div>
         <p class="${compact ? 'text-[13px] leading-snug mt-2' : 'text-[14.5px] leading-relaxed mt-4'} text-paper-200 italic">${Utils.escape(Utils.val(d.body))}</p>
-        ${pl ? (compact ? `<div class="text-[11.5px] text-paper-300 mt-1.5">${UI.ovrBadge(pl)} ${DATA.positions[pl.pos].label} · ${pl.age} l. · ${pl.wage} zł/tydz.</div>` : (d.u19Card ? UI.u19GradCard(pl) : UI.playerCard(pl, true))) : ''}
+        ${pl ? (compact && !d.u19Card ? `<div class="text-[11.5px] text-paper-300 mt-1.5">${UI.ovrBadge(pl)} ${DATA.positions[pl.pos].label} · ${pl.age} l. · ${pl.wage} zł/tydz.</div>` : (d.u19Card ? UI.u19GradCard(pl) : UI.playerCard(pl, true))) : ''}
         <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold ${compact ? 'mt-2 mb-1' : 'mt-5 mb-1.5'}">Decyzja prezesa</div>
         <div class="grid ${compact ? 'gap-1.5' : 'gap-2'}">${opts}</div>
       </div>
