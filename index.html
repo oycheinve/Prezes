@@ -3466,8 +3466,8 @@ const Engine = {
   setTicket(id) {
     const md = gameState.matchday;
     if (!DATA.tickets[id]) return;
-    if (!Selectors.isMatchWeek()) { md.ticket = id; md.ticketNext = null; return; }   // przed startem ligi – od razu
-    md.ticketNext = id === md.ticket ? null : id;
+    md.ticket = id;          // nowy cennik obowiązuje od razu
+    md.ticketNext = null;
   },
   // Rozliczenie miesiąca: nowe cenniki wchodzą w życie, skutki cen dla kibiców liczone hurtem i łagodniej
   monthlySettlement() {
@@ -4008,9 +4008,9 @@ const Engine = {
     });
     retiring.forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
-      if (Selectors.isClubIcon(p)) {   // o posadę proszą tylko prawdziwe legendy klubu
-        gameState.retirees.push(p);
-        summary.toStaff.push(Selectors.playerName(p) + ' (' + p.age + ' l.) 🏆');
+      if (p.legend || p.favorite) {   // legendy żegnane z honorami – sztab to wyłącznie fachowcy z rynku
+        summary.retired.push(Selectors.playerName(p) + ' (' + p.age + ' l.)' + (p.legend ? ' 🏆' : ' ⭐'));
+        Engine.addLog('🎖️ ' + Selectors.playerName(p) + ' kończy karierę po ' + p.apps + ' meczach. Owacja na stojąco, szalik w gablocie.', 'event');
       } else {
         summary.retired.push(Selectors.playerName(p) + ' (' + p.age + ' l.)');
         Engine.addLog('👋 ' + Selectors.playerName(p) + ' (' + p.age + ' l.) kończy karierę. „Kolana mówią dość, żona mówi dość, ja mówię dość.”', 'event');
@@ -4293,6 +4293,7 @@ const Engine = {
     if (!dir || !dir.hired || dir.mode !== 'auto' || !t.open) return;
     const lvl = dir.hired.level;
     const e = Selectors.econ();
+    if (dir.windowSeason !== t.season) { dir.windowSeason = t.season; dir.windowBuys = []; }   // zakupy tego okienka – do raportu
     let budget = Math.max(0, gameState.finance.budget - 500 * e) * (0.3 + lvl * 0.07);
     const need = { GK: 2, DEF: 6, MID: 6, FWD: 4 };
     gameState.squad.forEach((p) => { need[p.pos]--; });
@@ -4307,6 +4308,7 @@ const Engine = {
       if (Selectors.ovr(best) < Selectors.teamOvr() - 6 && need[best.pos] <= 0) break;   // nie kupuje zapchajdziur
       const fee = best.fee;
       Engine.buyTransfer(best.id);
+      dir.windowBuys = (dir.windowBuys || []).concat([{ name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage }]);
       budget -= fee; need[best.pos]--;
       bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
     }
@@ -4999,6 +5001,12 @@ const Engine = {
       Engine.applyEffects({ lockerRoom: -8, fans: -3 });
     }
     Engine.addLog('🔒 Okno transferowe zamknięte. Przyszło: ' + t.bought + ', odeszło: ' + t.sold + '.', 'system');
+    // Dyrektor w trybie autonomicznym: raport na ekranie po zamknięciu okienka
+    const dir = gameState.director;
+    if (dir && dir.hired && dir.mode === 'auto') {
+      const buys = dir.windowSeason === t.season ? (dir.windowBuys || []) : [];
+      gameState.directorReport = { season: t.season, name: dir.hired.name, buys, total: buys.reduce((s, b) => s + b.fee, 0) };
+    }
   },
 
   buyTransfer(id) {
@@ -6626,7 +6634,8 @@ const Storage = {
     // Krok 13.26: bez skautingu – szkółka przechodzi do obiektów, skaut ze sztabu odchodzi
     if (!saved.academy && state.scouting && state.scouting.youthUpgrades) state.academy.level = (state.scouting.youthUpgrades.dresy ? 1 : 0) + (state.scouting.youthUpgrades.wfista ? 1 : 0);
     if (state.activeTab === 'scouting') state.activeTab = 'desk';
-    state.pendingDecisions = state.pendingDecisions.filter((id) => id !== 'derbySecurity');
+    state.pendingDecisions = state.pendingDecisions.filter((id) => id !== 'derbySecurity' && id !== 'veteranStaff');
+    state.retirees = [];
     // Stadion z pojemnością (Krok 13.17): starsze zapisy dostają trybuny wymagane w obecnej lidze
     if (!saved.stadium || saved.stadium.level == null) state.stadium.level = DATA.licenseCapacity[state.club.leagueLevel] || 0;
     (state.squad || []).concat((state.loansOut || []).map((l) => l.player)).forEach((p) => { if (p.potential == null) Engine.rollPotential(p); if (p.temper == null) p.temper = Engine.rollTemper(p); });
@@ -6918,6 +6927,7 @@ const UI = {
     const o = gameState.ui.overlay;
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
+    if (o && o.type === 'dirReport' && gameState.directorReport) return UI.directorReportOverlay(gameState.directorReport);
     if (o && o.type === 'playoff' && gameState.seasonSummary && gameState.seasonSummary.playoff) return UI.playoffOverlay(gameState.seasonSummary.playoff);
     if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
     if (o && o.type === 'youth' && gameState.youthPick && !gameState.youthPick.done) return UI.youthPickOverlay(gameState.youthPick);
@@ -7276,7 +7286,6 @@ const UI = {
           <div class="rounded-xl bg-desk-800 py-2 min-w-0 px-1"><div class="text-[10px] uppercase text-paper-400">Król strzelców</div><b class="text-[12px] block truncate">${sm.scorer ? Utils.escape(sm.scorer.name.split(' ').slice(1).join(' ')) + ' · ' + sm.scorer.goals : '–'}</b></div>
         </div>
         <div class="space-y-1.5 mt-3">
-          ${list('🎖️ Kończą karierę – chcą zostać w sztabie', sm.toStaff, 'Nikt z Ulubieńców ani Legend nie odchodzi.')}
           ${list('👋 Kończą karierę', sm.retired, 'Wszyscy grają dalej. Kolana trzymają.')}
           ${sm.left && sm.left.length ? list('🚪 Odchodzą (zapowiedzieli w sezonie)', sm.left, '') : ''}
           ${sm.loanEnd && sm.loanEnd.length ? list('🔁 Koniec wypożyczeń – wracają do siebie', sm.loanEnd, '') : ''}
@@ -7390,6 +7399,28 @@ const UI = {
         <button data-action="overlay-close" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[16px] font-extrabold tracking-wider">ZAMKNIJ GIEŁDĘ</button>
         <p class="text-center text-[10.5px] text-paper-400 mt-1">Otwarte do pierwszego gwizdka · wejście z zakładki Kadra${offers.length ? ' · oferty czekają na decyzję' : ''}</p>
       </div>`, 'bg-desk-900');
+  },
+
+  // Raport Dyrektora Sportowego po zamknięciu okienka: kogo kupił i za ile
+  directorReportOverlay(r) {
+    const rows = r.buys.map((b) => `
+      <div class="rounded-xl bg-desk-800 px-3 py-2 flex items-center gap-2">
+        <span class="inline-block min-w-[26px] px-1 rounded text-[11px] leading-[18px] font-extrabold text-center bg-ink-900 text-paper-100">${b.ovr}</span>
+        <div class="min-w-0 flex-1"><div class="text-[13.5px] font-bold truncate">${Utils.escape(b.name)}</div><div class="text-[11px] text-paper-400">${Utils.escape(b.pos)} · pensja ${b.wage} zł/tydz.</div></div>
+        <b class="text-[14px] text-amber-glow whitespace-nowrap">${Utils.formatMoney(b.fee)}</b>
+      </div>`).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-6 text-paper-100 flex flex-col justify-center">
+        <div class="text-center text-[52px] leading-none">🧑‍💼</div>
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-3">Okno transferowe zamknięte</div>
+        <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">Raport Dyrektora Sportowego</h2>
+        <div class="text-center text-[12px] text-paper-400 mt-0.5">${Utils.escape(r.name)} · sezon ${r.season}</div>
+        <div class="space-y-1.5 mt-4">${rows || '<div class="rounded-xl bg-desk-800 px-3 py-3 text-center text-[13px] text-paper-300">„Prezesie, nie znalazłem nikogo wartego tych pieniędzy. Budżet nietknięty.”</div>'}</div>
+        ${r.buys.length ? `<div class="flex justify-between mt-3 px-1 text-[14px]"><span class="text-paper-300">Razem ${r.buys.length} ${r.buys.length === 1 ? 'zawodnik' : 'zawodników'}</span><b class="text-stamp">${Utils.signedMoney(-r.total)}</b></div>` : ''}
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">ZROZUMIAŁEM</button>
+      </div>`, 'bg-[#0b0f16]');
   },
 
   outcomeOverlay(o) {
@@ -8034,7 +8065,7 @@ const UI = {
         </div>`;
       }).join('');
       return segs + (openSlot ? '' : intro) + UI.panel('Sztab Pomocniczy', openSlot ? '' : 'Każda rola daje realny efekt (⚡) – im lepszy fachowiec, tym mocniejszy. Stuknij rolę, by zobaczyć kandydatów.', staffRows + `
-        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Tylko legendy klubu (długi staż) proszą po karierze o posadę w sztabie.</p>`);
+        <p class="text-[11px] text-ink-700 mt-1.5">Koszt sztabu: <b>${Utils.formatMoney(Selectors.staffWages())}/tydz.</b> Sztab to wyłącznie fachowcy z rynku – zatrudniasz ich tutaj.</p>`);
     }
 
     return segs + intro + UI.tiles([
@@ -8290,9 +8321,7 @@ const UI = {
       <p class="text-[11.5px] leading-snug mb-1 truncate">${Selectors.passPolicy().icon} Karnety: <b>${Selectors.passPolicy().label}</b>${Selectors.passHolders() ? ' · ' + Selectors.passHolders() + ' szt. (' + Utils.formatMoney(gameState.matchday.pass.revenue) + ' z góry)' : ''}</p>
       ${UI.h4('Polityka cenowa biletów na bramce')}
       <div class="grid gap-1.5">${policies}</div>
-      <p class="text-[11px] font-semibold mt-0.5 ${md.ticketNext ? 'text-amber-700' : 'text-ink-700'}">${md.ticketNext
-        ? '📅 Nowy cennik od następnego miesiąca (za ' + Selectors.weeksToMonth() + ' tyg.) – teraz: ' + DATA.tickets[md.ticket].policy + '.'
-        : '📅 Zmiany cen wchodzą od nowego miesiąca; skutki dla kibiców rozliczane co 4 tygodnie.'}</p>
+      <p class="text-[11px] font-semibold mt-0.5 text-ink-700">✅ Nowy cennik działa od razu · reakcja kibiców rozliczana co miesiąc (przy dobrych wynikach łagodniej).</p>
       ${UI.h4('Menu w budce Pana Zenka')}
       ${UI.choiceRow('set-sausage', Object.entries(DATA.sausages), md.sausage, (s) => s.label + ' – ' + s.price + ' zł', (s) => s.desc + ' Zysk: ' + (s.price - s.cost) + ' zł/szt.')}
       <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">📈 Nastroje po wynikach: <b>${Selectors.formLabel()}</b> do frekwencji, gastro i sklepu · ☀️ w słońcu grill +30%.</p>
@@ -8319,7 +8348,6 @@ const UI = {
       <p class="text-[11px] text-ink-700 my-1.5 leading-snug">Schodzi szybciej po wygranych i w tygodnie meczów u siebie (nastroje po wynikach: <b>${Selectors.formLabel()}</b>). Ulubieńcy Trybun (${favorites}) napędzają koszulki.</p>
       ${UI.h4('Narzut')}
       ${UI.choiceRow('set-markup', Object.entries(DATA.merchMarkups), m.markupNext || m.markup, (mk) => mk.label.split(' – ')[0], (mk) => mk.label)}
-      ${m.markupNext ? `<p class="text-[11px] text-amber-700 font-semibold mt-1">📅 Nowy narzut od następnego miesiąca (za ${Selectors.weeksToMonth()} tyg.) – teraz obowiązuje: ${DATA.merchMarkups[m.markup].label.split(' – ')[0]}</p>` : ''}
       <p class="text-[11px] mt-1 leading-snug ${DATA.merchMarkups[m.markupNext || m.markup].fans < 0 || (m.markupNext || m.markup) === 'dumping' ? 'text-stamp' : 'text-ink-700'}">⚠️ ${DATA.merchMarkups[m.markupNext || m.markup].note}${DATA.merchMarkups[m.markupNext || m.markup].fans ? ' · nastroje kibiców ' + (DATA.merchMarkups[m.markupNext || m.markup].fans > 0 ? 'w górę' : 'w dół') + ' (rozliczane raz w miesiącu)' : ''}</p>
     `);
   },
@@ -8578,6 +8606,8 @@ const Actions = {
     }
     if (o && o.type === 'outcome' && o.back === 'transfer' && t.open) { gameState.ui.overlay = { type: 'transfer' }; App.commit(); return; }
     // Przełom sezonów: mecz → podsumowanie roczne → pożegnania (kariera, sztab) → giełda ze wszystkimi ofertami naraz
+    if (o && o.type === 'match' && gameState.directorReport && (!sm || sm.seen)) { gameState.ui.overlay = { type: 'dirReport' }; App.commit(); return; }   // raport dyrektora po okienku
+    if (o && o.type === 'dirReport') { gameState.directorReport = null; gameState.ui.overlay = null; App.commit(); return; }
     if (o && o.type === 'match' && sm && !sm.seen) gameState.ui.overlay = { type: sm.playoff && !sm.playoffSeen ? 'playoff' : 'season' };
     else if (o && o.type === 'playoff' && sm) { sm.playoffSeen = true; gameState.ui.overlay = { type: 'season' }; }
     else if (o && o.type === 'transfer') gameState.ui.overlay = null;
@@ -8644,7 +8674,7 @@ const Actions = {
   'set-sausage'(el)  { if (DATA.sausages[el.dataset.value]) gameState.matchday.sausage = el.dataset.value; App.commit(); },
   'set-markup'(el)   {
     const v = el.dataset.value, m = gameState.merch;
-    if (DATA.merchMarkups[v]) m.markupNext = v === m.markup ? null : v;   // nowy cennik od następnego miesiąca
+    if (DATA.merchMarkups[v]) { m.markup = v; m.markupNext = null; }   // nowy narzut obowiązuje od razu
     App.commit();
   },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
