@@ -215,6 +215,30 @@ const DATA = {
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
+  // 13.68: V liga – szczebel między Klasą Okręgową a IV ligą, TYLKO w 4 województwach (małopolskie, mazowieckie, śląskie, wielkopolskie).
+  // Wewnętrznie poziom 3.5 (wszystkie progi liczbowe gry traktują ją jak „okręgówkę+”); kluby z 90minut.pl w kolejności tabel.
+  vLiga: { name: 'V Liga', econ: 3.2, rivalBase: 1.72, skillBonus: 3, teams: 16, up: 1, upPO: [2], down: 3, downPO: null,
+    vgroups: {
+      1: [   // mazowieckie
+        { name: 'Grupa I', clubs: ['Narew Ostrołęka', 'Ożarowianka Ożarów Mazowiecki', 'Huragan Wołomin', 'Drukarz Warszawa', 'Marcovia Marki', 'PAF Płońsk', 'Bug Wyszków', 'Sokół Serock', 'Znicz II Pruszków', 'Kasztelan Sierpc', 'Wicher Kobyłka', 'Białe Orły Warszawa', 'Naprzód Zielonki', 'Błękitni Gąbin', 'Gladiator Słoszewo', 'Żbik Nasielsk'] },
+        { name: 'Grupa II', clubs: ['Wilga Garwolin', 'Józefovia Józefów', 'Żyrardowianka Żyrardów', 'Radomiak II Radom', 'Proch Pionki', 'Jodła Jedlnia-Letnisko', 'Wektra Zbuczyn', 'Powiślanka Lipsko', 'Drogowiec Jedlińsk', 'Tygrys Huta Mińska', 'LKS Chlebnia', 'Champion Warszawa', 'Perła Złotokłos', 'Promyk Nowa Sucha', 'Mazovia II Mińsk Mazowiecki', 'Delta Warszawa'] },
+      ],
+      2: [   // wielkopolskie
+        { name: 'Grupa I', clubs: ['Lubuszanin Trzcianka', 'Nasza Dyskobolia Grodzisk Wielkopolski', 'Warta Międzychód', 'Tarnovia Tarnowo Podgórne', 'Sparta Oborniki', 'Sparta Złotów', 'Sparta Szamotuły', 'Kłos Gałowo', 'Obra Zbąszyń', 'Polonia Jastrowie', 'Noteć Dziembowo', 'Korona Stróżewo', 'GKS Golęczewo', 'Sokół Pniewy', 'Płomień Połajewo', 'Wełna Skoki'] },
+        { name: 'Grupa II', clubs: ['Wiara Lecha Poznań', 'Polonia II Środa Wielkopolska', '1922 Lechia Kostrzyn', 'Stella Luboń', 'UKS Śrem', 'SKP Słupca', 'Tulisia Tuliszków', 'Kłos Zaniemyśl', 'Unia II Swarzędz', 'Polonus Kazimierz Biskupi', 'Wilki Wilczyn', 'Pompa Team Jarosławiec', 'Zjednoczeni Trzemeszno', 'LKS Ślesin', 'Górnik Kłodawa', 'Polanin Strzałkowo'] },
+        { name: 'Grupa III', clubs: ['KKS 1925 II Kalisz', 'Zawisza Łęka Opatowska', 'Krobianka Krobia', 'LKS Jankowy', 'Korona Piaski', 'Dąbroczanka Pępowo', 'Orla Jutrosin', 'Polonia 1912 II Leszno', 'Tęcza/Osa Osieczna', 'Astra II Krotoszyn', 'Biały Orzeł Koźmin Wlkp.', 'Odolanovia Odolanów', 'Stal Pleszew', 'Victoria Ostrzeszów', 'GKS Jaraczewo', 'PKS Racot'] },
+      ],
+      3: [   // śląskie
+        { name: 'Grupa I (Północna)', clubs: ['Zagłębie II Sosnowiec', 'Znicz Kłobuck', 'Unia Rędziny', 'Orzeł Miedary', 'AKS Mikołów', 'Gwarek Ornontowice', 'Pilica Koniecpol', 'Górnik Piaski', 'Śląsk Świętochłowice', 'Odra Miasteczko Śląskie', 'Unia Dąbrowa Górnicza', 'Jedność 32 Przyszowice', 'Szczakowianka Jaworzno', 'Liswarta Krzepice', 'Ruch II Radzionków', 'Zieloni Żarki'] },
+        { name: 'Grupa II (Południowa)', clubs: ['Rekord II Bielsko-Biała', 'LKS Czaniec', 'Pniówek Pawłowice', 'LKS II Goczałkowice Zdrój', 'Forteca Świerklany', 'Pasjonat Dankowice', 'Beskid 09 Skoczów', 'LKS Tworków', 'Błyskawica Drogomyśl', 'MKS Lędziny', 'Tempo Puńców', 'Stal-Śrubiarnia Żywiec', 'Start Mszana', 'Drzewiarz Jasienica', 'Odra Wodzisław Śląski', 'GKS Radziechowy-Wieprz'] },
+      ],
+      4: [   // małopolskie
+        { name: 'Grupa Wschodnia', clubs: ['Wisła Czarny Dunajec', 'Poprad Rytro', 'Gród Podegrodzie', 'Podhale II Nowy Targ', 'Okocimski KS Brzesko', 'Kolejarz Stróże', 'Turbacz Mszana Dolna', 'LKS Gnojnik', 'MLKS Żabno', 'Orawa Jabłonka', 'Dunajec Nowy Sącz', 'Tarnovia Tarnów', 'Sokół Słopnice', 'Jordan Jordanów', 'Szreniawa Nowy Wiśnicz', 'KS Nowa Jastrząbka-Żukowice'] },
+        { name: 'Grupa Zachodnia', clubs: ['Garbarnia Kraków', 'Kmita Zabierzów', 'Wróblowianka Wróblowice', 'KS Chełmek', 'Radziszowianka Radziszów', 'Jutrzenka Giebułtów', 'Sokół Kocmyrzów Baranówka', 'Niwa Nowa Wieś', 'Świt Krzeszowice', 'Michałowianka Michałowice', 'Raba Dobczyce', 'Brzezina Osiek', 'Przebój Wolbrom', 'Pogoń Skotniki', 'Orzeł Myślenice', 'Kabel Kraków'] },
+      ],
+    } },
+  vRegions: [1, 2, 3, 4],
+
   /* ----- Skauting: ewolucja siatki ----- */
 
   // DNA klubu: club.professionalism od -100 (patologia) do +100 (profesjonalizm)
@@ -669,6 +693,7 @@ const DATA = {
     { avg: 80,     min: 0,     max: 1200 },       // A-klasa
     { avg: 200,    min: 10,    max: 3000 },       // Klasa Okręgowa
     { avg: 550,    min: 25,    max: 8000 },       // IV liga (kilkaset € – kilka tys. zł za zawodnika)
+    // (V liga – poziom 3.5 – dopisana niżej: śr. ok. 330 €)
     { avg: 3500,   min: 300,   max: 40000 },      // III liga (grupy: ok. 1–5 tys. €)
     { avg: 9000,   min: 1000,  max: 120000 },     // II liga (ok. 7 tys. €)
     { avg: 111000, min: 10000, max: 1500000 },    // I liga (śr. 111 tys. €, kadry 2–8 mln €)
@@ -2230,7 +2255,7 @@ const DATA = {
       transfer: true,
       prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; },
       player: () => Selectors.cutTarget(),
-      from: () => 'Działacz klubu z ligi ' + (DATA.leagueLevels[Math.min(gameState.club.leagueLevel + 2, DATA.leagueLevels.length - 1)] || DATA.leagueLevels[1]).name,
+      from: () => 'Działacz klubu z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name,
       title: 'Oferta z wyższej ligi',
       body: () => {
         const p = Selectors.cutTarget();
@@ -3251,6 +3276,12 @@ const DATA = {
     { text: 'Trawa rośnie, piłkarze piją, a w kasie jak zwykle zero.', author: 'Księga protokołów zarządu, 2009' },
   ],
 };
+// 13.68: V liga jako poziom 3.5 – wpisy w tabelach indeksowanych poziomem ligi
+DATA.leagueLevels[3.5] = DATA.vLiga;
+DATA.tmValues[3.5] = { avg: 330, min: 15, max: 5000 };   // V liga: niżej niż IV liga
+DATA.licenseCapacity[3.5] = 0;
+DATA.coachLicenseReq[3.5] = 1;
+DATA.coachTitles[3.5] = 'trener z V ligi';
 
 /* ---------------------------------------------------------------------
    2. STAN GRY – jedyne źródło prawdy
@@ -4324,20 +4355,20 @@ const Engine = {
       } else if (summary.playoff.won) outcome = 'poSafe';
     }
     if (gameState.season.forcedRelegation && level > 1) {
-      newLevel = level - 1; outcome = 'forced';
+      newLevel = Selectors.prevLevel(level); outcome = 'forced';
       Engine.addLog('⚖️ PRZYMUSOWA DEGRADACJA! Wydział Dyscypliny za aferę korupcyjną zsyła klub do ligi niżej: ' + DATA.leagueLevels[newLevel].name + '.', 'system');
       Engine.xPost('portal', club + ' zdegradowany za korupcję! Czarny Passat odjechał, a klub razem z nim – ligę niżej. 🚗💨');
     } else if (promoted && level < maxLevel) {
-      if (newLevel === level && level + 1 >= DATA.upgrades.var.licenseLevel && !gameState.stadium.upgrades.var && !gameState.season.promotionBan) {
+      if (newLevel === level && Selectors.nextLevel(level) >= DATA.upgrades.var.licenseLevel && !gameState.stadium.upgrades.var && !gameState.season.promotionBan) {
         outcome = 'licBlock';   // brak VAR – licencja na I ligę i wyżej nie zostanie przyznana
-        Engine.addLog('🚫 Awans wywalczony na boisku, ale bez systemu VAR Związek odmawia licencji na ' + DATA.leagueLevels[level + 1].name + '. Zostajemy w lidze: ' + leagueName + '.', 'system');
+        Engine.addLog('🚫 Awans wywalczony na boisku, ale bez systemu VAR Związek odmawia licencji na ' + DATA.leagueLevels[Selectors.nextLevel(level)].name + '. Zostajemy w lidze: ' + leagueName + '.', 'system');
         Engine.xPost('portal', 'Awans bez VAR-u? Nie w tym kraju. ' + club + ' zostaje w ' + leagueName + ' przez brak wozu z powtórkami. 📺🚫');
       } else if (gameState.season.promotionBan) {
         outcome = 'banned';
         Engine.addLog('🚫 Awans wywalczony na boisku, ale Wydział Dyscypliny trzyma zakaz awansu po aferze. Zostajemy w lidze: ' + leagueName + '.', 'system');
         Engine.xPost('sukces', 'Awans? Hahaha. Nie z tymi reklamówkami. 🤡🚫');
       } else {
-        newLevel = level + 1; outcome = 'promo';
+        newLevel = Selectors.nextLevel(level); outcome = 'promo';
         Engine.addLog('🎉 AWANS!!! ' + club + ' zagra w następnym sezonie w lidze: ' + DATA.leagueLevels[newLevel].name + '! Pan Heniek płacze ze szczęścia do kosiarki.', 'system');
         Engine.xPost('portal', 'AWANS! ' + club + ' w lidze ' + DATA.leagueLevels[newLevel].name + '! Cała gmina świętuje, sołtys ogłosił dzień wolny od koszenia. 🎉');
         Engine.xPost('ultras', 'AWANS AWANS AWANS!!! ' + DATA.leagueLevels[newLevel].name + ' NASZA! Tego nie da się opisać 🔥🔥🔥');
@@ -4355,7 +4386,7 @@ const Engine = {
       Engine.xPost('portal', club + ' w europejskich pucharach! Od remizy do Europy. Pan Zenek już szuka paszportu. 🇪🇺⚽');
     } else if (zone === 'down' || (zone === 'downPO' && !summary.playoff.won) || zone === 'last') {
       if (level > 1) {
-        newLevel = level - 1; outcome = 'releg';
+        newLevel = Selectors.prevLevel(level); outcome = 'releg';
         Engine.addLog('📉 SPADEK' + (zone === 'downPO' ? ' PO BARAŻACH' : '') + '. ' + club + ' wraca do ligi: ' + DATA.leagueLevels[newLevel].name + '. Na trybunach cisza, tylko pies szczeka.', 'system');
         Engine.xPost('sukces', 'SPADEK. Wiedziałem od początku. ' + Selectors.presName() + ' do dymisji (piszę to od 3 sezonów). 📉🤡');
       } else {
@@ -4866,7 +4897,9 @@ const Engine = {
     const R = c && Selectors.cupRounds(c)[c.idx];
     if (!R || !c.alive) { if (c) c.next = null; return null; }
     const lvl = gameState.club.leagueLevel;
-    const oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], lvl - 2), Math.min(R.opp[1], Math.max(R.opp[0], lvl + 2))), 1, 8);
+    const fl = Math.floor(lvl);
+    let oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], fl - 2), Math.min(R.opp[1], Math.max(R.opp[0], fl + 2))), 1, 8);
+    if (oppLvl === 3 && Selectors.hasVLiga() && Math.random() < 0.5) oppLvl = 3.5;   // w województwach z V ligą także jej kluby
     const L = DATA.leagueLevels[oppLvl];
     const P = Selectors.leaguePool(oppLvl);   // szczebel regionalny: kluby z własnego województwa / grupy
     const cand = P ? P.filter((n) => n !== gameState.club.name) : [];
@@ -5239,14 +5272,15 @@ const Engine = {
     if (kind === 'up') {
       // Baraż wicemistrzów: rywal to wicelider równoległej grupy TEJ SAMEJ klasy rozgrywkowej
       const L = DATA.leagueLevels[level];
-      const U = DATA.leagueLevels[level + 1];
+      const U = DATA.leagueLevels[Selectors.nextLevel(level)];
       const ours = new Set(table.map((r) => r.team));
       const pool = (L.pool || DATA.rivals.map((x) => x.name)).filter((n) => !ours.has(n));
       // IV liga: wicemistrz innego województwa z tej samej grupy III ligi (prawdziwe kluby)
       const grp = Selectors.leagueGroup();
       const sib = L.regions ? Object.keys(L.regions).map(Number).filter((r) => r !== gameState.club.region && [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] === grp) : [];
       const sr = sib.length ? Utils.rand(sib) : null;
-      const opp = sr != null ? L.regions[sr][1] + ' (woj. ' + Selectors.voivodeship(sr) + ')'
+      const vg = L.vgroups && (L.vgroups[gameState.club.region] || []).filter((g, i) => i !== (gameState.club.vGroup || 0));   // V liga: wicemistrz innej grupy województwa
+      const opp = vg && vg.length ? (() => { const g = Utils.rand(vg); return g.clubs[1] + ' (' + g.name + ')'; })() : sr != null ? L.regions[sr][1] + ' (woj. ' + Selectors.voivodeship(sr) + ')'
         : Utils.rand(pool.length ? pool : DATA.rivals.map((x) => x.name)) + ' (gr. ' + (Math.random() < 0.5 ? 'II' : 'III') + ')';
       const top = table.slice(0, 3).filter((r) => r.team !== table[pos - 1].team).map((r) => st[r.team] || L.rivalBase);
       const oppS = (top.reduce((a, b) => a + b, 0) / Math.max(1, top.length)) * Utils.randRange(0.93, 1.05);
@@ -5255,7 +5289,7 @@ const Engine = {
       return res;
     }
     // Baraż o utrzymanie: dwumecz z wiceliderem ligi niżej
-    const D = DATA.leagueLevels[level - 1];
+    const D = DATA.leagueLevels[Selectors.prevLevel(level)];
     const opp = D.pool ? Utils.rand(D.pool) : Utils.rand(DATA.rivals).name;
     res.title = 'Baraż o utrzymanie';
     res.won = twoLegs(opp, D.rivalBase * Utils.randRange(1.08, 1.18));
@@ -5265,6 +5299,7 @@ const Engine = {
   /* ----- Liga: nowi rywale po awansie/spadku ----- */
   buildLeague(level) {
     const L = DATA.leagueLevels[level];
+    if (L.vgroups) { const G = L.vgroups[gameState.club.region] || []; if (!G[gameState.club.vGroup]) gameState.club.vGroup = Utils.randInt(0, Math.max(0, G.length - 1)); }   // V liga: losowa grupa w województwie
     const pool = Selectors.leaguePool(level);
     if (level === 1) gameState.league.rivals = DATA.rivals.map((r) => ({ ...r }));
     else if (Selectors.leagueReal(level)) {
@@ -5686,7 +5721,7 @@ const Engine = {
   },
 
   otherClubName(levelUp = 0) {
-    const P = Selectors.leaguePool(Utils.clamp(gameState.club.leagueLevel + levelUp, 1, DATA.leagueLevels.length - 1));
+    const P = Selectors.leaguePool(Selectors.stepLevel(gameState.club.leagueLevel, levelUp));
     return P ? Utils.rand(P) : Utils.rand(DATA.rivals).name;
   },
 
@@ -6287,7 +6322,7 @@ const Engine = {
     const deepDebt = gameState.finance.budget < Selectors.debtThresholds().warn;
     const crisis = deepDebt || promoFight || relegFight;
     // Im wyższa liga, tym szczelniejszy system: w B-klasie „okazje” trafiają się co jakiś czas, w Ekstraklasie sporadycznie
-    const chance = [0, 0.12, 0.1, 0.08, 0.06, 0.045, 0.03, 0.02, 0.012][lvl] || 0.012;
+    const chance = [0, 0.12, 0.1, 0.08, 0.06, 0.045, 0.03, 0.02, 0.012][Math.floor(lvl)] || 0.012;
     if (!crisis || Math.random() > chance) return;   // nawet w kryzysie – rzadkie i niebezpieczne koło ratunkowe
     d.lastOfferWeek = gameState.calendar.week;
     d.variant = Utils.randInt(0, 3);   // miejsce i przebieg spotkania
@@ -7432,7 +7467,7 @@ const Selectors = {
   },
   beerOdds: (p) => {
     const lvl = gameState.club.leagueLevel;
-    let ok = [0, 0.72, 0.6, 0.47, 0.33, 0.2, 0.1, 0.05, 0.02][lvl] || 0.02;
+    let ok = [0, 0.72, 0.6, 0.47, 0.33, 0.2, 0.1, 0.05, 0.02][Math.floor(lvl)] || 0.02;
     if (gameState.club.character === 'rural') ok += 0.08;
     ok -= Math.max(0, gameState.club.professionalism - 50) * 0.003;          // „profesjonalny” klub – wstyd tak załatwiać
     if (p) {
@@ -7442,7 +7477,7 @@ const Selectors = {
       if (p.tag === 'party') ok += 0.1;
     }
     ok = Utils.clamp(ok, 0.02, 0.85);
-    const scandal = Utils.clamp((1 - ok) * ([0, 0.18, 0.25, 0.35, 0.5, 0.65, 0.8, 0.9, 0.95][lvl] || 0.9), 0.03, 0.9);   // wyżej = media czujniejsze
+    const scandal = Utils.clamp((1 - ok) * ([0, 0.18, 0.25, 0.35, 0.5, 0.65, 0.8, 0.9, 0.95][Math.floor(lvl)] || 0.9), 0.03, 0.9);   // wyżej = media czujniejsze
     return { ok, scandal, refuse: Math.max(0, 1 - ok - scandal) };
   },
   euroThisSeason: () => !!(gameState.euro && gameState.euro.season === gameState.calendar.season),
@@ -7535,18 +7570,30 @@ const Selectors = {
   promoPath: (region, cur = 0) => {
     const has = region !== '' && region != null && DATA.cupRegions[+region];
     const g = has ? [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][+region] : null;
-    const steps = DATA.leagueLevels.map((L, i) => (!L ? null : i === 4 && has ? 'IV liga (woj. ' + Selectors.voivodeship(+region).toLowerCase() + ')' : i === 5 && has ? 'III liga gr. ' + ['I', 'II', 'III', 'IV'][g] : L.name)).filter(Boolean);
-    return steps.map((t, i) => (i + 1 === cur ? `<b class="text-ink-900 underline">${Utils.escape(t)}</b>` : Utils.escape(t))).join(' → ');
+    const path = Selectors.levelsPath(region);
+    const steps = path.map((i) => (i === 3.5 ? 'V liga' : i === 4 && has ? 'IV liga (woj. ' + Selectors.voivodeship(+region).toLowerCase() + ')' : i === 5 && has ? 'III liga gr. ' + ['I', 'II', 'III', 'IV'][g] : DATA.leagueLevels[i].name));
+    return steps.map((t, k) => (path[k] === cur ? `<b class="text-ink-900 underline">${Utils.escape(t)}</b>` : Utils.escape(t))).join(' → ');
   },
   voivodeship: (i = gameState.club.region) => { const r = DATA.cupRegions[i]; return r ? r[0].replace(/ki$/, 'kie') : '–'; },
   groupLabel: (g = Selectors.leagueGroup()) => ['I (mazowiecko-podlasko-warmińsko-łódzka)', 'II (wielkopolsko-pomorsko-kujawska)', 'III (śląsko-dolnośląsko-opolsko-lubuska)', 'IV (małopolsko-podkarpacko-lubelsko-świętokrzyska)'][g],
   // Pula klubów ligi; III liga – grupa wg województwa klubu (I: Mazowsze/Podlasie/Warmia/Łódzkie, II: Wielkopolska/Pomorze/Kujawy, III: Śląsk/Dolny Śląsk/Opolskie/Lubuskie, IV: Małopolska/Podkarpacie/Lubelskie/Świętokrzyskie)
   leagueGroup: () => { const r = gameState.club.region != null ? gameState.club.region : 1; return [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] || 0; },
-  leaguePool: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; if (!L) return null; if (L.regions && L.regions[region]) return L.regions[region]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
+  // 13.68: ścieżka szczebli zależna od województwa – V liga (3.5) tylko w małopolskim, mazowieckim, śląskim i wielkopolskim
+  hasVLiga: (region = gameState.club.region) => region !== '' && region != null && DATA.vRegions.includes(+region),
+  levelsPath: (region = gameState.club.region) => (Selectors.hasVLiga(region) ? [1, 2, 3, 3.5, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),
+  nextLevel: (l = gameState.club.leagueLevel) => { const P = Selectors.levelsPath(), i = P.indexOf(l); return i >= 0 ? P[Math.min(i + 1, P.length - 1)] : Math.min(8, Math.floor(l) + 1); },
+  prevLevel: (l = gameState.club.leagueLevel) => { const P = Selectors.levelsPath(), i = P.indexOf(l); return i >= 0 ? P[Math.max(i - 1, 0)] : Math.max(1, Math.ceil(l) - 1); },
+  stepLevel: (l, n) => { let x = l; for (let k = 0; k < Math.abs(n); k++) x = n > 0 ? Selectors.nextLevel(x) : Selectors.prevLevel(x); return x; },
+  vGroup: () => { const G = DATA.vLiga.vgroups[gameState.club.region]; if (!G) return null; const i = gameState.club.vGroup; return G[i] || G[0]; },
+  leaguePool: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; if (!L) return null; if (L.vgroups) { const G = L.vgroups[region]; return G ? (G[gameState.club.vGroup] || G[0]).clubs : Object.values(L.vgroups)[0][0].clubs; } if (L.regions && L.regions[region]) return L.regions[region]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
   // Czy liga ma prawdziwe kluby ułożone wg tabeli (siła zależna od miejsca)
-  leagueReal: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; return !!(L && (L.ordered || (L.regions && L.regions[region]))); },
+  leagueReal: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; return !!(L && (L.ordered || L.vgroups || (L.regions && L.regions[region]))); },
   // Poziom rozgrywkowy klubu po nazwie (pule, grupy III ligi, województwa IV ligi)
-  levelOfClub: (club) => DATA.leagueLevels.findIndex((L) => L && ((L.pool && L.pool.includes(club)) || (L.groups && L.groups.some((g) => g.includes(club))) || (L.regions && Object.values(L.regions).some((g) => g.includes(club))))),
+  levelOfClub: (club) => {
+    const i = DATA.leagueLevels.findIndex((L) => L && ((L.pool && L.pool.includes(club)) || (L.groups && L.groups.some((g) => g.includes(club))) || (L.regions && Object.values(L.regions).some((g) => g.includes(club)))));
+    if (i > 0) return i;
+    return Object.values(DATA.vLiga.vgroups).some((G) => G.some((g) => g.clubs.includes(club))) ? 3.5 : -1;
+  },
   cupRounds: (c = gameState.cup) => (c && c.path === 'regional' ? DATA.cupRegional : DATA.cupCentral),
   cupName: (c = gameState.cup) => (c && c.path === 'regional' ? Selectors.cupRegion()[0] + ' Puchar Polski' : 'Puchar Polski'),
   cupRegion: () => { const i = gameState.club.region != null ? gameState.club.region : 0; return DATA.cupRegions[i] || DATA.cupRegions[0]; },
@@ -9116,7 +9163,7 @@ const UI = {
       7: `<circle cx="20" cy="4" r="2.5" fill="${M[1]}"/><path d="M11 6h18l-1 4H12z" fill="${M[1]}"/><path d="M8 10h24l-3 13c-1 5-5 7-9 7s-8-2-9-7z" fill="url(#${g})" stroke="${M[1]}"/><path d="M8 12C0 12 1 25 10 24M32 12c8 0 7 13-2 12" fill="none" stroke="${M[1]}" stroke-width="2.4"/><path d="M17 30h6v5h-6z" fill="${M[1]}"/><path d="M8 35h24v8H8z" fill="#1b1b1b"/><path d="M8 38h24v2H8z" fill="${M[0]}" opacity=".7"/>`,
       8: `<path d="M13 2h14l2 5H11z" fill="${M[1]}"/><path d="M7 7h26l-3 15c-1 6-5 8-10 8s-9-2-10-8z" fill="url(#${g})" stroke="${M[1]}"/><path d="M7 9C-1 9 0 24 10 23M33 9c8 0 7 15-3 14" fill="none" stroke="${M[1]}" stroke-width="2.6"/><path d="M16 30h8v4h-8z" fill="${M[1]}"/><path d="M7 34h26v9H7z" fill="#151515"/><path d="M7 36h13v3H7z" fill="#fff"/><path d="M20 36h13v3H20z" fill="#d23c3c"/><text x="20" y="20" text-anchor="middle" font-size="8" font-weight="800" fill="${M[1]}">PL</text>`,
     };
-    return `<svg viewBox="0 0 40 46" width="40" height="46">${grad(M[0], M[1])}${shapes[Utils.clamp(lvl, 1, 8)]}<rect x="${lvl >= 6 ? 7 : 10}" y="43" width="${lvl >= 6 ? 26 : 20}" height="3" fill="#111" opacity=".5"/></svg>`;
+    return `<svg viewBox="0 0 40 46" width="40" height="46">${grad(M[0], M[1])}${shapes[Utils.clamp(Math.floor(lvl), 1, 8)]}<rect x="${lvl >= 6 ? 7 : 10}" y="43" width="${lvl >= 6 ? 26 : 20}" height="3" fill="#111" opacity=".5"/></svg>`;
   },
 
   // Kartoteka skandali w Związku: punkty karne i progi sankcji
@@ -9214,7 +9261,7 @@ const UI = {
     const segs = UI.subSegs('table', view, [['table', '📊 Tabela'], ['fixtures', '📅 Terminarz'], ['stats', '★ Staty'], ['money', '💼 Kasa']].concat(gameState.euro ? [['euro', '🇪🇺 Europa']] : []));
     const pv = Selectors.seasonPreview();
     const bigLeague = Selectors.leagueSize() > 12;
-    const title = `<p class="text-[11px] text-paper-400 mb-1">${Selectors.leagueName()}${gameState.club.leagueLevel === 5 ? ' · Grupa ' + Selectors.groupLabel() : ''} · Sezon ${gameState.calendar.season}${gameState.club.leagueLevel < 5 ? ' · woj. ' + Selectors.voivodeship() : ''}${bigLeague ? '' : ' · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.'}</p>
+    const title = `<p class="text-[11px] text-paper-400 mb-1">${Selectors.leagueName()}${gameState.club.leagueLevel === 5 ? ' · Grupa ' + Selectors.groupLabel() : gameState.club.leagueLevel === 3.5 && Selectors.vGroup() ? ' · ' + Selectors.vGroup().name : ''} · Sezon ${gameState.calendar.season}${gameState.club.leagueLevel < 5 ? ' · woj. ' + Selectors.voivodeship() : ''}${bigLeague ? '' : ' · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.'}</p>
       <div class="rounded-lg bg-desk-800 px-2.5 py-1 mb-1 text-[11px] text-paper-200 leading-snug">📰 <b>Prognoza:</b> ${pv.pos}. miejsce · <span class="text-amber-glow">${'★'.repeat(pv.stars)}${'☆'.repeat(5 - pv.stars)}</span> · kurs na awans <b>${pv.odds}</b>${bigLeague ? '' : `<br><span class="italic text-paper-400">${pv.quote}</span>`}</div>`;
     if (view === 'fixtures') return segs + title + UI.fixturesView();
     if (view === 'stats') return segs + UI.teamStatsCard();
@@ -9240,7 +9287,7 @@ const UI = {
     }).join('');
     const lvl = gameState.club.leagueLevel;
     const rl = Selectors.leagueRules();
-    const upName = rl.top ? '' : DATA.leagueLevels[lvl + 1].name, downName = lvl > 1 ? DATA.leagueLevels[lvl - 1].name : '';
+    const upName = rl.top ? '' : DATA.leagueLevels[Selectors.nextLevel(lvl)].name, downName = lvl > 1 ? DATA.leagueLevels[Selectors.prevLevel(lvl)].name : '';
     const range = (a, b) => (a === b ? a : a + '–' + b);
     const dot = (c) => `<span class="inline-block w-2 h-2 ${c} align-middle"></span>`;
     const legend = [];
@@ -9944,7 +9991,7 @@ const UI = {
         ${youthRows}
       </details>`;
     const lv = st.level || 0, nextLv = DATA.stadiumLevels[lv + 1];
-    const needNext = DATA.licenseCapacity[Math.min(gameState.club.leagueLevel + 1, DATA.leagueLevels.length - 1)] || 0;
+    const needNext = DATA.licenseCapacity[Selectors.nextLevel()] || 0;
     const buildRows = DATA.stadiumLevels.map((s, i) => i === 0 ? '' : UI.row(`${i <= lv ? '✅ ' : ''}${Utils.escape(s.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(s.cost)}</span>`,
       s.capacity + ' miejsc' + (DATA.licenseCapacity.indexOf(i) > 0 ? ' · 📋 wymóg od ligi ' + DATA.leagueLevels[DATA.licenseCapacity.indexOf(i)].name : ''),
       i <= lv ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === lv + 1 ? UI.smallBtn('build-stadium', '', 'Buduj', gameState.finance.budget < s.cost) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
@@ -9955,7 +10002,7 @@ const UI = {
         </summary>
         ${buildRows}
       </details>`;
-    const missingSoon = Selectors.licenseMissing(Math.min(gameState.club.leagueLevel + 1, DATA.leagueLevels.length - 1)).length;
+    const missingSoon = Selectors.licenseMissing(Selectors.nextLevel()).length;
     return UI.panel('Infrastruktura: ' + Utils.escape(Selectors.stadiumName()), anyOpen ? '' : 'Obiekt z duszą. I z kretami.', `
       <div class="flex justify-between text-[12px]"><span>Stan murawy: <b>${Selectors.pitchLabel(st.pitch)}</b></span><span>${st.pitch}%</span></div>
       ${anyOpen ? '' : UI.bar(st.pitch, pitchColor)}
@@ -9987,7 +10034,7 @@ const Actions = {
   'set-region'(v) {
     if (gameState.club.leagueLevel > 3 || !DATA.cupRegions[+v] || +v === gameState.club.region) { UI.renderAll(); return; }
     gameState.club.region = +v;
-    Engine.addLog('📍 Klub przepisany do OZPN: woj. ' + Selectors.voivodeship().toLowerCase() + '. Po awansach: IV liga w tym województwie i III liga, grupa ' + Selectors.groupLabel() + '.', 'system');
+    Engine.addLog('📍 Klub przepisany do OZPN: woj. ' + Selectors.voivodeship().toLowerCase() + '. Po awansach: ' + (Selectors.hasVLiga() ? 'V liga, ' : '') + 'IV liga w tym województwie i III liga, grupa ' + Selectors.groupLabel() + '.', 'system');
     Storage.save();
     UI.renderAll();
   },
