@@ -7528,6 +7528,16 @@ const Selectors = {
   establishedFactor: () => { const since = gameState.club.levelSince; if (since == null) return 1; const y = gameState.calendar.season - since; return y <= 0 ? 0.75 : y === 1 ? 0.88 : 1; },
   revEcon: () => Selectors.econ() * Selectors.establishedFactor(),
   tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.revEcon() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) / 5) * 5 : 0),
+  // Lista województw do <select> (alfabetycznie)
+  regionOptions: (cur) => DATA.cupRegions.map((r, i) => ({ i, n: Selectors.voivodeship(i) })).sort((a, b) => a.n.localeCompare(b.n, 'pl'))
+    .map((x) => `<option value="${x.i}"${String(cur) === String(x.i) ? ' selected' : ''}>${Utils.escape(x.n)}</option>`).join(''),
+  // Ścieżka awansów od B-klasy do Ekstraklasy dla województwa (bieżący szczebel wyróżniony)
+  promoPath: (region, cur = 0) => {
+    const has = region !== '' && region != null && DATA.cupRegions[+region];
+    const g = has ? [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][+region] : null;
+    const steps = DATA.leagueLevels.map((L, i) => (!L ? null : i === 4 && has ? 'IV liga (woj. ' + Selectors.voivodeship(+region).toLowerCase() + ')' : i === 5 && has ? 'III liga gr. ' + ['I', 'II', 'III', 'IV'][g] : L.name)).filter(Boolean);
+    return steps.map((t, i) => (i + 1 === cur ? `<b class="text-ink-900 underline">${Utils.escape(t)}</b>` : Utils.escape(t))).join(' → ');
+  },
   voivodeship: (i = gameState.club.region) => { const r = DATA.cupRegions[i]; return r ? r[0].replace(/ki$/, 'kie') : '–'; },
   groupLabel: (g = Selectors.leagueGroup()) => ['I (mazowiecko-podlasko-warmińsko-łódzka)', 'II (wielkopolsko-pomorsko-kujawska)', 'III (śląsko-dolnośląsko-opolsko-lubuska)', 'IV (małopolsko-podkarpacko-lubelsko-świętokrzyska)'][g],
   // Pula klubów ligi; III liga – grupa wg województwa klubu (I: Mazowsze/Podlasie/Warmia/Łódzkie, II: Wielkopolska/Pomorze/Kujawy, III: Śląsk/Dolny Śląsk/Opolskie/Lubuskie, IV: Małopolska/Podkarpacie/Lubelskie/Świętokrzyskie)
@@ -7934,9 +7944,11 @@ const UI = {
                 <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border border-paper-400 rounded-lg bg-amber-glow hover:brightness-110 text-ink-900 text-sm font-bold">🎲 Wylosuj kultowy klub</button>
               `)}
               ${section('II', 'Województwo', `
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">${[0, 1, 2, 3].map((g) => `<div class="space-y-1"><div class="text-[10.5px] uppercase tracking-wide text-ink-700 font-semibold">III liga · gr. ${['I', 'II', 'III', 'IV'][g]}</div>${DATA.cupRegions.map((r, i) => ({ r, i })).filter((x) => [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][x.i] === g).map((x) => `<button data-action="form-set" data-field="region" data-value="${x.i}" class="btn-press w-full px-2 py-1 border border-paper-400 rounded-md text-[12.5px] text-left ${String(f.region) === String(x.i) ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300 text-ink-900'}">${Utils.escape(Selectors.voivodeship(x.i))}</button>`).join('')}</div>`).join('')}</div>
-                <button data-action="form-set" data-field="region" data-value="" class="btn-press mt-2 px-3 py-1 border border-paper-400 rounded-md text-[12.5px] ${f.region === '' ? 'bg-ink-900 text-paper-100' : 'bg-paper-200'}">🎲 Losowo</button>
-                <p class="text-xs text-ink-700 mt-1">Decyduje o grupie III ligi po awansie i o tym, w którym województwie grasz regionalny Puchar Polski (finał na stadionie regionu).</p>
+                <select data-field="region" aria-label="Województwo klubu" class="w-full px-3 py-2 bg-white border border-paper-400 rounded-md text-[14px] text-ink-900 focus:outline-none focus:ring-2 focus:ring-amber-glow">
+                  <option value=""${f.region === '' || f.region == null ? ' selected' : ''}>🎲 Losowo – niech zdecyduje OZPN</option>${Selectors.regionOptions(f.region)}
+                </select>
+                <p id="region-path" class="text-[11.5px] text-ink-700 mt-1.5 leading-snug">🛤️ Start w B-klasie: ${Selectors.promoPath(f.region, 1)}</p>
+                <p class="text-xs text-ink-700 mt-1">Województwo przypisze klub do IV ligi i grupy III ligi po awansach oraz do wojewódzkiego Pucharu Polski (finał na stadionie regionu).</p>
               `)}
               ${section('III', 'Charakter miejscowości', `<div class="grid grid-cols-1 gap-2">${characterCards}</div>`)}
               ${section('IV', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
@@ -9115,7 +9127,10 @@ const UI = {
     const next = pts >= CONFIG.fedHeavy ? 'degradacja lub ban na 2 okienka' : pts >= CONFIG.fedBan ? 'ban transferowy' : pts >= CONFIG.fedFine ? 'grzywna' : 'brak kary';
     const rows = (fed.log || []).slice(0, 8).map((x) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 pr-1 text-ink-700 whitespace-nowrap text-[11px]">S${x.season} T${x.week}</td><td class="max-w-0 w-full truncate">${Utils.escape(x.reason)}</td><td class="text-right font-bold ${x.pts >= 4 ? 'text-stamp' : ''}">+${x.pts}</td></tr>`).join('');
     const pct = Utils.clamp(pts / CONFIG.fedHeavy * 100, 0, 100);
-    return UI.tiles([
+    const lvl = gameState.club.leagueLevel, locked = lvl > 3;
+    const geo = UI.panel('📍 Przynależność terytorialna', '', `<div class="flex items-center gap-2"><select data-region-select aria-label="Województwo klubu" ${locked ? 'disabled' : ''} class="flex-1 min-w-0 px-2 py-1 bg-white border border-paper-400 rounded-md text-[13px] text-ink-900 disabled:opacity-60">${Selectors.regionOptions(gameState.club.region)}</select><span class="text-[10.5px] text-ink-700 leading-tight w-28 shrink-0">${locked ? '🔒 klub gra już w strukturach regionu' : 'zmiana możliwa do Klasy Okręgowej'}</span></div>
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">🛤️ ${Selectors.promoPath(gameState.club.region, lvl)}</p>`);
+    return geo + UI.tiles([
       UI.tile('Punkty karne', pts + ' pkt', 'po sezonie: ' + next, pts >= CONFIG.fedBan ? 'text-stamp' : ''),
       UI.tile('Afery łącznie', String(gameState.club.scandals), 'w historii klubu'),
       UI.tile('Ban transferowy', ban ? 'TAK' : 'nie', ban ? 'do sezonu ' + gameState.transferBan.until : 'rejestracja wolna', ban ? 'text-stamp' : ''),
@@ -9968,6 +9983,15 @@ const App = {
 };
 
 const Actions = {
+  // Zmiana województwa w trakcie gry – tylko do Klasy Okręgowej (od IV ligi klub gra już w strukturach regionu)
+  'set-region'(v) {
+    if (gameState.club.leagueLevel > 3 || !DATA.cupRegions[+v] || +v === gameState.club.region) { UI.renderAll(); return; }
+    gameState.club.region = +v;
+    Engine.addLog('📍 Klub przepisany do OZPN: woj. ' + Selectors.voivodeship().toLowerCase() + '. Po awansach: IV liga w tym województwie i III liga, grupa ' + Selectors.groupLabel() + '.', 'system');
+    Storage.save();
+    UI.renderAll();
+  },
+
   'form-set'(el) {
     const f = gameState.ui.form;
     f[el.dataset.field] = el.dataset.value;
@@ -10266,10 +10290,13 @@ document.addEventListener('toggle', (e) => {
 }, true);
 
 document.addEventListener('input', (e) => {
+  if (e.target.dataset && e.target.dataset.regionSelect != null) { Actions['set-region'](e.target.value); return; }
   const field = e.target.dataset && e.target.dataset.field;
   if (!field || gameState.screen !== 'start') return;
   const f = gameState.ui.form;
   f[field] = e.target.value;
+  const rp = document.getElementById('region-path');
+  if (field === 'region' && rp) rp.innerHTML = '🛤️ Start w B-klasie: ' + Selectors.promoPath(f.region, 1);
   if (field === 'stadium') f.stadiumEdited = e.target.value.trim() !== '';
   const stadiumBox = document.querySelector('input[data-field="stadium"]');
   if (field === 'town' && stadiumBox && !f.stadiumEdited) stadiumBox.placeholder = Selectors.defaultStadium(f.town.trim() || '[Miejscowość]');
