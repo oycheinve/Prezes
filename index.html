@@ -9699,7 +9699,6 @@ const UI = {
     const sus = gameState.squad.filter((p) => !p.loan && p.suspended > 0);
     const risk = gameState.squad.filter((p) => !p.loan && (p.yellows || 0) % 4 === 3);
     const nm = (l) => l.slice(0, 3).map((p) => Utils.escape(Selectors.shortName(p))).join(', ') + (l.length > 3 ? ' +' + (l.length - 3) : '');
-    const soon = i === gameState.calendar.round && Selectors.isMatchWeek();   // ten tydzień gramy (nie w okresie przygotowawczym)
     const pre = i === gameState.calendar.round && !Selectors.isMatchWeek();
     return `<li class="-mx-1 px-2 py-1.5 rounded-md bg-paper-200 border border-sky-500/40 text-[11.5px] leading-snug space-y-0.5">
       <div><b>${eur.C.icon} ${Utils.escape(eur.C.name)}</b> · ${Utils.escape(eur.label)} · tydzień ${eur.k}. kolejki</div>
@@ -9708,8 +9707,6 @@ const UI = {
       ${risk.length ? `<div class="text-amber-700">🟨 Na granicy pauzy (3 żółte): ${nm(risk)}</div>` : ''}
       <div class="text-ink-700">Mecz w środku tygodnia męczy kadrę – dobry fizjoterapeuta skraca regenerację.</div>
       ${pre ? `<div class="text-sky-700 font-semibold">⏳ Liga i europejski wieczór ruszają za ${CONFIG.preseasonWeeks + 1 - gameState.calendar.week} tyg. – zdążysz z rotacją i leczeniem.</div>` : ''}
-      ${soon ? (Engine.canAdvanceWeek() ? `<button data-action="next-week" class="btn-press w-full h-8 mt-1 rounded-md bg-sky-600 text-white text-[12px] font-bold">▶ Rozegraj tydzień: liga + ${Utils.escape(eur.C.short)}</button>`
-        : `<button data-action="switch-tab" data-tab="desk" data-view="decisions" class="btn-press w-full h-8 mt-1 rounded-md bg-paper-300 text-ink-900 text-[12px] font-bold">🔒 Najpierw sprawy na Biurku – potem gramy</button>`) : ''}
     </li>`;
   },
 
