@@ -9696,7 +9696,7 @@ const UI = {
     const eu = gameState.euro, C = DATA.euro.comps[eu.comp];
     if (!eu.lpTable) {
       return `<p class="text-[11px] text-paper-400 mb-1">${C.icon} ${C.name} · ${Utils.escape(eu.done ? eu.result : DATA.euro.stages[eu.stage].label)}</p>`
-        + UI.panel('Faza ligowa ' + C.name, 'Tabela 36 drużyn ruszy po awansie z eliminacji.', `<p class="text-[12px] mb-1">W fazie ligowej czekają m.in.:</p><p class="text-[12px] text-ink-700 leading-snug">${DATA.euro.lp[eu.comp].slice(0, 12).map(Utils.escape).join(', ')}…</p>`
+        + UI.panel('Faza ligowa · ' + C.name, '', `<p class="text-[12px] text-ink-700 leading-snug">${DATA.euro.lp[eu.comp].slice(0, 12).map(Utils.escape).join(', ')}…</p>`
           + (eu.history.length ? `<ul class="text-[11.5px] mt-1.5 space-y-0.5">${eu.history.slice(0, 4).map((x) => '<li class="truncate">' + Utils.escape(x.text) + '</li>').join('')}</ul>` : ''));
     }
     const rows = Selectors.euroLpStandings();
@@ -9723,7 +9723,7 @@ const UI = {
           ${html}
         </table>
       </section>
-      <p class="text-[10.5px] text-paper-400 leading-snug">36 drużyn · <span class="inline-block w-2 h-2 bg-grass align-middle"></span> 1–8: 1/8 finału · <span class="inline-block w-2 h-2 bg-sky-500 align-middle"></span> 9–24: baraż · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> 25–36: koniec · gramy tylko z ${C.lpGames} rywalami${eu.done ? ' · ' + Utils.escape(eu.result) : ''}</p>`;
+      <p class="text-[10.5px] text-paper-400 leading-snug">36 drużyn · <span class="inline-block w-2 h-2 bg-grass align-middle"></span> 1–8: 1/8 finału · <span class="inline-block w-2 h-2 bg-sky-500 align-middle"></span> 9–24: baraż · <span class="inline-block w-2 h-2 bg-stamp align-middle"></span> 25–36: koniec${eu.done ? ' · ' + Utils.escape(eu.result) : ''}</p>`;
   },
 
   // Europejskie puchary: rozgrywki, etap, terminarz, premie
@@ -9737,20 +9737,16 @@ const UI = {
       const k = eu.stage === 'LP' ? Selectors.euroKolejka(st.kolejki[eu.lp.played]) : Selectors.euroKolejka(st.kolejka);
       next = st.label + (eu.stage === 'LP' ? ' – mecz ' + (eu.lp.played + 1) + '/' + C.lpGames : '') + ' · w tygodniu ' + k + '. kolejki';
     }
-    const guarantee = eu.origin === 'UCL' ? 'Odpadnięcie w eliminacjach LM = start w Lidze Europy (porażka w play-off LM daje fazę ligową LE).'
-      : eu.origin === 'UEL' ? 'Odpadnięcie w eliminacjach LE = Liga Konferencji (porażka w play-off LE daje fazę ligową LKE).' : 'Liga Konferencji: bez siatki bezpieczeństwa – porażka w eliminacjach kończy przygodę.';
     const hist = eu.history.slice(0, 6).map((x) => `<li class="truncate">${Utils.escape(x.text)}</li>`).join('');
-    return UI.panel(`${C.icon} ${C.name} · sezon ${eu.season}`, eu.season === gameState.calendar.season ? 'Start: ' + Selectors.euroQualLabel({ comp: eu.origin, path: eu.path }) : 'Poprzednia kampania',
+    return UI.panel(`${C.icon} ${C.name} · sezon ${eu.season}`, eu.season === gameState.calendar.season ? (eu.comp !== eu.origin ? 'Start w: ' + O.name : '') : 'Poprzednia kampania',
       `<div class="grid grid-cols-3 gap-1.5 text-center">
         <div class="rounded-md bg-paper-200 py-1"><div class="text-[10px] uppercase text-ink-700">Etap</div><b class="text-[12px] block truncate px-1">${eu.done ? 'koniec' : Utils.escape(st.label)}</b></div>
         <div class="rounded-md bg-paper-200 py-1"><div class="text-[10px] uppercase text-ink-700">Faza ligowa</div><b class="text-[12px]">${eu.lp ? eu.lp.pts + ' pkt' + (eu.lp.rank ? ' · ' + eu.lp.rank + '.' : '') : '–'}</b></div>
         <div class="rounded-md bg-paper-200 py-1"><div class="text-[10px] uppercase text-ink-700">Premie</div><b class="text-[12px]">${Utils.formatMoney(eu.earned)}</b></div>
       </div>
-      <p class="text-[11.5px] mt-1.5 leading-snug">${live ? '📅 Następny europejski wieczór: <b>' + Utils.escape(next) + '</b>' : '<b>' + Utils.escape(eu.result || '') + '</b>'}</p>
-      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">🛡️ ${guarantee}${eu.comp !== eu.origin ? ' Teraz gramy w: ' + C.name + ' (start: ' + O.name + ').' : ''}</p>`)
-      + UI.panel('📜 Mecze w Europie', 'Dwumecze w eliminacjach i fazie pucharowej, finał na neutralnym stadionie',
-        hist ? `<ul class="text-[12px] space-y-0.5">${hist}</ul>` : '<p class="text-[12px] text-ink-700">Pierwszy europejski wieczór dopiero przed nami.</p>')
-      + `<p class="text-[10.5px] text-paper-400 leading-snug">⭐ Zawodnicy z meczami w Europie mogą osiągnąć OVR do 99 – w samej lidze sufit to 92. Najlepszy wynik klubu: ${Utils.escape(gameState.stats.euroBest || '–')}${gameState.stats.euroTrophies ? ' · 🏆×' + gameState.stats.euroTrophies : ''}</p>`;
+      <p class="text-[11.5px] mt-1.5 leading-snug">${live ? '📅 Następny europejski wieczór: <b>' + Utils.escape(next) + '</b>' : '<b>' + Utils.escape(eu.result || '') + '</b>'}</p>`)
+      + UI.panel('📜 Mecze w Europie', '',
+        hist ? `<ul class="text-[12px] space-y-0.5">${hist}</ul>` : '<p class="text-[12px] text-ink-700">Pierwszy europejski wieczór dopiero przed nami.</p>');
   },
 
   // Finanse całej ligi: kasa, zdolność kredytowa i pożyczki każdego klubu
