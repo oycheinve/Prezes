@@ -2402,6 +2402,7 @@ const DATA = {
       id: 'u19Graduate',
       cutscene: { icon: '🎓', place: 'Gabinet prezesa · koniec sezonu', scripted: true },
       player: () => (gameState.u19 && gameState.u19.graduates[0]) || null,
+      u19Card: true,   // karta z ligi U19 i potencjałem zamiast statystyk seniorskich
       from: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? Selectors.u19Name() + ' · ' + p.age + ' lat' : 'Akademia'; },
       title: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? Selectors.nickQ(p) + ' kończy 19 lat' : 'Junior kończy 19 lat'; },
       body: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Trener juniorów kładzie na biurku teczkę: „' + Selectors.playerName(p) + ' wyrasta z U19. ' + (p.talent ? 'To perełka – szkoda by było go stracić. ' : '') + 'Albo dajemy mu kontrakt w pierwszej drużynie, albo musi szukać klubu.” ➕ ' + p.youthPro + ' · ➖ ' + p.youthCon : ''; },
@@ -4410,8 +4411,17 @@ const Engine = {
     const scorers = [];
     for (let i = 0; i < gf; i++) {
       const sc = Utils.weightedPick(eleven, (x) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[x.pos]) * x.skill);
-      if (sc) { sc.u19Goals = (sc.u19Goals || 0) + 1; sc.u19GoalsTotal = (sc.u19GoalsTotal || 0) + 1; scorers.push(sc.nick); }
+      if (sc) {
+        sc.u19Goals = (sc.u19Goals || 0) + 1; sc.u19GoalsTotal = (sc.u19GoalsTotal || 0) + 1; scorers.push(sc.nick);
+        const as = Math.random() < 0.75 && Utils.weightedPick(eleven.filter((x) => x !== sc), (x) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[x.pos]) * x.skill);
+        if (as) { as.u19Assists = (as.u19Assists || 0) + 1; as.u19AssistsTotal = (as.u19AssistsTotal || 0) + 1; }
+      }
     }
+    eleven.forEach((x) => {   // kartki juniorów: temperament jak w seniorach
+      const t = x.temper != null ? x.temper : 0.4;
+      if (Math.random() < 0.004 * (0.5 + t * 2)) x.u19Reds = (x.u19Reds || 0) + 1;
+      else if (Math.random() < 0.06 * (0.4 + t * 1.6)) x.u19Yellows = (x.u19Yellows || 0) + 1;
+    });
     eleven.forEach((x) => {
       const r = Math.round(Utils.clamp(6 + (gf - ga) * 0.35 + scorers.filter((n) => n === x.nick).length * 0.8 + (x.skill - avg) * 0.25 + Utils.randRange(-1, 1), 2, 10) * 10) / 10;
       x.u19RatingSum = (x.u19RatingSum || 0) + r; x.u19RatingN = (x.u19RatingN || 0) + 1;
@@ -4488,7 +4498,8 @@ const Engine = {
       let gain = Engine.develop(p, Math.round((p.u19Apps || 0) * 1.3), false);
       if (Math.random() < Selectors.u19Lvl('coach') * 0.15 && p.skill < Selectors.potential(p)) { p.skill++; gain++; }   // trener juniorów
       if (gain) grew.push(p.nick + ' +' + gain);
-      p.age++; p.u19Apps = 0; p.u19Goals = 0; p.u19RatingSum = 0; p.u19RatingN = 0;   // nowy sezon juniorów
+      p.u19Prev = { season: gameState.calendar.season, apps: p.u19Apps || 0, goals: p.u19Goals || 0, assists: p.u19Assists || 0, avg: p.u19RatingN ? Math.round(p.u19RatingSum / p.u19RatingN * 10) / 10 : null, yellows: p.u19Yellows || 0, reds: p.u19Reds || 0 };   // do decyzji o 19-latku
+      p.age++; p.u19Apps = 0; p.u19Goals = 0; p.u19Assists = 0; p.u19Yellows = 0; p.u19Reds = 0; p.u19RatingSum = 0; p.u19RatingN = 0;   // nowy sezon juniorów
     });
     u.form = [];
     const grads = u.squad.filter((p) => p.age >= 19);   // decyzja o nich zapada po okienku transferowym
@@ -7653,6 +7664,38 @@ const UI = {
   },
 
   // Karta statystyk zawodnika w decyzjach transferowych: liczby z bieżącego sezonu + kariera w klubie
+  // Decyzja o 19-latku: sezon w lidze U19 + szacowany sufit rozwoju
+  u19GradCard(p) {
+    if (!p) return '';
+    const st = p.u19Prev || { apps: p.u19Apps || 0, goals: p.u19Goals || 0, assists: p.u19Assists || 0, avg: p.u19RatingN ? Math.round(p.u19RatingSum / p.u19RatingN * 10) / 10 : null, yellows: p.u19Yellows || 0, reds: p.u19Reds || 0 };
+    const stat = (label, value) => `<div class="min-w-0"><div class="text-[9px] uppercase tracking-wide text-paper-400">${label}</div><div class="text-[15px] font-bold leading-tight">${value}</div></div>`;
+    const team = Selectors.teamOvr();
+    const potOvr = Selectors.ovr({ ...p, skill: Selectors.potential(p), formHistory: [] });
+    const err = Math.max(1, 4 - Selectors.u19Lvl('recruiter'));   // dobry rekruter = dokładniejsza ocena
+    const lo = Math.max(Selectors.ovr(p), potOvr - err), hi = potOvr + err;
+    const verdict = potOvr >= team + 8 ? ['🌟 Przyszła gwiazda', 'text-amber-glow'] : potOvr >= team + 2 ? ['💪 Materiał na podstawowy skład', 'text-grass'] : potOvr >= team - 4 ? ['🙂 Solidny rezerwowy', 'text-paper-200'] : ['😐 Przeciętniak', 'text-paper-400'];
+    const stars = Selectors.potentialStars(p);
+    return `
+      <div class="rounded-xl border bg-desk-800 border-desk-600 text-paper-100 px-3 py-2 mt-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[11px] text-paper-400">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · <b class="text-paper-100">OVR ${Selectors.ovr(p)}</b> (drużyna ${team})</div>
+          </div>
+          ${UI.profileBadge(p.profile)}
+        </div>
+        <div class="rounded-lg bg-desk-900/60 px-2 py-1.5 mt-2 flex items-center justify-between gap-2">
+          <div class="min-w-0"><div class="text-[9.5px] uppercase tracking-wide text-paper-400">📈 Szacowany sufit</div><div class="text-[13px] font-bold ${verdict[1]}">${verdict[0]}</div></div>
+          <div class="text-right"><div class="text-[13px] text-amber-glow leading-none">${'★'.repeat(stars)}<span class="text-paper-400">${'☆'.repeat(5 - stars)}</span></div><div class="text-[11.5px] font-bold mt-0.5">OVR ${lo === hi ? hi : lo + '–' + hi}</div></div>
+        </div>
+        <div class="text-[9.5px] uppercase tracking-wide text-paper-400 mt-2">Liga U19 · sezon ${st.season || gameState.calendar.season - 1}</div>
+        <div class="grid grid-cols-5 gap-1 mt-0.5 text-center">
+          ${stat('Mecze', st.apps)}${stat('Gole', st.goals)}${stat('Asysty', st.assists)}${stat('Śr. nota', st.avg != null ? UI.ratingBadge(st.avg) : '–')}${stat('Kartki', '<span class="text-[12px]">🟨' + st.yellows + ' 🟥' + st.reds + '</span>')}
+        </div>
+        <div class="text-[10.5px] text-paper-400 mt-1.5">W akademii łącznie: ${p.u19Total || 0} m, ${p.u19GoalsTotal || 0} g, ${p.u19AssistsTotal || 0} as.${Selectors.u19Lvl('recruiter') ? '' : ' · bez rekrutera ocena sufitu mniej pewna'}</div>
+      </div>`;
+  },
+
   playerCard(p, dark = false) {
     if (!p) return '';
     const box = dark ? 'bg-desk-800 border-desk-600 text-paper-100' : 'bg-paper-200 border-paper-300 text-ink-900';
@@ -7696,7 +7739,7 @@ const UI = {
         <h2 class="text-center ${compact ? 'text-[20px]' : 'text-[24px]'} font-extrabold tracking-tight leading-tight mt-1">${Utils.escape(Utils.val(d.title))}</h2>
         <div class="text-center text-[11px] text-paper-400 mt-0.5">${Utils.escape(Utils.val(d.from))}</div>
         <p class="${compact ? 'text-[13px] leading-snug mt-2' : 'text-[14.5px] leading-relaxed mt-4'} text-paper-200 italic">${Utils.escape(Utils.val(d.body))}</p>
-        ${pl ? (compact ? `<div class="text-[11.5px] text-paper-300 mt-1.5">${UI.ovrBadge(pl)} ${DATA.positions[pl.pos].label} · ${pl.age} l. · ${pl.wage} zł/tydz.</div>` : UI.playerCard(pl, true)) : ''}
+        ${pl ? (compact ? `<div class="text-[11.5px] text-paper-300 mt-1.5">${UI.ovrBadge(pl)} ${DATA.positions[pl.pos].label} · ${pl.age} l. · ${pl.wage} zł/tydz.</div>` : (d.u19Card ? UI.u19GradCard(pl) : UI.playerCard(pl, true))) : ''}
         <div class="text-[10.5px] uppercase tracking-wider text-paper-400 font-semibold ${compact ? 'mt-2 mb-1' : 'mt-5 mb-1.5'}">Decyzja prezesa</div>
         <div class="grid ${compact ? 'gap-1.5' : 'gap-2'}">${opts}</div>
       </div>
@@ -7875,7 +7918,7 @@ const UI = {
         <article class="py-3 border-b border-desk-700 last:border-0">
           <div class="flex items-center gap-2"><span class="text-[26px]">${d.cutscene.icon}</span><div class="min-w-0"><div class="text-[15px] font-extrabold">${Utils.escape(Utils.val(d.title))}</div><div class="text-[11px] text-paper-400 truncate">${Utils.escape(Utils.val(d.from))}</div></div></div>
           <p class="text-[12.5px] italic text-paper-300 leading-snug mt-1.5">${Utils.escape(Utils.val(d.body))}</p>
-          ${d.player ? UI.playerCard(d.player(), true) : ''}
+          ${d.player ? (d.u19Card ? UI.u19GradCard(d.player()) : UI.playerCard(d.player(), true)) : ''}
           <div class="grid gap-1.5 mt-2">${opts}</div>
         </article>`;
       }).join('') || '<p class="text-[12.5px] text-paper-400 py-2">Wszystkie oferty i żądania rozpatrzone.</p>');
@@ -8354,7 +8397,7 @@ const UI = {
         UI.tile('Bilans', me.w + '-' + me.d + '-' + me.l, me.p + ' meczów'),
         UI.tile('Bramki', me.gf + ':' + me.ga, me.pts + ' pkt · ' + (pos || '–') + '. miejsce'),
         UI.tile('Forma', dots || '–', u.last ? 'ost. ' + u.last.gf + ':' + u.last.ga : 'brak meczów'),
-      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon · w nawiasie łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
+      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon: gole i asysty · w nawiasie gole łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 whitespace-nowrap">${p.u19Assists || 0} as.</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
         + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${p.talent ? '💎 ' : ''}${Utils.escape(Selectors.shortName(p))} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
     }
     if (view === 'base') {
