@@ -238,6 +238,89 @@ const DATA = {
       ],
     } },
   vRegions: [1, 2, 3, 4],
+  // 13.69: prawdziwe kluby Klasy Okręgowej (3), A-klasy (2) i B-klasy (1) w każdym z 16 województw (indeks jak w cupRegions)
+  lowerLeagues: {
+    0: {   // dolnośląskie
+      3: ['Zenit Międzybórz', 'Strzelinianka Strzelin', 'MKP Wołów', 'Pogoń Oleśnica', 'Mechanik Brzezina', 'Zjednoczeni Żarów', 'Górnik Wałbrzych', 'Victoria Świebodzice', 'Konfeks Legnica', 'Chojnowianka Chojnów', 'GKS Męcinka', 'Apis Jędrzychowice', 'Hutnik Pieńsk', 'Łużyce Lubań', 'Twardy Świętoszów', 'Włókniarz Leśna'],
+      2: ['Parasol Wrocław', 'Ślęza II Wrocław', 'Sokół Marcinkowice', 'Burza Bystrzyca', 'Czarni Jelcz-Laskowice', 'Orzeł Prusice', 'Polonia Jaszowice', 'Lotnik Twardogóra', 'Sparta Węgliniec', 'Cosmos Radzimów', 'Chrobry Nowogrodziec', 'Bóbr Marciszów', 'Kwisa Świeradów-Zdrój', 'Nysa Zgorzelec', 'Granica Bogatynia', 'LKS Ocice'],
+      1: ['Widawa Wrocław', 'Błękitni Pawłówek', 'Zorza Pęgów', 'Plon Gądkowice', 'KS Kobierzyce', 'Orzeł Święta Katarzyna', 'Pogoń Syców', 'Barycz Milicz', 'LZS Osiek', 'Iskra Pasikurowice', 'LKS Ciechów', 'Odra Malczyce', 'Zjednoczeni Łowęcice', 'Wratislavia II Wrocław', 'Błękitni Chwalimierz', 'Sparta Miłcz'],
+    },
+    1: {   // mazowieckie
+      3: ['Sarmata Warszawa', 'Marymont Warszawa', 'Okęcie Warszawa', 'Przyszłość Włochy', 'Vulcan Wólka Mlądzka', 'Mazur II Karczew', 'Orzeł Baniocha', 'Laura Chylice', 'KS Raszyn', 'Świt Staroźreby', 'Amator Maszewo Duże', 'Stoczniowiec Płock', 'Korona Szydłowo', 'Wkra Żuromin', 'Mławianka II Mława', 'Kryształ Glinojeck'],
+      2: ['Coco Jambo Warszawa', 'RKS Mirków Konstancin-Jeziorna', 'Nadstal Krzaki Czaplinkowskie', 'Wisła Maciejowice', 'Orzeł Parysów', 'GKS Chynów', 'Korona Góra Kalwaria', 'Tur Jaktorów', 'Pogoń II Grodzisk Maz.', 'Partyzant Leszno', 'Błyskawica Lucimia', 'Kraska Jasieniec', 'Plon Garbatka-Letnisko', 'Akcja Jastrzębia', 'Zorza Kowala', 'Megawat Świerże Górne'],
+      1: ['Chrząszcz Warszawa', 'Dziki Warszawa', 'Grom Warszawa', 'Farmacja Tarchomin', 'Orzeł Łosice', 'Tajfun Jartypory', 'Rywal Ruchna', 'Błękitni Stoczek', 'Iskra Gózd', 'WKS Zajezierze', 'Wisła Chotcza', 'LKS Promna', 'GKS Belsk Duży', 'Sadownik Błędów', 'Orzeł Gielniów', 'KS Potworów'],
+    },
+    2: {   // wielkopolskie
+      3: ['Przemysław Poznań', 'TPS Winogrady Poznań', 'Poznaniak Poznań', 'Kotwica II Kórnik', 'Lider Swarzędz', 'Las Puszczykowo', 'Patria Buk', 'Pogoń Książ Wlkp.', 'Vitcovia Witkowo', 'Czarni Ostrowite', 'Orzeł Grzegorzew', 'Tulisia II Tuliszków', 'Zefka Kobyla Góra', 'Pogoń Trębaczów', 'Astra II Krotoszyn', 'Sulimirczyk Sulmierzyce'],
+      2: ['Szturm Junikowo Poznań', 'Orkan Konarzewo', 'Lotnik-1997 Poznań', 'Błękitni Owińska', 'Clescevia Kleszczewo', 'Piast Łubowo', 'Wełnianka Kiszkowo', 'Lechita Kłecko', 'Warta Pyzdry', 'Zjednoczeni Rychwał', 'Strażak Licheń Stary', 'Baszta Przedecz', 'LKS Czarnylas', 'Sokół Bralin', 'Wielkopolanin Siemianice', 'Barycz Janków Przygodzki'],
+      1: ['Meblorz II Swarzędz', 'KS Szczytniki', 'Antares Zalasewo', 'Orły Plewiska', 'Złoci Złotkowo', 'Błękitni Niechłód', 'Dąb Boguszyn', 'KS Łopuchowo', 'LKS Goranin', 'Warta Dobrów', 'Orzeł Kawęczyn', 'Grom Malanów', 'LZS Doruchów', 'KS Rogaszyce', 'Iskra Przedborów', 'Victoria Laski'],
+    },
+    3: {   // śląskie
+      3: ['Wawel Wirek', 'Urania Ruda Śląska', 'Slavia Ruda Śląska', 'Siemianowiczanka Siemianowice', 'Wyzwolenie Chorzów', 'Kolejarz 24 Katowice', 'Górnik 09 Mysłowice', 'AKS Niwka Sosnowiec', 'Sarmacja Będzin', 'CKS Czeladź', 'Górnik Wojkowice', 'Naprzód Rydułtowy', 'Pierwszy Chwałowice', 'Płomień Połomia', 'Góral Żywiec', 'Koszarawa Żywiec'],
+      2: ['Grunwald Ruda Śląska', 'Jastrząb Bielszowice', 'Stadion Śląski Chorzów', 'UKS Ruch Chorzów', 'Hetman 22 Katowice', 'Strażak Mikołów', 'Fortuna Wyry', 'Zagłębiak Tucznawa', 'RKS Grodziec', 'Źródło Kromołów', 'Przyszłość Rogów', 'Polonia Niewiadom', 'Rymer Rybnik', 'LKS Skrzyszów', 'Orzeł Łękawica', 'Świt Cięcina'],
+      1: ['Gwiazda Ruda Śląska', 'Naprzód Lipiny', 'Józefka Chorzów', 'Zryw Chorzów', 'MK Górnik Katowice', 'GTS Bojszowy', 'Sokół Wola', 'Iskra II Pszczyna', 'Zew Kazimierz', 'Górnik Sosnowiec', 'Błękitni Sarnów', 'Odra Nieboczowy', 'Zuch Orzepowice', 'Płomień Ochojec', 'LKS Korbielów', 'Jeleśnianka Jeleśnia'],
+    },
+    4: {   // małopolskie
+      3: ['Wieczysta III Kraków', 'Wanda Kraków', 'Clepardia Kraków', 'Proszowianka Proszowice', 'Zieleńczanka Zielonki', 'Kaszowianka Kaszów', 'Orlęta Rudawa', 'Tempo Rzeszotary', 'Hejnał Krzyszkowice', 'Victoria Witkowice', 'Zatorzanka Zator', 'Halniak Maków Podhalański', 'Babia Góra Sucha Beskidzka', 'LKS Szaflary', 'Jarmuta Szczawnica', 'Biegoniczanka Nowy Sącz'],
+      2: ['Płaszowianka Kraków', 'Bieżanowianka Kraków', 'Grębałowianka Kraków', 'Wawel Kraków', 'Bronowianka Kraków', 'Prądniczanka II Kraków', 'Wisła Jeziorzany', 'Cedronka Wola Radziszowska', 'Sokół Przytkowice', 'Skałka Żabnica', 'Strzelec Budzów', 'KS Zakopane', 'Wierchy Rabka-Zdrój', 'Czarni Czarny Dunajec', 'Babiogórzec Lipnica Wielka', 'Zyndram Łącko'],
+      1: ['Dąbski Kraków', 'Universum Kraków', 'Pychowianka Kraków', 'Sikornik Kraków', 'Tramwaj Kraków', 'Gajowianka Gaj', 'Iskra Czułów', 'Wisła Czernichów', 'Orzeł Bębło', 'Sportowiec Modlniczka', 'Grom Grzechynia', 'KS Chochołów', 'Delta Pieniny', 'LKS Mszalnica', 'Zamczysko Marcinkowice', 'Helena Nowy Sącz'],
+    },
+    5: {   // pomorskie
+      3: ['Gedania II Gdańsk', 'Portowiec Gdańsk', 'Tylko Lechia Gdańsk', 'Orzeł Subkowy', 'Wisła Tczew', 'Żuławy Nowy Dwór Gdański', 'Kaszubia Kościerzyna', 'GKS Sierakowice', 'Sporting Leźno', 'Orlęta Reda', 'Sztorm Kosakowo', 'MKS Władysławowo', 'Jantar Ustka', 'Wybrzeże Objazda', 'Czarni Czarne', 'Borowiak Czersk'],
+      2: ['Morenka Gdańsk', 'EX Siedlce Gdańsk', 'Olimpia Osowa', 'Potok Pszczółki', 'Sobieski Gniew', 'Korona Cedry Wielkie', 'Amator Kiełpino', 'KS Chwaszczyno', 'Orzeł Trąbki Wielkie', 'Sokół Ełganowo', 'Zatoka Puck', 'Korona Żelistrzewo', 'Latarnik Choczewo', 'Echo Biesowice', 'Kaszubia Studzienice', 'Brda Rytel'],
+      1: ['Smoki Gdańsk', 'Stoczniowiec II Gdańsk', 'Orzeł Straszyn', 'Santana Wielki Klincz', 'GKS Żukowo', 'Gryf Goręczyno', 'Huragan Smolno', 'AP Cassubian Bolszewo', 'Iskra Dretyń', 'Grom Nakla', 'Dąb Kusowo', 'Orzeł Niepoględzie', 'Myśliwiec Tuchomie', 'Gwiazda Karsin', 'Kolejarz II Chojnice', 'MKP Szlachta'],
+    },
+    6: {   // łódzkie
+      3: ['Kolejarz Łódź', 'KKS Koluszki', 'Włókniarz Zgierz', 'Zawisza Rzgów', 'Stal Niewiadów', 'Jutrzenka Drzewica', 'Pilica Przedbórz', 'Kasztelan Żarnów', 'Warta Działoszyn', 'Prosna Wieruszów', 'Pogoń Zduńska Wola', 'Jutrzenka Warta', 'Korab Łask', 'Bzura Ozorków', 'Górnik Łęczyca', 'Malina Piątek'],
+      2: ['Metalowiec Łódź', 'Victoria Rąbień', 'Sokół Popów', 'LKS Różyca', 'Iskra Dobroń', 'GKS Ksawerów', 'LKS Gałkówek', 'Czarni Smardzewice', 'Kawaleria Tomaszów Maz.', 'Lechia II Tomaszów Maz.', 'LKS Mierzyn', 'Świt Kamieńsk', 'Czarni Rozprza', 'LKS Wola Krzysztoporska', 'Zawisza Pajęczno', 'GLKS Strzelce Wielkie'],
+      1: ['Hetman Łódź', 'Pentagonal Łódź', 'Bzura Młogoszyn', 'Orzeł Kazimierz', 'Rosa Rosanów', 'LZS Brąszewice', 'Unia Sulmierzyce', 'Park Starzenice', 'LKS Kiełczygłów', 'Zryw Ożegów', 'LKS Radzice', 'KS Poświętne', 'Huragan Bobrowniki', 'Grom Powiercie', 'Pisia Zygry', 'Iskra Stolec'],
+    },
+    7: {   // lubelskie
+      3: ['Unia Hrubieszów', 'Huczwa Tyszowce', 'Sparta Rejowiec Fabryczny', 'Ogniwo Wierzbica', 'Włodawianka Włodawa', 'Kłos Gmina Chełm', 'Błękitni Obsza', 'Grom Różaniec', 'Tanew Majdan Stary', 'Sokół Konopnica', 'Unia Bełżyce', 'Stal Poniatowa', 'Avia III Świdnik', 'Orlęta II Radzyń Podlaski', 'LKS Milanów', 'Bizon Jeleniec'],
+      2: ['Vrotcovia Lublin', 'Sygnał Lublin', 'KS Nasutów', 'Tur Chojno Nowe', 'Tatran Kraśniczyn', 'Frassati Fajsławice', 'Znicz Siennica Różana', 'Roztocze Szczebrzeszyn', 'Albatros Biszcza', 'Omega Stary Zamość', 'Aleksandria Aleksandrów', 'Krzczonovia Krzczonów', 'LKS Stróża', 'Wisła Annopol', 'Gręzovia Gręzówka', 'Dwernicki Stoczek Łukowski'],
+      1: ['Polesie Kock', 'Leszkopol Bezwola', 'Absolwent Domaszewnica', 'Bad Boys Zastawie', 'Tajfun Ostrów Lubelski', 'Wodnik Uścimów', 'Vir Dorohucza', 'Błękit Cyców', 'Vojsławia Wojsławice', 'MKS Siedliska', 'LKS Wierzchowiska', 'Perła Borzechów', 'Zorza Wojciechów', 'Pogoń 07 Lubartów', 'GKS Niedźwiada', 'Orzeł Czemierniki'],
+    },
+    8: {   // podkarpackie
+      3: ['Zimowit Rzeszów', 'Błażowianka Błażowa', 'Crasnovia Krasne', 'Korona Rzeszów', 'Włókniarz Rakszawa', 'Orzeł Przeworsk', 'MKS Kańczuga', 'Start Pruchnik', 'Piast Tuczempy', 'Czuwaj Przemyśl', 'Bieszczady Ustrzyki Dolne', 'Przełom Besko', 'Partyzant Targowiska', 'Nafta Jedlicze', 'Chemik Pustków', 'Brzostowianka Brzostek'],
+      2: ['Junak Rzeszów', 'Trzcianka Trzciana', 'Aramix Niebylec', 'Strug II Tyczyn', 'Sanovia Lesko', 'Nelson Polańczyk', 'LKS Długie', 'Szarotka Uherce', 'Iskra Przysietnica', 'Brzozovia Brzozów', 'Wisłoka Nowy Żmigród', 'Liwocz Brzyska', 'Tempo Nienaszów', 'Kolbuszowianka Kolbuszowa', 'Raniżovia Raniżów', 'Czarni Czudec'],
+      1: ['LKS Łukawiec', 'Grom Handzlówka', 'Dąb Kosina', 'LKS Trzebownisko', 'Orzeł Wólka Niedźwiedzka', 'Błękitni Jasienica Rosielna', 'LKS Hłudno', 'Zgoda Zarszyn', 'Pionier Średnia Wieś', 'Karpaty Klimkówka', 'LKS Czeluśnica', 'Standart Święcany', 'Zamczysko Odrzykoń', 'Huragan Zarówna', 'LKS Hucina', 'Zacisze Trześń'],
+    },
+    9: {   // zachodniopomorskie
+      3: ['Masovia Maszewo', 'Ina Goleniów', 'Promień Mosty', 'Ehrle Dobra', 'Hutnik Szczecin', 'Stal Szczecin', 'Jeziorak Szczecin', 'Morzycko Moryń', 'Osadnik Myślibórz', 'Polonia Płoty', 'Rega Trzebiatów', 'Rasel Dygowo', 'Mechanik Bobolice', 'Wiekowianka Wiekowo', 'Darłovia Darłowo', 'Błękitni II Stargard'],
+      2: ['Pionier Szczecin', 'Czarni Szczecin', 'Vielgovia Wielgowo', 'Okręt Szczecin', 'Hanza Goleniów', 'Znicz Przybiernów', 'Jantar Dziwnów', 'Fala Międzyzdroje', 'Sowianka Sowno', 'Korona Stuchowo', 'Błękitni Trzygłów', 'Zorza Dobrzany', 'Kłos Pełczyce', 'Sęp Brzesko', 'Bałtyk II Koszalin', 'Saturn Mielno'],
+      1: ['Sokół Różańsko', 'Błękitni Białuń', 'Iskra Golczewo', 'LKS Długołęka', 'Orzeł Grzędzice', 'Pionier Żarnowo', 'Zalew Stepnica', 'Promień II Mosty', 'Wichoradz', 'Błękitni Sarnik', 'Koral Mostkowo', 'Pogoń II Barlinek', 'Wicher Przelewice', 'Głaz Tychowo', 'Gryf Polanów', 'Sława Sławno'],
+    },
+    10: {   // kujawsko-pomorskie
+      3: ['Zawisza II Bydgoszcz', 'Gopło Kruszwica', 'Notecianka Pakość', 'Pałuczanka Żnin', 'Wisła Nowe', 'Victoria Koronowo', 'GLKS Dobrcz', 'Krajna Sępólno Krajeńskie', 'Mień Lipno', 'Kujawianka Izbica Kujawska', 'Start Stawki', 'Piast Złotniki Kujawskie', 'Unia Janikowo', 'Zdrój Ciechocinek', 'Drwęca Golub-Dobrzyń', 'Promień Kowalewo Pomorskie'],
+      2: ['Gwiazda Bydgoszcz', 'Wisła Fordon', 'Tucholanka Tuchola', 'Kamionka Kamień Krajeński', 'Grom Osie', 'Burza Nowa Wieś Wielka', 'Dąb Barcin', 'Szubinianka Szubin', 'Zjednoczeni Piotrków Kujawski', 'Ziemowit Osięciny', 'Sadownik Waganiec', 'Wisła Toruń', 'Flisak Złotoria', 'Cyklon Kończewice', 'Victoria Lisewo', 'Naprzód Jabłonowo Pomorskie'],
+      1: ['Ramiel Bydgoszcz', 'Victoria Niemcz', 'Iskra Zamość-Rynarzewo', 'Tartak Wudzyn', 'GLKS Osielsko', 'Orzeł Przyłęki', 'Gryf Sicienko', 'Tarpan Mrocza', 'Kolorowi Krusza Zamkowa', 'Kujawiak Sukowy', 'Gopło II Kruszwica', 'Znicz Rojewo', 'Mikrus Szadłowice', 'Orzeł Głogowo', 'Wisła Pędzewo', 'Pogrom Złotoria'],
+    },
+    11: {   // warmińsko-mazurskie
+      3: ['Warmia Olsztyn', 'Stomil II Olsztyn', 'Kormoran Zwierzewo', 'Drwęca Nowe Miasto Lubawskie', 'Unia Susz', 'Osa Ząbrowo', 'Huragan Morąg', 'Płomień Turznica', 'Czarni Olecko', 'Vęgoria Węgorzewo', 'Śniardwy Orzysz', 'Żagiel Piecki', 'Cresovia Górowo Iławeckie', 'Victoria Bartoszyce', 'Błękitni Orneta', 'Syrena Młynary'],
+      2: ['Leśnik Nowe Ramuki', 'Burza Słupy', 'GLKS Jonkowo', 'Fortuna Gągławki', 'Wel Lidzbark', 'Jordan Kazanice', 'Zamek Kurzętnik', 'Ewingi Zalewo', 'Mazur Pisz', 'Jurand Barciany', 'Łyna Sępopol', 'MKS Korsze', 'Pogezania Milejewo', 'Pomowiec Gronowo Elbląskie', 'Dąb Kadyny', 'Wałsza Pieniężno'],
+      1: ['FC Dajtki Olsztyn', 'GKS Stawiguda', 'Pisa II Barczewo', 'Błękitni Stary Olsztyn', 'Iskra Narzym', 'Avista Łążyn', 'Wel Bratian', 'Góra Idzbark', 'Kormoran Bynowo', 'Pogoń Ryn', 'Mazur Wydminy', 'Reduta Bisztynek', 'Granica Bezledy', 'Natangia Górowo Iławeckie', 'Zalew Frombork', 'Zagłada Lisów'],
+    },
+    12: {   // podlaskie
+      3: ['Piast Białystok', 'Puszcza Hajnówka', 'Rudnia Zabłudów', 'MKS Mielnik', 'Cresovia Siemiatycze', 'Pogoń Łapy', 'Narew Choroszcz', 'Dąb Dąbrowa Białostocka', 'Kora Korycin', 'Biebrza Goniądz', 'Sparta 1951 Szepietowo', 'Orzeł Kolno', 'Biebrza Lipsk', 'Sparta Augustów', 'UM Krynki', 'GKS Gródek'],
+      2: ['Włókniarz Białystok', 'Hetman Białystok', 'Jasion Jasionówka', 'Pogranicze Kuźnica', 'Sudovia Szudziałowo', 'Husar Nurzec', 'Kolejarz Czeremcha', 'Iskra Narew', 'Żubr Drohiczyn', 'Bocian Boćki', 'Unia Ciechanowiec', 'COKiS Ciechanowiec', 'Znicz Suraż', 'Magnat Juchnowiec Kościelny', 'Grab Janówka', 'Verta Suwałki'],
+      1: ['Skra Wizna', 'Błyskawica Dubicze Cerkiewne', 'Iskra Wyszki', 'Orzeł Kleszczele', 'Pionier II Brańsk', 'Gryf Gródek', 'Korona Dobrzyniewo Duże', 'Turośnianka II Turośń Kościelna', 'Supraślanka II Supraśl', 'LZS Studzianki', 'Kos 1984 Rutki', 'Łomżyczka Łomża', 'Biebrza II Goniądz', 'Rospuda Filipów', 'Polonia Raczki', 'Jastrząb Knyszyn'],
+    },
+    13: {   // świętokrzyskie
+      3: ['Piast Stopnica', 'Gród Ćmińsk', 'Zenit Chęciny', 'Moravia II Morawica', 'Astra Piekoszów', 'Polonia Białogon', 'Łysica Bodzentyn', 'Kamienna Brody', 'Świt Ćmielów', 'Stal Kunów', 'Wisła Sandomierz', 'Koprzywianka Koprzywnica', 'Bucovia Bukowa', 'Nida Pińczów', 'Piaskowianka Piaski', 'Unia Sędziszów'],
+      2: ['Czarnovia Kielce', 'Orlęta II Kielce', 'Sokół Rykoszyn', 'Skała Tumlin', 'Lechia Strawczyn', 'Samson Samsonów', 'KS Smyków', 'Tęcza Gowarczów', 'GKS Kluczewsko', 'Zorza Tempo Pacanów', 'Baszta Rytwiany', 'Strzelec Chroberz', 'Nidzica Dobiesławice', 'Gród Wiślica', 'Kamienna II Brody', 'KS Tarłów'],
+      1: ['Polanie Pierzchnica', 'Płomień Wólka Kłucka', 'Góral Górno', 'Top-Spin Promnik', 'Zryw Łopuszno', 'ULKS Łączna', 'GKS Iwaniska', 'Cukrownik Włostów', 'Huragan Wilczyce', 'Marol Jacentów', 'Vitalpol Solec-Zdrój', 'Zorza Czajków', 'LZS Samborzec', 'GKS Świniary', 'Ester Wojciechowice', 'Jawornik Gorzków'],
+    },
+    14: {   // opolskie
+      3: ['Polonia Prószków', 'Chrząstawa Chrząstowice', 'TOR Dobrzeń Wielki', 'LZS Mechnice', 'Orzeł Źlinice', 'Naprzód Jemielnica', 'Jedność Rozmierka', 'Chemik Kędzierzyn-Koźle', 'Cukrownik Baborów', 'Orzeł Branice', 'Polonia Głubczyce', 'Czarni Otmuchów', 'GKS Głuchołazy', 'Stal II Brzeg', 'LZS Kuniów', 'MKS Wołczyn'],
+      2: ['Groszmal Opole', 'Wiking Opole', 'LZS Zawada', 'LZS Turawa', 'Odra Kędzierzyn-Koźle', 'Cisowa Kędzierzyn-Koźle', 'Śląsk Reńska Wieś', 'Unia Krapkowice', 'Włókniarz Kietrz', 'Pogranicze Mokre', 'LZS Racławiczki', 'Biała Nysa', 'LZS Goświnowice', 'Skarbimierz', 'LZS Przylesie', 'LZS Skorogoszcz'],
+      1: ['Sławięcice Kędzierzyn-Koźle', 'LZS Stary Ujazd', 'LZS Zimnice Wielkie', 'LZS Kórnica', 'LZS Grądy', 'Plon Skoroszyce', 'LZS Kolnowice', 'LZS Trzeboszowice', 'LZS Ścinawa Nyska', 'LZS Łąka', 'LZS II Domaszkowice', 'LZS Grodziec', 'LZS Ligota Turawska', 'LZS Kup', 'LZS Brynica', 'LZS Żelazna'],
+    },
+    15: {   // lubuskie
+      3: ['Ilanka II Rzepin', 'Zorza Kowalów', 'Radowiak Drezdenko', 'Zjednoczeni Przytoczna', 'Meprozet Stare Kurowo', 'Uran Trzebicz', 'Kasztelania Santok', 'Spartak Deszczno', 'Tęcza Krosno Odrzańskie', 'Budowlani Lubsko', 'Piast Czerwieńsk', 'Błękitni Ołobok', 'Schnug Chociule', 'Czarni Rudno', 'Alfa Jaromirowice', 'Zorza Ochla'],
+      2: ['Zew Dąbroszyn', 'Juwenia Boczów', 'GKP Kłodawa', 'Iskra Janczewo', 'Warta Jeżyki', 'Leśnik Rąpin', 'Sokół Gościm', 'Muszelka Ogardy', 'Odra Glińsk', 'Cargovia Kargowa', 'Mieszko Konotop', 'Sparta Nietkowice', 'Chrobry Brójce', 'Drzonkowianka Racula', 'Tucholanka Tuchola Żarska', 'Nysa Przewóz'],
+      1: ['Orzeł Międzyrzecz', 'Błękitni Bukowiec', 'Znicz Trzemeszno Lubuskie', 'As Piecki', 'Zorza Grzmiąca', 'Bizon Bieganów', 'Odra Górzyca', 'Chrobry Drzeńsko', 'Iskra Głuchowo', 'Pogoń Węgrzynice', 'Zieloni Łagów', 'Błękitni Lubno', 'Leśnik Lemierzyce', 'Odra Radnica', 'Sparta Grabik', 'Hamar Górzyn'],
+    },
+  },
 
   /* ----- Skauting: ewolucja siatki ----- */
 
@@ -3550,6 +3633,7 @@ const Engine = {
 
     // Województwo klubu (wybrane w karcie albo losowe): grupa III ligi i wojewódzki Puchar Polski
     gameState.club.region = card.region !== '' && card.region != null && DATA.cupRegions[+card.region] ? +card.region : Utils.randInt(0, DATA.cupRegions.length - 1);
+    Engine.buildLeague(1);   // 13.69: B-klasa z prawdziwych klubów województwa
     Engine.newSeason();
     gameState.weather = Utils.rand(DATA.weather);
     // Kadra startowa: te same role i charaktery, ale nazwiska i ksywy losowane z dużej puli – każdy klub inny
@@ -5274,7 +5358,7 @@ const Engine = {
       const L = DATA.leagueLevels[level];
       const U = DATA.leagueLevels[Selectors.nextLevel(level)];
       const ours = new Set(table.map((r) => r.team));
-      const pool = (L.pool || DATA.rivals.map((x) => x.name)).filter((n) => !ours.has(n));
+      const pool = (Selectors.leaguePool(level) || L.pool || DATA.rivals.map((x) => x.name)).filter((n) => !ours.has(n));
       // IV liga: wicemistrz innego województwa z tej samej grupy III ligi (prawdziwe kluby)
       const grp = Selectors.leagueGroup();
       const sib = L.regions ? Object.keys(L.regions).map(Number).filter((r) => r !== gameState.club.region && [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] === grp) : [];
@@ -5290,7 +5374,8 @@ const Engine = {
     }
     // Baraż o utrzymanie: dwumecz z wiceliderem ligi niżej
     const D = DATA.leagueLevels[Selectors.prevLevel(level)];
-    const opp = D.pool ? Utils.rand(D.pool) : Utils.rand(DATA.rivals).name;
+    const DP = Selectors.leaguePool(Selectors.prevLevel(level)) || D.pool;
+    const opp = DP ? Utils.rand(DP) : Utils.rand(DATA.rivals).name;
     res.title = 'Baraż o utrzymanie';
     res.won = twoLegs(opp, D.rivalBase * Utils.randRange(1.08, 1.18));
     return res;
@@ -5300,8 +5385,8 @@ const Engine = {
   buildLeague(level) {
     const L = DATA.leagueLevels[level];
     if (L.vgroups) { const G = L.vgroups[gameState.club.region] || []; if (!G[gameState.club.vGroup]) gameState.club.vGroup = Utils.randInt(0, Math.max(0, G.length - 1)); }   // V liga: losowa grupa w województwie
-    const pool = Selectors.leaguePool(level);
-    if (level === 1) gameState.league.rivals = DATA.rivals.map((r) => ({ ...r }));
+    const pool = (Selectors.leaguePool(level) || []).filter((n) => n.toLowerCase() !== String(gameState.club.name || '').toLowerCase());   // nasz klub nie gra sam ze sobą
+    if (level === 1 && !(DATA.lowerLeagues[gameState.club.region])) gameState.league.rivals = DATA.rivals.map((r) => ({ ...r }));   // awaryjnie: stara fikcyjna B-klasa
     else if (Selectors.leagueReal(level)) {
       // Prawdziwe kluby: siła zależna od miejsca w tabeli (czołówka mocniejsza), nasz klub zastępuje jedną drużynę ze środka/dołu
       const n = (L.teams || 18) - 1;
@@ -7585,13 +7670,14 @@ const Selectors = {
   prevLevel: (l = gameState.club.leagueLevel) => { const P = Selectors.levelsPath(), i = P.indexOf(l); return i >= 0 ? P[Math.max(i - 1, 0)] : Math.max(1, Math.ceil(l) - 1); },
   stepLevel: (l, n) => { let x = l; for (let k = 0; k < Math.abs(n); k++) x = n > 0 ? Selectors.nextLevel(x) : Selectors.prevLevel(x); return x; },
   vGroup: () => { const G = DATA.vLiga.vgroups[gameState.club.region]; if (!G) return null; const i = gameState.club.vGroup; return G[i] || G[0]; },
-  leaguePool: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; if (!L) return null; if (L.vgroups) { const G = L.vgroups[region]; return G ? (G[gameState.club.vGroup] || G[0]).clubs : Object.values(L.vgroups)[0][0].clubs; } if (L.regions && L.regions[region]) return L.regions[region]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
+  leaguePool: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; if (!L) return null; if (L.vgroups) { const G = L.vgroups[region]; return G ? (G[gameState.club.vGroup] || G[0]).clubs : Object.values(L.vgroups)[0][0].clubs; } if (L.regions && L.regions[region]) return L.regions[region]; if (level <= 3 && DATA.lowerLeagues[region]) return DATA.lowerLeagues[region][level]; return L.groups ? L.groups[Selectors.leagueGroup()] : L.pool; },
   // Czy liga ma prawdziwe kluby ułożone wg tabeli (siła zależna od miejsca)
   leagueReal: (level, region = gameState.club.region) => { const L = DATA.leagueLevels[level]; return !!(L && (L.ordered || L.vgroups || (L.regions && L.regions[region]))); },
   // Poziom rozgrywkowy klubu po nazwie (pule, grupy III ligi, województwa IV ligi)
   levelOfClub: (club) => {
     const i = DATA.leagueLevels.findIndex((L) => L && ((L.pool && L.pool.includes(club)) || (L.groups && L.groups.some((g) => g.includes(club))) || (L.regions && Object.values(L.regions).some((g) => g.includes(club)))));
     if (i > 0) return i;
+    for (const r of Object.values(DATA.lowerLeagues)) for (const lv of [1, 2, 3]) if (r[lv].includes(club)) return lv;
     return Object.values(DATA.vLiga.vgroups).some((G) => G.some((g) => g.clubs.includes(club))) ? 3.5 : -1;
   },
   cupRounds: (c = gameState.cup) => (c && c.path === 'regional' ? DATA.cupRegional : DATA.cupCentral),
@@ -7756,7 +7842,7 @@ const Storage = {
       (sn.lastResults || []).forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; });
     }
     // 13.65: prawdziwe kluby IV ligi w województwie klubu – podmiana nazw w trwającym sezonie
-    const R65 = lvl62 === 4 && state.club.region != null && DATA.leagueLevels[4].regions[state.club.region];
+    const R65 = (lvl62 === 4 && state.club.region != null && DATA.leagueLevels[4].regions[state.club.region]) || (lvl62 <= 3 && Number.isInteger(lvl62) && state.club.region != null && DATA.lowerLeagues[state.club.region] && DATA.lowerLeagues[state.club.region][lvl62].filter((n) => n !== state.club.name));   // 13.69: także B-klasa, A-klasa, okręgówka
     if (R65 && state.league && state.league.rivals && !state.league.rivals.some((r) => R65.includes(r.name))) {
       const map = {};
       state.league.rivals.forEach((r, i) => { if (i < R65.length && R65[i] !== state.club.name) { map[r.name] = R65[i]; r.name = R65[i]; } });
@@ -10034,7 +10120,7 @@ const Actions = {
   'set-region'(v) {
     if (gameState.club.leagueLevel > 3 || !DATA.cupRegions[+v] || +v === gameState.club.region) { UI.renderAll(); return; }
     gameState.club.region = +v;
-    Engine.addLog('📍 Klub przepisany do OZPN: woj. ' + Selectors.voivodeship().toLowerCase() + '. Po awansach: ' + (Selectors.hasVLiga() ? 'V liga, ' : '') + 'IV liga w tym województwie i III liga, grupa ' + Selectors.groupLabel() + '.', 'system');
+    Engine.addLog('📍 Klub przepisany do OZPN: woj. ' + Selectors.voivodeship().toLowerCase() + '. Rywale z tego województwa od nowego sezonu. Po awansach: ' + (Selectors.hasVLiga() ? 'V liga, ' : '') + 'IV liga w tym województwie i III liga, grupa ' + Selectors.groupLabel() + '.', 'system');
     Storage.save();
     UI.renderAll();
   },
@@ -10069,7 +10155,7 @@ const Actions = {
       if (box) { box.classList.add('shake'); box.focus(); }
     };
     if (!f.town.trim()) return fail('Klub bez miejscowości to jak bramka bez siatki. Wpisz, skąd jesteście, Prezesie!');
-    if (DATA.rivals.some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail('Taki klub już gra w tej B-klasie! Wymyśl coś innego, bo Związek się pogubi.');
+    if (DATA.rivals.concat(f.region !== '' && DATA.lowerLeagues[+f.region] ? DATA.lowerLeagues[+f.region][1].map((n) => ({ name: n })) : []).some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail('Taki klub już gra w tej B-klasie! Wymyśl coś innego, bo Związek się pogubi.');
     const existing = Storage.load();
     if (existing && existing.club.name && !confirm('W szufladzie jest zapis klubu ' + existing.club.name + '. Nowa prezesura go nadpisze. Kontynuować?')) return;
     Engine.startGame({ name, town: f.town.trim(), character: f.character, colors: f.colors, stadium: f.stadium, president: f.president, region: f.region });
