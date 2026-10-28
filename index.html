@@ -6624,6 +6624,18 @@ const Engine = {
     Engine.addLog('🛍️ Rozbudowa sklepu: ' + next.name + '. Nowy asortyment: ' + next.items.map((id) => DATA.merch[id].label).join(', ') + '. [kibice +2%]', 'finance');
   },
 
+  toggleShopManager() {
+    const m = gameState.merch;
+    if (m.manager) {
+      m.manager = false;
+      Engine.addLog('👔 Kierownik sklepu zwolniony. Od teraz prezes sam liczy szaliki w kartonach.', 'finance');
+    } else {
+      if ((m.level || 1) < Selectors.shopManagerLevel) return;
+      m.manager = true;
+      Engine.addLog('👔 Zatrudniono kierownika sklepu (' + Utils.formatMoney(Selectors.shopManagerWage()) + '/tydz.). Sam pilnuje zapasów przed każdą kolejką.', 'finance');
+    }
+  },
+
   orderMerch(itemId) {
     const item = DATA.merch[itemId];
     if (!item || !Selectors.shopItems().includes(itemId) || gameState.finance.budget < item.batch * item.unitCost) return;
@@ -6967,6 +6979,26 @@ const Engine = {
       if (ctx) Engine.matchPosts(ctx);
       else if (Math.random() < 0.6) { const [who, text] = Utils.rand(DATA.xGossip); Engine.xPost(who, text); }
     },
+    function shopManager() {
+      // Kierownik sklepu: pensja co tydzień, a przed dniem meczowym dokupuje partie, by półki nie świeciły pustkami
+      const m = gameState.merch;
+      if (!m.manager) return;
+      if ((m.level || 1) < Selectors.shopManagerLevel) { m.manager = false; return; }
+      Engine.money('Kierownik sklepu (pensja)', -Selectors.shopManagerWage());
+      const bought = [];
+      Selectors.shopItems().forEach((id) => {
+        const item = DATA.merch[id];
+        const target = Math.max(Math.ceil(Selectors.merchEstimate(id) * 2.2), Math.ceil(item.batch / 2));
+        let n = 0;
+        while ((m.stock[id] || 0) < target && n < 4 && gameState.finance.budget >= item.batch * item.unitCost) {
+          Engine.money('Kierownik sklepu: dostawa', -item.batch * item.unitCost);
+          m.stock[id] = (m.stock[id] || 0) + item.batch; n++;
+        }
+        if (n) bought.push(item.icon + '×' + n * item.batch);
+      });
+      m.managerLast = bought.join(' ');
+      if (bought.length) Engine.addLog('👔 Kierownik sklepu uzupełnił magazyn: ' + bought.join(', ') + '.', 'finance');
+    },
     function merchSales() {
       const m = gameState.merch;
       const favorites = gameState.squad.filter((p) => p.favorite).length;
@@ -6986,7 +7018,7 @@ const Engine = {
         const sold = Math.min(m.stock[id], Math.floor(d) + (Math.random() < d % 1 ? 1 : 0));
         if (sold <= 0) return;
         m.stock[id] -= sold;
-        if (m.stock[id] === 0) Engine.alert('📦', 'Wyprzedane: ' + item.label, 'Rozeszło się do ostatniej sztuki! Zamów nową partię w Finanse → Sklep, zanim kibice pójdą do konkurencji.', 'warn');
+        if (m.stock[id] === 0 && !m.manager) Engine.alert('📦', 'Wyprzedane: ' + item.label, 'Rozeszło się do ostatniej sztuki! Zamów nową partię w Finanse → Sklep, zanim kibice pójdą do konkurencji.', 'warn');
         m.soldTotal += sold;
         income += sold * Engine.merchPrice(id);
         m.last[id] = sold;
@@ -7299,7 +7331,19 @@ const Selectors = {
   isGem: (p) => p.talent || Selectors.potentialStars(p) >= 4,
   gradWage: (p) => Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 0.6 / 5) * 5),
   secureCost: (p) => Math.round(150 * Selectors.econ() * (1 + Selectors.potentialStars(p)) / 10) * 10,
-  weeklyPayroll: () => Selectors.squadWages() + Selectors.coachWeekly() + Selectors.staffWages(),
+  weeklyPayroll: () => Selectors.squadWages() + Selectors.coachWeekly() + Selectors.staffWages() + Selectors.shopManagerCost(),
+  // 13.71: kierownik sklepu – od poziomu 3 sklepu („Sklep klubowy”), pensja rośnie z ligą
+  shopManagerLevel: 3,
+  shopManagerWage: () => Math.max(30, Math.round(35 * Selectors.econ() / 10) * 10),
+  shopManagerCost: () => (gameState.merch && gameState.merch.manager ? Selectors.shopManagerWage() : 0),
+  // Spodziewana sprzedaż gadżetu w meczu domowym (bez losowości) – pod nią kierownik ustala zapas
+  merchEstimate: (id) => {
+    const item = DATA.merch[id];
+    const favorites = gameState.squad.filter((p) => p.favorite).length;
+    let d = item.demand * Math.sqrt(Selectors.revEcon()) * (0.4 + gameState.morale.fans / 60) * Selectors.merchDemand(id) * Selectors.upgradeProd('merch') * (Selectors.passPolicy().merch || 1) * 1.4;
+    if (item.favoriteBoost) d *= 1 + 0.25 * Math.min(favorites, 4);
+    return d;
+  },
   lockerBaseline: () => {
     const legends = gameState.squad.filter((p) => p.legend).length;
     const leaders = gameState.squad.filter((p) => p.tag === 'leader').length;
@@ -10024,8 +10068,13 @@ const UI = {
       UI.tile('Sprzedano', m.soldTotal + ' szt.', 'od początku'),
     ]) + UI.panel('🛍️ ' + DATA.shopLevels[m.level || 1].name + ' · poziom ' + (m.level || 1) + '/' + (DATA.shopLevels.length - 1), 'Asortyment rośnie z rozbudową. Cenę każdego gadżetu ustalasz sam; za drogo = nikt nie kupuje i kibice marudzą.', `
       ${rows}
-      <div class="flex justify-between text-[11px] mt-1"><span>Ceny vs bazowe: <b class="${spi > 1.3 ? 'text-stamp' : spi < 0.8 ? 'text-grass' : ''}">${Math.round(spi * 100)}%</b>${spi > 1.3 ? ' · kibice marudzą' : spi < 0.75 ? ' · kibice chwalą' : ''}</span><span class="text-ink-700">⭐ ulubieńcy: ${favorites} → koszulki</span></div>
-      ${next ? `<button data-action="shop-upgrade" ${gameState.finance.budget < nextCost ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1 text-left disabled:opacity-50"><span class="block text-[12px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)}</span><span class="block text-[10.5px] truncate">Nowe: ${next.items.map((id) => DATA.merch[id].icon + ' ' + DATA.merch[id].label).join(', ')}</span></button>` : '<p class="text-[11px] text-grass font-semibold mt-1">🏆 Sklep w pełni rozbudowany.</p>'}
+      <div class="flex justify-between text-[11px] mt-0.5"><span>Ceny vs bazowe: <b class="${spi > 1.3 ? 'text-stamp' : spi < 0.8 ? 'text-grass' : ''}">${Math.round(spi * 100)}%</b>${spi > 1.3 ? ' · kibice marudzą' : spi < 0.75 ? ' · kibice chwalą' : ''}</span><span class="text-ink-700">⭐ ulubieńcy: ${favorites} → koszulki</span></div>
+      ${(m.level || 1) >= Selectors.shopManagerLevel
+        ? (m.manager
+          ? `<div class="flex items-center gap-1.5 mt-0.5 rounded-md bg-paper-200 pl-2 pr-0.5 h-6"><span class="flex-1 min-w-0 text-[11px] truncate"><b>👔 Kierownik</b> ${Utils.formatMoney(Selectors.shopManagerWage())}/tydz. · <span class="text-ink-700">${m.managerLast ? 'dostawa ' + Utils.escape(m.managerLast) : 'pilnuje zapasów'}</span></span><button data-action="shop-manager" class="btn-press h-5 px-2 rounded-md bg-paper-300 text-[11px] font-semibold">Zwolnij</button></div>`
+          : `<button data-action="shop-manager" title="Sam dokupuje gadżety przed meczem – koniec z pustymi półkami" class="btn-press block w-full h-6 mt-0.5 rounded-md bg-ink-900 text-paper-100 px-2 text-left text-[11.5px] leading-6 font-bold truncate">👔 Zatrudnij kierownika sklepu · ${Utils.formatMoney(Selectors.shopManagerWage())}/tydz.</button>`)
+        : `<p class="text-[10.5px] text-ink-700 mt-1">👔 Kierownika sklepu zatrudnisz od poziomu ${Selectors.shopManagerLevel} („${Utils.escape(DATA.shopLevels[Selectors.shopManagerLevel].name)}”). Na razie zapasy zamawiasz sam.</p>`}
+      ${next ? `<button data-action="shop-upgrade" ${gameState.finance.budget < nextCost ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1 text-left disabled:opacity-50"><span class="block text-[12px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)}</span><span class="block text-[10.5px] truncate">Nowe: ${next.items.map((id) => DATA.merch[id].icon + ' ' + DATA.merch[id].label).join(', ')}</span></button>` : ''}
     `);
   },
 
@@ -10377,6 +10426,7 @@ const Actions = {
     App.commit();
   },
   'order-merch'(el)  { Engine.orderMerch(el.dataset.item); App.commit(); },
+  'shop-manager'()   { Engine.toggleShopManager(); App.commit(); },
   'report-player'(el) { gameState.ui.reportPlayer = el.dataset.id || null; App.commit(); },
   'show-bilans'()    { gameState.ui.showBilans = !gameState.ui.showBilans; App.commit(); },
   'merch-price'(el)  { Engine.merchSetPrice(el.dataset.id, +el.dataset.value || 0); App.commit(); },
