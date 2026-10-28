@@ -4196,7 +4196,7 @@ const Engine = {
     u.form = (u.form || []).concat([gf > ga ? 'W' : gf === ga ? 'D' : 'L']).slice(-5);
     u.last = { opp, gf, ga, scorers };
   },
-  // Co tydzień: łowcy perełek z innych klubów
+  // Co tydzień: łowcy perełek z innych klubów tylko obserwują – ruch wykonują po okienku transferowym
   u19Poachers() {
     const u = gameState.u19;
     if (!u) return;
@@ -4206,18 +4206,35 @@ const Engine = {
       if (!p.watch && Math.random() < 0.25) {
         p.watch = 1;
         p.watchClub = Engine.otherClubName(Utils.randInt(1, 3));
-        if (rec) Engine.alert('👀', 'Łowcy talentów w akademii', 'Skauci klubu ' + p.watchClub + ' obserwują ' + Selectors.playerName(p) + ' z U19. Zabezpiecz go kontraktem, zanim go podkradną!', 'warn');
+        if (rec) Engine.alert('👀', 'Łowcy talentów w akademii', 'Skauci klubu ' + p.watchClub + ' obserwują ' + Selectors.playerName(p) + ' z U19. Zabezpiecz go kontraktem przed końcem okienka transferowego – wtedy łowcy wykonują ruch!', 'warn');
         return;
       }
-      if (!p.watch) return;
-      p.watch++;
-      if (p.watch >= 4 && Math.random() < Utils.clamp(0.06 + p.watch * 0.03 - rec * 0.04, 0.02, 0.35)) {
-        u.squad = u.squad.filter((x) => x.id !== p.id);
-        Engine.applyEffects({ fans: -3 });
-        Engine.alert('🕵️', 'Perełka podkradziona!', p.watchClub + ' bezczelnie podkradł ' + Selectors.playerName(p) + ' z naszej akademii. Bez kontraktu nie mogliśmy nic zrobić. [kibice -3%]', 'bad', true);
-        Engine.addLog('🕵️ ' + p.watchClub + ' podkradł z U19: ' + Selectors.playerName(p) + '.', 'event');
-      }
+      if (p.watch) p.watch++;
     });
+  },
+  // Koniec sezonu, tuż po zamknięciu okienka: łowcy podkradają niezabezpieczone perełki, 19-latkowie czekają na decyzję
+  u19WindowVerdict(season) {
+    const u = gameState.u19;
+    if (!u) return;
+    const rec = Selectors.u19Lvl('recruiter');
+    const stolen = [];
+    u.squad.slice().forEach((p) => {
+      if (p.secured || p.age < 17 || !Selectors.isGem(p)) return;
+      const chance = Utils.clamp((p.watch ? 0.3 + Math.min(p.watch, 12) * 0.025 : 0.12) + (p.age >= 19 ? 0.1 : 0) - rec * 0.06, 0.05, 0.75);
+      if (Math.random() >= chance) return;
+      const club = p.watchClub || Engine.otherClubName(Utils.randInt(1, 3));
+      u.squad = u.squad.filter((x) => x.id !== p.id);
+      stolen.push({ name: Selectors.playerName(p), club, ovr: Selectors.ovr(p), age: p.age, talent: !!p.talent });
+      Engine.addLog('🕵️ ' + club + ' podkradł z U19: ' + Selectors.playerName(p) + '.', 'event');
+    });
+    if (stolen.length) {
+      Engine.applyEffects({ fans: -3 * stolen.length });
+      gameState.poachReport = { season, stolen };
+    }
+    const grads = u.squad.filter((p) => p.age >= 19);
+    u.squad = u.squad.filter((p) => p.age < 19);
+    u.graduates = u.graduates.concat(grads);
+    if (u.graduates.length) Engine.pushDecision('u19Graduate');
   },
   u19Secure(id) {
     const u = gameState.u19;
@@ -4250,15 +4267,13 @@ const Engine = {
       p.age++; p.u19Apps = 0; p.u19Goals = 0; p.u19RatingSum = 0; p.u19RatingN = 0;   // nowy sezon juniorów
     });
     u.form = [];
-    const grads = u.squad.filter((p) => p.age >= 19);
-    u.squad = u.squad.filter((p) => p.age < 19);
-    u.graduates = u.graduates.concat(grads);
-    if (u.graduates.length) Engine.pushDecision('u19Graduate');
+    const grads = u.squad.filter((p) => p.age >= 19);   // decyzja o nich zapada po okienku transferowym
+    const young = u.squad.length - grads.length;
     const A = Selectors.academy();
-    const n = Math.min(Math.max(0, 16 - u.squad.length), Math.max(A.cands + Selectors.u19Lvl('recruiter'), 12 - u.squad.length));   // nabór utrzymuje co najmniej 12 juniorów
+    const n = Math.min(Math.max(0, 16 - young), Math.max(A.cands + Selectors.u19Lvl('recruiter'), 12 - young));   // nabór utrzymuje co najmniej 12 juniorów
     const fresh = [];
     for (let i = 0; i < n; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); u.squad.push(p); fresh.push(p.nick + (p.talent ? ' 💎' : '')); }
-    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą: ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '');
+    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą (decyzja po okienku): ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '');
     Engine.u19NewSeason();
   },
 
@@ -5007,6 +5022,7 @@ const Engine = {
       const buys = dir.windowSeason === t.season ? (dir.windowBuys || []) : [];
       gameState.directorReport = { season: t.season, name: dir.hired.name, buys, total: buys.reduce((s, b) => s + b.fee, 0) };
     }
+    Engine.u19WindowVerdict(t.season);
   },
 
   buyTransfer(id) {
@@ -6928,6 +6944,7 @@ const UI = {
     if (o && o.type === 'match' && gameState.lastMatch) return UI.matchOverlay(gameState.lastMatch);
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
     if (o && o.type === 'dirReport' && gameState.directorReport) return UI.directorReportOverlay(gameState.directorReport);
+    if (o && o.type === 'poach' && gameState.poachReport) return UI.poachOverlay(gameState.poachReport);
     if (o && o.type === 'playoff' && gameState.seasonSummary && gameState.seasonSummary.playoff) return UI.playoffOverlay(gameState.seasonSummary.playoff);
     if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
     if (o && o.type === 'youth' && gameState.youthPick && !gameState.youthPick.done) return UI.youthPickOverlay(gameState.youthPick);
@@ -7423,6 +7440,27 @@ const UI = {
       </div>`, 'bg-[#0b0f16]');
   },
 
+  // Po okienku: inny klub podkradł niezabezpieczoną perełkę z akademii
+  poachOverlay(r) {
+    const rows = r.stolen.map((b) => `
+      <div class="rounded-xl bg-stamp/15 border border-stamp/40 px-3 py-2 flex items-center gap-2">
+        <span class="inline-block min-w-[26px] px-1 rounded text-[11px] leading-[18px] font-extrabold text-center bg-ink-900 text-paper-100">${b.ovr}</span>
+        <div class="min-w-0 flex-1"><div class="text-[13.5px] font-bold truncate">${b.talent ? '💎 ' : ''}${Utils.escape(b.name)}</div><div class="text-[11px] text-paper-300">${b.age} lat · odchodzi do: <b class="text-paper-100">${Utils.escape(b.club)}</b></div></div>
+      </div>`).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-5 py-6 text-paper-100 flex flex-col justify-center">
+        <div class="text-center text-[52px] leading-none">🕵️</div>
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-stamp font-semibold mt-3">Akademia · po okienku transferowym</div>
+        <h2 class="text-center text-[20px] font-extrabold tracking-tight mt-1">${r.stolen.length === 1 ? 'Perełka podkradziona!' : 'Perełki podkradzione!'}</h2>
+        <p class="text-center text-[13px] text-paper-300 leading-snug mt-1.5">${r.stolen.length === 1 ? 'Inny klub podkradł nam utalentowanego juniora' : 'Inne kluby podkradły nam utalentowanych juniorów'}. Bez kontraktu juniorskiego nie mogliśmy nic zrobić.</p>
+        <div class="space-y-1.5 mt-4">${rows}</div>
+        <p class="text-center text-[12px] text-stamp font-semibold mt-3">Kibice -${3 * r.stolen.length}% · 🔒 zabezpieczaj perełki w zakładce U19 przed końcem okienka</p>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="overlay-close" class="btn-press w-full h-14 rounded-xl bg-amber-glow text-ink-900 text-[17px] font-extrabold tracking-wider">ZROZUMIAŁEM</button>
+      </div>`, 'bg-[#0b0f16]');
+  },
+
   outcomeOverlay(o) {
     const deltas = o.deltas || [];
     const chips = deltas.map((d) => `
@@ -7770,7 +7808,7 @@ const UI = {
     }).join('');
     return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
-      + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Kontrakt juniorski chroni perełki przed podkradaniem przez inne kluby.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
+      + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Niezabezpieczone perełki mogą zostać podkradzione po okienku transferowym.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
   },
 
   // Gablotka: wszystkie trofea w historii klubu + bieżąca edycja Pucharu Polski
@@ -8607,7 +8645,10 @@ const Actions = {
     if (o && o.type === 'outcome' && o.back === 'transfer' && t.open) { gameState.ui.overlay = { type: 'transfer' }; App.commit(); return; }
     // Przełom sezonów: mecz → podsumowanie roczne → pożegnania (kariera, sztab) → giełda ze wszystkimi ofertami naraz
     if (o && o.type === 'match' && gameState.directorReport && (!sm || sm.seen)) { gameState.ui.overlay = { type: 'dirReport' }; App.commit(); return; }   // raport dyrektora po okienku
-    if (o && o.type === 'dirReport') { gameState.directorReport = null; gameState.ui.overlay = null; App.commit(); return; }
+    if (o && o.type === 'dirReport') gameState.directorReport = null;
+    if (o && (o.type === 'match' || o.type === 'dirReport') && gameState.poachReport && (!sm || sm.seen)) { gameState.ui.overlay = { type: 'poach' }; App.commit(); return; }   // komunikat o podkradzionej perełce
+    if (o && o.type === 'poach') gameState.poachReport = null;
+    if (o && (o.type === 'dirReport' || o.type === 'poach')) { gameState.ui.overlay = null; App.commit(); return; }
     if (o && o.type === 'match' && sm && !sm.seen) gameState.ui.overlay = { type: sm.playoff && !sm.playoffSeen ? 'playoff' : 'season' };
     else if (o && o.type === 'playoff' && sm) { sm.playoffSeen = true; gameState.ui.overlay = { type: 'season' }; }
     else if (o && o.type === 'transfer') gameState.ui.overlay = null;
