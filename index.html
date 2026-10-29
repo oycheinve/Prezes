@@ -898,7 +898,7 @@ const DATA = {
     parking:    { ref: 2, l: ['Parking z tłucznia za stodołą', 'Utwardzony parking na 150 aut', 'Parking wielopoziomowy i strefa autokarów'],
                   d: ['Nikt już nie grzęźnie w błocie pod sklepem.', 'Asfalt, pasy i pan parkingowy w kamizelce.', 'Parking na tysiące aut, autokary gości z osobnym wjazdem.'], fx: '+5% widzów.' },
     kiosk:      { ref: 2, l: ['Blaszana budka z kiełbaskami u Szwagra', 'Rozbudowa food trucka i murowany kiosk', 'Strefa gastro z cateringiem premium'],
-                  d: ['Grill na kółkach, lodówka i okienko z firanką.', 'Food truck z frytkownicą i murowany kiosk przy wejściu.', 'Kilka punktów gastro, kraftowe piwo i catering na lożach.'], fx: 'Budka sprzedaje o 25% więcej.' },
+                  d: ['Grill na kółkach, lodówka i okienko z firanką.', 'Food truck z frytkownicą i murowany kiosk przy wejściu.', 'Kilka punktów gastro, kraftowe piwo i catering na lożach.'], fx: 'Otwiera budkę z jedzeniem (zakładka Budka w Finansach) – sprzedaż +25%.' },
     scoreboard: { ref: 3, l: ['Tablica wyników z cyfr na gwoździach', 'Elektroniczna tablica wyników', 'Telebim LED nad trybuną'],
                   d: ['Chłopak z rocznika 2012 zmienia cyfry na gwoździach.', 'Świecące cyfry i zegar meczu – wygląda poważnie.', 'Telebim z powtórkami i reklamami sponsorów.'], fx: 'Sponsorzy to lubią, sklepik sprzedaje o 10% więcej.' },
     gym:        { ref: 3, l: ['Siłownia w kontenerze', 'Siłownia z prawdziwym sprzętem', 'Centrum przygotowania motorycznego'],
@@ -1469,7 +1469,7 @@ const DATA = {
     },
     cutButcher: {
       id: 'cutButcher',
-      available: () => gameState.budka && !gameState.budka.cheapMeat && Selectors.budkaMenu().some((id) => DATA.budka.items[id].meat) && !(gameState.echoes || []).some((e) => e.key === 'meat'),
+      available: () => Selectors.budkaOpen() && gameState.budka && !gameState.budka.cheapMeat && Selectors.budkaMenu().some((id) => DATA.budka.items[id].meat) && !(gameState.echoes || []).some((e) => e.key === 'meat'),
       cutscene: { icon: '🥩', place: 'Zaplecze budki · czwartek wieczorem' },
       from: 'Rzeźnik Waldek z sąsiedniej wsi',
       title: 'Tanie mięso „bez papierów”',
@@ -2365,6 +2365,7 @@ const DATA = {
     cutFire: {
       id: 'cutFire',
       levels: [1, 4],        // od–do poziomu ligi
+      available: () => Selectors.budkaOpen(),   // 13.85: pożar budki – tylko gdy budka już stoi
       cutscene: { icon: '🔥', place: 'Budka z kiełbaskami · sobota, 16:20' },
       from: 'Pan Zenek (osmalony)',
       title: 'Pożar w budce z kiełbaskami',
@@ -3579,6 +3580,7 @@ function createInitialState() {
     u19Loans: [],               // juniorzy na wypożyczeniu: { player, club, until }
     u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
+    budkaGate: true,            // 13.85: budka otwiera się dopiero po inwestycji „kiosk” (stare zapisy – zachowana)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
     cup: null,                  // Puchar Polski w bieżącym sezonie   // miesięczne rozliczenie skutków cen (co 4 tygodnie)
     star: { playerId: null, rebel: false, promised: 0, lastWeek: 0, talkWeek: 0 },   // gwiazda „za dobra na ten klub”   // okno transferowe po sezonie (do 1. kolejki)
@@ -4352,7 +4354,7 @@ const Engine = {
     const mult = att * weather.grill * Selectors.upgradeProd('grill') * (pp.grill || 1) * Selectors.formFactor();
     let sold = 0, grillProfit = 0;
     bud.last = {};
-    Selectors.budkaMenu().forEach((id) => {
+    (Selectors.budkaOpen() ? Selectors.budkaMenu() : []).forEach((id) => {
       const it = DATA.budka.items[id];
       const n = Math.round(mult * it.share * 0.7 * Selectors.budkaDemand(id) * Utils.randRange(0.85, 1.15));
       const profit = n * (Selectors.budkaPrice(id) - Selectors.budkaCost(id));
@@ -4360,18 +4362,19 @@ const Engine = {
       sold += n; grillProfit += profit;
     });
     gameState.stats.sausages += sold;
-    Engine.money('Budka u Pana Zenka (' + sold + ' szt.)', grillProfit);
+    if (Selectors.budkaOpen()) Engine.money('Budka u Pana Zenka (' + sold + ' szt.)', grillProfit);
     const pi = Selectors.budkaPriceIndex();
     const budkaFans = pi > 1.4 ? -2 : pi > 1.15 ? -1 : pi < 0.85 ? 1 : 0;   // drożyzna w budce psuje humory (rozliczane co miesiąc)
     const sausage = { label: 'menu: ' + Selectors.budkaMenu().length + ' poz.', fans: budkaFans };
     if (gameState.lastMatch) {
       gameState.lastMatch.attendance = att;
       gameState.lastMatch.holders = holders;
-      gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + ticket.price + ' zł)', amount: gate }, { label: 'Gastro: ' + sold + ' szt. (' + sausage.label + ')', amount: grillProfit });
+      gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + ticket.price + ' zł)', amount: gate });
+      if (Selectors.budkaOpen()) gameState.lastMatch.money.push({ label: 'Gastro: ' + sold + ' szt. (' + sausage.label + ')', amount: grillProfit });
     }
 
     Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' +
-      '. Bilety: ' + Utils.formatMoney(gate) + '. Budka Zenka: ' + sold + ' szt. (' + sausage.label + ') → ' + Utils.formatMoney(grillProfit) + ' zysku.', 'finance');
+      '. Bilety: ' + Utils.formatMoney(gate) + (Selectors.budkaOpen() ? '. Budka Zenka: ' + sold + ' szt. (' + sausage.label + ') → ' + Utils.formatMoney(grillProfit) + ' zysku.' : '. Budki jeszcze nie ma – kibice przynoszą kanapki z domu.'), 'finance');
 
     const ticketFans = gameState.club.character === 'suburban' && ticket.fans < 0 ? Math.round(ticket.fans / 3) : ticket.fans;
     gameState.monthly.fans += ticketFans + sausage.fans + (pp.fansMatch || 0);   // skutki cen dla kibiców – raz w miesiącu
@@ -7969,6 +7972,7 @@ const Selectors = {
   fireSalePrice: (p) => Math.max(10, Math.round((p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)) * 0.45 / 10) * 10),
   budkaMenu: () => { const lvl = (gameState.budka && gameState.budka.level) || 1; return DATA.budka.levels.slice(1, lvl + 1).flatMap((L) => L.items); },
   budkaPrice: (id) => { const pr = gameState.budka && gameState.budka.prices[id]; return pr != null ? pr : DATA.budka.items[id].base; },
+  budkaOpen: () => !!(gameState.stadium.upgrades && gameState.stadium.upgrades.kiosk),   // 13.85: budka po inwestycji „Blaszana budka u Szwagra”
   budkaCost: (id) => { const it = DATA.budka.items[id]; return it.meat && gameState.budka && gameState.budka.cheapMeat ? Math.max(1, Math.round(it.cost * 0.5)) : it.cost; },
   // Popyt na pozycję: cena względem „uczciwej” – za drogo kolejka znika, tanio schodzi szybciej
   budkaDemand: (id) => Utils.clamp(Math.pow(DATA.budka.items[id].base / Math.max(1, Selectors.budkaPrice(id)), 1.7), 0.12, 1.8),
@@ -8262,6 +8266,8 @@ const Storage = {
       (sn.rounds || []).forEach((rd) => rd.forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; }));
       (sn.lastResults || []).forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; });
     }
+    if (saved.budkaGate == null && saved.screen === 'game' && state.stadium && state.stadium.upgrades) state.stadium.upgrades.kiosk = true;   // 13.85: stare zapisy zachowują budkę
+    state.budkaGate = true;
     (state.squad || []).forEach((p) => { delete p.bargain; delete p.fireSale; });   // 13.59: własni zawodnicy bez etykiet z giełdy
     if (saved.merch && saved.merch.level == null) state.merch.level = 3;   // 13.50: stare zapisy miały kubki, szaliki i koszulki
     (state.squad || []).filter((p) => p.ace).forEach((p) => { p.nick = 'Chudy'; p.noNick = true; });   // 13.46: bez „Kacperinho”
@@ -10319,7 +10325,8 @@ const UI = {
 
   /* ---------- ZAKŁADKA: FINANSE I STADION ---------- */
   financeTab() {
-    const view = UI.sub('finance', 'report');
+    const open = Selectors.budkaOpen();
+    const view = !open && UI.sub('finance', 'report') === 'food' ? 'report' : UI.sub('finance', 'report');
     const rep = gameState.lastReport;
     const views = { report: UI.reportCard, tickets: UI.ticketsCard, food: UI.foodCard, merch: UI.merchCard, sponsor: UI.sponsorCard, loans: UI.loansCard, stadium: UI.stadiumCard };
     // Otwarta grupa inwestycji potrzebuje miejsca – kafelki finansowe wracają po jej zwinięciu
@@ -10328,7 +10335,7 @@ const UI = {
       UI.tile('Kasa', Utils.formatMoney(gameState.finance.budget), 'stan konta', gameState.finance.budget < 0 ? 'text-stamp' : ''),
       UI.tile('Wypłaty', Utils.formatMoney(Selectors.weeklyPayroll()), 'na tydzień'),
       UI.tile('Ostatni tydzień', rep ? Utils.signedMoney(rep.total) : '–', rep ? 'Tydzień ' + rep.week : 'brak rozliczenia', rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
-    ])) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety'], ['food', 'Budka'], ['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']])
+    ])) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety']].concat(open ? [['food', 'Budka']] : []).concat([['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']]))
       + (views[view] || UI.reportCard)();
   },
 
