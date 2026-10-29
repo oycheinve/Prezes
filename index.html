@@ -3610,6 +3610,7 @@ function createInitialState() {
       upgrades: { roller: false, boiler: false, roof: false, lights: false, stand: false, monitoring: false, var: false, tvcams: false },
       level: 0,                 // poziom rozbudowy trybun (DATA.stadiumLevels)
       tiers: {},                // kolejne poziomy obiektów (DATA.upgradeTiers): id → liczba ulepszeń
+      builds: [],               // 13.84: trwające budowy { kind: 'up' | 'tier' | 'stadium', id, ready, label }
     },
     report: null,               // bilans tygodnia w trakcie liczenia
     lastReport: null,           // ostatni zamknięty bilans
@@ -7121,11 +7122,9 @@ const Engine = {
     const st = gameState.stadium;
     const next = DATA.stadiumLevels[(st.level || 0) + 1];
     const cost = next && Selectors.stadiumCost((st.level || 0) + 1);
-    if (!next || gameState.finance.budget < cost) return;
+    if (!next || gameState.finance.budget < cost || Selectors.buildOf('stadium', 'stadium') || !Selectors.buildFree()) return;
     Engine.money('Rozbudowa stadionu: ' + next.name, -cost);
-    st.level = (st.level || 0) + 1;
-    Engine.applyEffects({ fans: +4 });
-    Engine.addLog('🏗️ Rozbudowa stadionu: ' + next.name + ' (' + next.capacity + ' miejsc). Wójt przeciął wstęgę nożyczkami z sekretariatu. [kibice +4%]', 'finance');
+    Engine.startBuild('stadium', 'stadium', Selectors.stadiumWeeks((st.level || 0) + 1), next.name);
   },
 
   upgradeFacility(id) {
@@ -7133,25 +7132,46 @@ const Engine = {
     if (!st.tiers) st.tiers = {};
     const next = (DATA.upgradeTiers[id] || [])[Selectors.upgradeTier(id)];
     const cost = next && Selectors.tierCost(next);
-    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < cost) return;
+    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < cost || Selectors.buildOf('tier', id) || !Selectors.buildFree()) return;
     Engine.money('Modernizacja: ' + next.label, -cost);
-    st.tiers[id] = Selectors.upgradeTier(id) + 1;
-    if (next.lockerBase) Engine.applyEffects({ lockerRoom: +3 });
-    Engine.addLog('🏗️ Modernizacja: ' + Selectors.upgradeLabel(id) + ' → ' + next.label + ' (' + Utils.formatMoney(cost) + ').', 'finance');
+    Engine.startBuild('tier', id, Selectors.tierWeeks(next), next.label);
   },
 
   buyUpgrade(id) {
     const u = DATA.upgrades[id];
     const cost = Selectors.upgradeCost(id);
-    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost) return;
+    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost || Selectors.buildOf('up', id) || !Selectors.buildFree()) return;
     const label = Selectors.upgradeLabel(id, Selectors.band());
     Engine.money('Inwestycja: ' + label, -cost);
-    gameState.stadium.upgrades[id] = true;
     if (!gameState.stadium.upgradeBand) gameState.stadium.upgradeBand = {};
     gameState.stadium.upgradeBand[id] = Selectors.band();   // obiekt zapamiętuje, w jakich realiach go zbudowano
-    if (id === 'roller') gameState.stadium.pitch = Utils.clamp(gameState.stadium.pitch + 30, 0, 100);
-    if (id === 'boiler') Engine.applyEffects({ lockerRoom: +8 });
-    Engine.addLog('🔧 Inwestycja: ' + label + ' (' + Utils.formatMoney(cost) + '). Pan Heniek mówi, że „takiego luksusu tu nie było od Gierka”.', 'finance');
+    Engine.startBuild('up', id, Selectors.upgradeWeeks(id), label);
+  },
+
+  // 13.84: budowa trwa – pieniądze od razu, efekt po oddaniu obiektu
+  startBuild(kind, id, weeks, label) {
+    const st = gameState.stadium;
+    if (!st.builds) st.builds = [];
+    st.builds.push({ kind, id, ready: gameState.calendar.week + weeks, label });
+    Engine.addLog('🏗️ Ruszyła budowa: ' + label + ' – potrwa ' + weeks + ' tyg. Ekipa pana Józka już kopie fundamenty.', 'finance');
+  },
+  finishBuild(b) {
+    const st = gameState.stadium;
+    if (b.kind === 'up') {
+      st.upgrades[b.id] = true;
+      if (b.id === 'roller') st.pitch = Utils.clamp(st.pitch + 30, 0, 100);
+      if (b.id === 'boiler') Engine.applyEffects({ lockerRoom: +8 });
+    } else if (b.kind === 'tier') {
+      if (!st.tiers) st.tiers = {};
+      const next = (DATA.upgradeTiers[b.id] || [])[Selectors.upgradeTier(b.id)];
+      st.tiers[b.id] = Selectors.upgradeTier(b.id) + 1;
+      if (next && next.lockerBase) Engine.applyEffects({ lockerRoom: +3 });
+    } else if (b.kind === 'stadium') {
+      st.level = (st.level || 0) + 1;
+      Engine.applyEffects({ fans: +4 });
+    }
+    Engine.addLog('✂️ Oddano do użytku: ' + b.label + '. Wójt przeciął wstęgę nożyczkami z sekretariatu.' + (b.kind === 'stadium' ? ' [kibice +4%]' : ''), 'finance');
+    Engine.alert('🏗️', 'Budowa zakończona', b.label + ' – oddane do użytku.', 'good');
   },
 
   // Hooki wykonywane po kliknięciu [NASTĘPNY TYDZIEŃ], po kolei.
@@ -7193,6 +7213,13 @@ const Engine = {
       const ctx = gameState.report.matchCtx;
       if (ctx) Engine.matchPosts(ctx);
       else if (Math.random() < 0.6) { const [who, text] = Utils.rand(DATA.xGossip); Engine.xPost(who, text); }
+    },
+    function constructionTick() {
+      const st = gameState.stadium;
+      if (!st.builds || !st.builds.length) return;
+      const done = st.builds.filter((b) => gameState.calendar.week >= b.ready);
+      st.builds = st.builds.filter((b) => gameState.calendar.week < b.ready);
+      done.forEach((b) => Engine.finishBuild(b));
     },
     function pitchInspection() {
       // 13.72: od II ligi delegat ocenia płytę – fatalna murawa to kara i krytyka (zmusza do inwestycji)
@@ -7612,10 +7639,19 @@ const Selectors = {
   niceCost: (v) => { const step = v >= 100000 ? 5000 : v >= 20000 ? 1000 : v >= 5000 ? 500 : v >= 1000 ? 100 : 10; return Math.max(step, Math.round(v / step) * step); },
   scaledCost: (base, ref) => Selectors.niceCost(base * Selectors.costScale(ref)),
   upgradeRef: (id) => { const u = DATA.upgrades[id], f = DATA.upgradeFlavor[id]; return (f && f.ref) || u.licenseLevel || 1; },
-  upgradeCost: (id, noDiscount) => Selectors.niceCost(Selectors.scaledCost(DATA.upgrades[id].cost, Selectors.upgradeRef(id)) * (!noDiscount && id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),
-  tierCost: (t) => Selectors.scaledCost(t.cost, t.minLevel || 1),
+  upgradeCost: (id, noDiscount) => Selectors.niceCost(Selectors.scaledCost(DATA.upgrades[id].cost, Selectors.upgradeRef(id)) * (Selectors.upgradeRef(id) >= 4 ? 1.5 : 1) * (!noDiscount && id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),   // 13.84: zaawansowane ×1,5
+  tierCost: (t) => Selectors.niceCost(Selectors.scaledCost(t.cost, t.minLevel || 1) * 1.6),   // 13.84: modernizacje droższe
   stadiumRef: (i) => { const k = DATA.licenseCapacity.findIndex((c) => c >= i); return k > 0 ? k : 8; },
-  stadiumCost: (i) => Selectors.scaledCost(DATA.stadiumLevels[i].cost, Selectors.stadiumRef(i)),
+  stadiumCost: (i) => Selectors.niceCost(Selectors.scaledCost(DATA.stadiumLevels[i].cost, Selectors.stadiumRef(i)) * (i >= 3 ? 1.5 : 1)),
+  // 13.84: czas budowy (tygodnie) i ekipy budowlane – najwyżej 2 budowy naraz
+  buildSlots: 2,
+  builds: () => (gameState.stadium.builds || []),
+  buildOf: (kind, id) => Selectors.builds().find((b) => b.kind === kind && b.id === id) || null,
+  buildFree: () => Selectors.builds().length < Selectors.buildSlots,
+  upgradeWeeks: (id) => ({ roller: 1, boiler: 1, toilets: 1, parking: 2, kiosk: 2, scoreboard: 2, tvcams: 3, gym: 3, shop: 3, irrigation: 3, roof: 3, clubhouse: 4, lights: 4, var: 4, monitoring: 4, vip: 5, stand: 6, training: 6, academyHall: 8 }[id] || 3),
+  tierWeeks: (t) => 3 + Math.round((t.minLevel || 1) * 0.9),
+  stadiumWeeks: (i) => [0, 3, 5, 8, 12, 16][i] || 10,
+  buildLeft: (b) => Math.max(0, b.ready - gameState.calendar.week),
   academyCost: (i) => Selectors.scaledCost(DATA.academyLevels[i].cost, DATA.academyRef[i] || 1),
   // Szczebel opisów: 0 – amatorski (B-klasa–V liga), 1 – półzawodowy (IV–III liga), 2 – zawodowy (II liga–Ekstraklasa)
   band: (lvl = gameState.club.leagueLevel) => (lvl >= 6 ? 2 : lvl >= 4 ? 1 : 0),
@@ -10521,8 +10557,11 @@ const UI = {
       const tier = Selectors.upgradeTier(id);
       const next = owned ? (DATA.upgradeTiers[id] || [])[tier] : null;
       const tierName = tier ? (DATA.upgradeTiers[id][tier - 1].label) : '';
-      const action = !owned ? UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup', gameState.finance.budget < Selectors.upgradeCost(id))
-        : next ? (gameState.club.leagueLevel >= next.minLevel ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(Selectors.tierCost(next)), gameState.finance.budget < Selectors.tierCost(next)) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
+      const bU = Selectors.buildOf('up', id), bT = Selectors.buildOf('tier', id);
+      const busy = (b) => `<span class="text-[11px] font-bold text-amber-600 text-right leading-tight whitespace-nowrap">🏗️ ${Selectors.buildLeft(b)} tyg.</span>`;
+      const crew = '<span class="text-[10.5px] text-ink-700 text-right leading-tight">ekipy<br>zajęte</span>';
+      const action = bU ? busy(bU) : bT ? busy(bT) : !owned ? (Selectors.buildFree() ? UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup · ' + Selectors.upgradeWeeks(id) + ' tyg.', gameState.finance.budget < Selectors.upgradeCost(id)) : crew)
+        : next ? (gameState.club.leagueLevel >= next.minLevel ? (Selectors.buildFree() ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(Selectors.tierCost(next)) + ' · ' + Selectors.tierWeeks(next) + ' tyg.', gameState.finance.budget < Selectors.tierCost(next)) : crew) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
         : '<span class="text-[11px] font-bold text-grass">MAX</span>';
       return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(tier ? tierName : Selectors.upgradeLabel(id))} <span class="font-normal text-ink-700">${owned ? (tier ? '· poz. ' + (tier + 1) : '') : '– ' + Utils.formatMoney(Selectors.upgradeCost(id)) + (Selectors.upgradeCost(id) < Selectors.upgradeCost(id, true) ? ' (rabat Kółka Rolniczego)' : '')}</span>`,
         (next ? 'Dalej: <b>' + Utils.escape(next.label) + '</b>' : Utils.escape(Selectors.upgradeDesc(id))) + lic,
@@ -10559,7 +10598,7 @@ const UI = {
     const needNext = DATA.licenseCapacity[Selectors.nextLevel()] || 0;
     const buildRows = DATA.stadiumLevels.map((s, i) => i === 0 ? '' : UI.row(`${i <= lv ? '✅ ' : ''}${Utils.escape(s.name)} <span class="font-normal text-ink-700">– ${Utils.formatMoney(Selectors.stadiumCost(i))}</span>`,
       s.capacity + ' miejsc' + (DATA.licenseCapacity.indexOf(i) > 0 ? ' · 📋 wymóg od ligi ' + DATA.leagueLevels[DATA.licenseCapacity.indexOf(i)].name : ''),
-      i <= lv ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === lv + 1 ? UI.smallBtn('build-stadium', '', 'Buduj', gameState.finance.budget < Selectors.stadiumCost(i)) : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
+      i <= lv ? '<span class="text-[11px] font-bold text-grass">STOI</span>' : i === lv + 1 ? (Selectors.buildOf('stadium', 'stadium') ? `<span class="text-[11px] font-bold text-amber-600 whitespace-nowrap">🏗️ ${Selectors.buildLeft(Selectors.buildOf('stadium', 'stadium'))} tyg.</span>` : Selectors.buildFree() ? UI.smallBtn('build-stadium', '', 'Buduj · ' + Selectors.stadiumWeeks(i) + ' tyg.', gameState.finance.budget < Selectors.stadiumCost(i)) : '<span class="text-[10.5px] text-ink-700 text-right leading-tight">ekipy<br>zajęte</span>') : '<span class="text-[11px] text-ink-700">później</span>', '', true)).join('');
     const buildGroup = `
       <details data-fold="st-build" class="mt-1.5" ${folds['st-build'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
@@ -10573,6 +10612,7 @@ const UI = {
       ${anyOpen ? '' : UI.bar(st.pitch, pitchColor)}
       ${anyOpen ? '' : `<p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
       <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
+      ${Selectors.builds().length ? `<p class="text-[11px] mt-1 text-amber-700 font-semibold truncate">🏗️ Budowy (${Selectors.builds().length}/${Selectors.buildSlots}): ${Selectors.builds().map((b) => Utils.escape(b.label) + ' – ' + Selectors.buildLeft(b) + ' tyg.').join(' · ')}</p>` : ''}
       ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
       ${buildGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
