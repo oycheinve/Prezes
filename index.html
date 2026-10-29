@@ -9644,24 +9644,31 @@ const UI = {
 
   trophyCabinet() {
     const all = (gameState.trophies || []).slice().reverse();
-    const shown = all.slice(0, 12);
+    // 13.83: to samo trofeum zdobyte kilka razy = jeden kafelek z licznikiem (najświeższe na początku)
+    const groups = [];
+    all.forEach((t) => {
+      const g = groups.find((x) => x.t.name === t.name && (x.t.kind || '') === (t.kind || ''));
+      if (g) g.seasons.push(t.season); else groups.push({ t, seasons: [t.season] });
+    });
+    const shown = groups.slice(0, 12);
     const count = (pred) => all.filter(pred).length;
     const cup = gameState.cup;
     const cupLine = cup && cup.season === gameState.calendar.season
       ? (cup.won ? '🏆 Zdobyty w tym sezonie!' : cup.wonRegional ? '🏆 Wojewódzki PP zdobyty – za rok szczebel centralny!' : cup.alive ? 'W grze · następna runda: <b>' + Selectors.cupRounds(cup)[cup.idx].label + '</b>' : 'Odpadliśmy: ' + Utils.escape(cup.history[0] || ''))
       : 'Nowa edycja wystartuje z sezonem.';
-    const tiles = shown.map((t) => `
-      <div class="rounded-lg bg-gradient-to-b from-paper-100 to-paper-300 border border-paper-300 px-1.5 pt-1.5 pb-1 text-center">
+    const tiles = shown.map(({ t, seasons }) => `
+      <div class="relative rounded-lg bg-gradient-to-b from-paper-100 to-paper-300 border border-paper-300 px-1.5 pt-1.5 pb-1 text-center">
+        ${seasons.length > 1 ? `<span class="absolute top-0.5 right-0.5 min-w-[22px] h-[18px] px-1 rounded-full bg-amber-glow text-ink-900 text-[10.5px] font-extrabold leading-[18px]">×${seasons.length}</span>` : ''}
         <div class="h-[50px] flex items-end justify-center">${UI.trophyArt(t)}</div>
         <div class="text-[10px] font-bold leading-tight mt-0.5 line-clamp-2">${Utils.escape(t.name.replace('Mistrzostwo: ', 'Mistrz ').replace('Awans do: ', 'Awans: '))}</div>
-        <div class="text-[10px] text-ink-700">sezon ${t.season}</div>
+        <div class="text-[10px] text-ink-700 truncate">${seasons.length > 1 ? 'sezony ' + seasons.slice().sort((a, b) => a - b).join(', ') : 'sezon ' + t.season}</div>
       </div>`).join('');
     return UI.tiles([
       UI.tile('Puchary Polski', String(count((t) => t.name === 'Puchar Polski')), 'w gablotce'),
       UI.tile('Mistrzostwa', String(count((t) => t.name.startsWith('Mistrzostwo'))), 'wszystkie szczeble'),
       UI.tile('Awanse', String(count((t) => t.name.startsWith('Awans'))), 'medale za awans'),
     ]) + UI.panel('🏆 Gablotka w gabinecie prezesa', 'Każde trofeum zostaje tu na zawsze. Pani Halinka przeciera je co piątek.',
-      (tiles ? `<div class="grid grid-cols-4 gap-1">${tiles}</div>${all.length > 12 ? '<p class="text-[10.5px] text-ink-700 mt-1">…i ' + (all.length - 12) + ' starszych trofeów na zapleczu.</p>' : ''}` : '<p class="text-[12px] italic text-ink-700">Gablotka pusta. Na razie stoi w niej tylko proporczyk z turnieju halowego z 1987 roku.</p>'))
+      (tiles ? `<div class="grid grid-cols-4 gap-1">${tiles}</div>${groups.length > 12 ? '<p class="text-[10.5px] text-ink-700 mt-1">…i ' + (groups.length - 12) + ' starszych trofeów na zapleczu.</p>' : ''}<p class="text-[10.5px] text-ink-700 mt-1">Łącznie ${all.length} ${all.length === 1 ? 'trofeum' : 'trofeów'} w ${groups.length} ${groups.length === 1 ? 'rodzaju' : 'rodzajach'}.</p>` : '<p class="text-[12px] italic text-ink-700">Gablotka pusta. Na razie stoi w niej tylko proporczyk z turnieju halowego z 1987 roku.</p>'))
       + UI.panel('🏆 ' + Utils.escape(Selectors.cupName()) + ' · sezon ' + gameState.calendar.season, cup && cup.path === 'regional' ? 'Szczebel regionalny: strefa → województwo (finał: ' + Utils.escape(Selectors.cupRegion()[1]) + '). Zwycięzca gra za rok w PP centralnym.' : 'Szczebel centralny – Wielki Finał na PGE Narodowym.', `<p class="text-[12px] leading-snug">${cupLine}</p>${cup && cup.history.length ? '<ul class="text-[11.5px] text-ink-700 mt-1 space-y-0.5">' + cup.history.slice(0, 3).map((x) => '<li class="truncate">' + Utils.escape(x) + '</li>').join('') + '</ul>' : ''}`);
   },
 
