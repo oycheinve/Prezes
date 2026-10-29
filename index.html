@@ -8671,7 +8671,6 @@ const UI = {
     if (!p) return '';
     const lineup = Selectors.projectedLineup();
     const t = gameState.transfer;
-    const canGo = gameState.squad.length > CONFIG.minSquad;
     const star = p.id === gameState.star.playerId;
     const stat = (label, value) => `<div class="rounded-lg bg-paper-200 py-1.5 min-w-0"><div class="text-[9.5px] uppercase tracking-wide text-ink-700">${label}</div><div class="text-[14px] font-bold leading-tight truncate">${value}</div></div>`;
     const hist = p.formHistory || [];
@@ -8690,16 +8689,7 @@ const UI = {
       p.listed ? '📋 na liście transferowej' : '',
     ].filter(Boolean).join(' · ');
     const badges = [p.favorite ? '⭐ Ulubieniec trybun' : '', p.legend ? '🏆 Legenda klubu' : '', p.talent ? '💎 Perełka powiatu' : ''].filter(Boolean).join(' · ');
-    const act = (action, label, enabled, tone, attrs = '') => `<button data-action="${action}" data-id="${p.id}" ${attrs} ${enabled ? '' : 'disabled'}
-      class="btn-press h-11 px-2 rounded-xl text-[12.5px] font-bold leading-tight ${enabled ? tone : 'bg-paper-300 text-ink-700 opacity-60'}">${label}</button>`;
     const growth = p.age <= 23 && Selectors.potential(p) > p.skill;
-    const actions = p.loan ? '<p class="text-[11.5px] text-ink-700 text-center py-2">Zawodnik wypożyczony – po sezonie wraca do ' + Utils.escape(p.loan.from) + '.</p>' : `
-      <div class="grid grid-cols-3 gap-1.5">
-        ${act('toggle-list', p.listed ? '✖ Zdejmij z listy' : '📋 Lista transferowa', true, p.listed ? 'bg-desk-600 text-paper-100' : 'bg-ink-900 text-paper-100')}
-        ${act('loan-out', t.open ? (growth ? '📈 Wypożycz na rozwój' : '🤝 Wypożycz') : '🔒 Wypożycz w oknie', t.open && canGo && !star, 'bg-ink-900 text-paper-100')}
-        ${act('release-player', t.open ? 'Podziękuj za grę' : '🔒 Podziękuj w oknie', t.open && canGo, 'bg-stamp text-white')}
-      </div>
-      <p class="text-[10.5px] text-ink-700 text-center mt-1">${t.open ? 'Okno transferowe otwarte – sprzedaż i wypożyczenia działają.' : 'Ruchy kadrowe tylko w oknie po sezonie. Lista transferowa: na giełdzie zawodnik idzie pierwszy i o 15% drożej.'}</p>`;
     return `
     <div class="fixed inset-0 z-[65] flex justify-center">
       <button data-action="player-close" aria-label="Zamknij" class="absolute inset-0 bg-black/50"></button>
@@ -8733,7 +8723,7 @@ const UI = {
           </div>
           <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${p.wage} zł/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · odstępne: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
         </div>
-        <div class="flex-shrink-0 px-4 pb-3 pt-2 border-t border-paper-300">${actions}</div>
+
       </div>
     </div>`;
   },
@@ -8996,7 +8986,7 @@ const UI = {
           </div>` : ''; })()}
           <div class="text-[11px] text-paper-200 mt-1">📈 Potencjał: <b class="text-amber-glow">${UI.potentialText(p)}</b>${p.age <= 23 && Selectors.potential(p) > p.skill ? ' · rośnie najszybciej, gdy regularnie gra' : ''}</div>
           <div class="text-[10.5px] text-paper-400 mt-0.5">${ps ? 'Zeszły sezon' + (p.fromClub ? ' w ' + Utils.escape(p.fromClub) : '') + (p.fromLevel ? ' (' + DATA.leagueLevels[p.fromLevel].name + ')' : '') : 'Bieżący sezon'} · profil: ${DATA.profiles[p.profile].label}${p.apps ? ' · w klubie: ' + p.apps + ' m, ' + p.goals + ' g' : ''}${p.loan ? ' · wypożyczenie z ' + Utils.escape(p.loan.from) + ' do końca sezonu' : ''}</div>
-          ${buttons ? `<div class="flex gap-1.5 mt-2 justify-end">${buttons}</div>` : ''}
+          ${buttons ? `<div class="flex flex-wrap gap-1.5 mt-2 justify-end">${buttons}</div>` : ''}
         </div>
       </details>`;
     };
@@ -9036,7 +9026,9 @@ const UI = {
         if (p.loan) return card(p, '🔁', 'wypożyczony', '');
         return card(p, Utils.formatMoney(price), star ? (gameState.star.promised ? '🌟 obiecany transfer' : '🔥 buntownik') : (p.listed ? '📋 na liście · ' : '') + p.wage + ' zł/tydz.',
           (star ? '' : btn('loan-out', p.id, (p.age <= 23 && Selectors.potential(p) > p.skill ? '📈 Wypożycz na rozwój +' : 'Wypożycz +') + Utils.formatMoney(Selectors.loanOutFee(p)), !canGo, 'bg-desk-600 text-paper-100'))
-          + btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(price), !canGo, 'bg-stamp text-white'));
+          + btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(price), !canGo, 'bg-stamp text-white')
+          + (star ? '' : btn('toggle-list', p.id, p.listed ? '✖ Z listy' : '📋 Na listę (+15%)', false, 'bg-desk-600 text-paper-100'))
+          + btn('release-player', p.id, 'Podziękuj za grę', !canGo, 'bg-desk-700 text-paper-300'));
       }).join('');
     }
     return UI.overlayFrame(`
@@ -9938,7 +9930,8 @@ const UI = {
     const later = Selectors.euroSchedule().filter((x) => x.k > lastShown);
     if (later.length) upcoming.push(`<li class="text-[11px] text-sky-700 truncate">${later[0].C.icon} Dalej w Europie: ${later.map((x) => 'K' + x.k + (x.where === 'u siebie' ? ' (dom)' : x.where === 'wyjazd' ? ' (wyj.)' : '')).join(', ')}</li>`);
     const cupLast = gameState.cup && gameState.cup.season === gameState.calendar.season && gameState.cup.history[0];
-    return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', (results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>') + (cupLast ? `<p class="text-[11.5px] text-ink-700 mt-1 truncate">🏆 Puchar Polski · ${Utils.escape(cupLast)}</p>` : ''), UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
+    const eu = gameState.euro, euLast = eu && eu.season === gameState.calendar.season && eu.history[0];
+    return UI.panel('⚽ Ostatnia kolejka', 'Wyniki zebrane telefonicznie przez pana Ryśka', (results ? `<ul class="text-[12px] space-y-0.5">${results}</ul>` : '<p class="text-[12px]">Liga jeszcze nie ruszyła.</p>') + (cupLast ? `<p class="text-[11.5px] text-ink-700 mt-1 truncate">🏆 Puchar Polski · ${Utils.escape(cupLast)}</p>` : '') + (euLast ? `<p class="text-[11.5px] text-sky-700 mt-0.5 truncate">${DATA.euro.comps[eu.comp].icon} ${Utils.escape(euLast.text)}</p>` : ''), UI.formDots() ? `<span class="whitespace-nowrap">${UI.formDots()}</span>` : '')
       + UI.panel('📅 Najbliższe mecze', 'Terminarz z faksu Związku', upcoming.length ? `<ul class="text-[12px] space-y-0.5">${upcoming.join('')}</ul>` : '<p class="text-[12px]">Koniec sezonu.</p>');
   },
 
