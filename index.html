@@ -3710,6 +3710,8 @@ const Engine = {
     Engine.addLog('Liga (' + Selectors.leagueSize() + ' drużyn, ' + gameState.season.rounds.length + ' kolejek) rusza w Tygodniu ' + (CONFIG.preseasonWeeks + 1) + '. Pierwszy rywal: ' + Selectors.currentFixture().rival + '.', 'system');
     if (/^amator\s+maszewo$/i.test((card.name || '').trim().replace(/\s+/g, ' '))) Engine.kacperChudy();   // 🥚 easter egg
     Engine.u19Init();
+    Engine.refreshSponsors(true);
+    gameState.ui.overlay = { type: 'startCoach' };   // 13.86: kreator kariery – najpierw trener, potem sponsor
     Engine.pushDecision('welcomeWojt');
     Engine.offerTicketPolicy();
     Engine.ensureSponsor();
@@ -3820,6 +3822,16 @@ const Engine = {
       Engine.shiftDNA(-2);
       if (Selectors.hasRealSponsor()) gameState.sponsor.strikes = (gameState.sponsor.strikes || 0) + 1;
       Engine.addLog('⚔️ Prezes atakuje media: „Nagonka na nasz klub!”. Szatnia i ultrasi kiwają głowami, sponsor marszczy brwi.', 'decision');
+    } else if (c.kind === 'bankrupt' && (choice === 'cut-all' || choice === 'cut-top')) {
+      const paid = Selectors.paidStaff().sort((a, b) => b.wage - a.wage);
+      const fire = choice === 'cut-all' ? paid : paid.slice(0, 2);
+      fire.forEach((x) => Engine.cutStaff(x));
+      const saved = fire.reduce((a, x) => a + x.wage, 0);
+      Engine.applyEffects({ lockerRoom: choice === 'cut-all' ? -8 : -4 });
+      Engine.addLog('✂️ BOLESNE CIĘCIA: odchodzą ' + fire.map((x) => x.role + ' (' + x.name + ')').join(', ') + '. Oszczędność ' + Utils.formatMoney(saved) + '/tydz., ale drużyna traci fachowców: słabszy trening, więcej kontuzji, gorszy rozwój młodych. [szatnia ' + (choice === 'cut-all' ? -8 : -4) + '%]', 'decision');
+    } else if (c.kind === 'bankrupt' && choice === 'cuts') {
+      gameState.activeTab = 'finance';
+      gameState.ui.sub = Object.assign({}, gameState.ui.sub, { finance: 'report' });
     } else if (c.kind === 'sponsor' && choice === 'sponsor') {
       gameState.activeTab = 'finance';
       gameState.ui.sub = Object.assign({}, gameState.ui.sub, { finance: 'sponsor' });
@@ -4872,6 +4884,12 @@ const Engine = {
     gameState.u19[role] = { ...c };
     Engine.addLog('🌱 Akademia: ' + (role === 'coach' ? 'trener juniorów' : 'rekruter talentów') + ' – ' + c.name + '.', 'decision');
   },
+  cutStaff(x) {
+    if (x.type === 'staff') gameState.staff[x.key] = null;
+    else if (x.type === 'director') { gameState.director.hired = null; gameState.director.mode = 'manual'; }
+    else if (x.type === 'u19') Engine.fireU19(x.key);
+    else if (x.type === 'shop') gameState.merch.manager = false;
+  },
   fireU19(role) { if (gameState.u19) gameState.u19[role] = null; },
   // Koniec sezonu: rozwój, 19-latkowie do decyzji, nabór nowych
   u19SeasonEnd(summary) {
@@ -5707,12 +5725,19 @@ const Engine = {
     if (Selectors.debtRatio() > CONFIG.debtBankruptRatio) {
       d.deepWeeks++;
       const left = CONFIG.debtGameOverWeeks - d.deepWeeks;
+      // 13.86: alarm na cały ekran – ostatnia szansa i decyzja o bolesnych cięciach w sztabie (raz na kryzys)
+      if (left > 0 && !d.warned) {
+        d.warned = true;
+        const paid = Selectors.paidStaff();
+        Engine.crisis('bankrupt', '☠️', 'KLUB NA KRAWĘDZI UPADŁOŚCI', paid.length ? 'Sztab kosztuje ' + Utils.formatMoney(paid.reduce((a, x) => a + x.wage, 0)) + ' tygodniowo: ' + paid.map((x) => x.role).join(', ') + '. Cięcia uratują kasę, ale osłabią drużynę.' : 'Nie ma już kogo zwalniać – zostaje wyprzedaż zawodników i szukanie sponsora.');
+      }
       if (left > 0) {
         Engine.addLog('☠️ GROŹBA UPADŁOŚCI! Dług (' + Utils.formatMoney(Selectors.debtHole()) + ') to ponad ' + CONFIG.debtBankruptRatio + ' tygodni wszystkich przychodów klubu. Jeśli nie zejdziemy poniżej w ' + left + ' tyg., sąd ogłosi bankructwo!', 'event');
         Engine.alert('☠️', 'Groźba upadłości', 'Dług = ' + Math.round(Selectors.debtRatio()) + ' tyg. przychodów (limit ' + CONFIG.debtBankruptRatio + '). Zostało ' + left + ' tyg. na ratunek: cięcia, wyprzedaż, sponsor.', 'bad', true);
       }
     } else {
       d.deepWeeks = 0;
+      if (Selectors.debtRatio() < CONFIG.debtBankruptRatio * 0.6) d.warned = false;   // kryzys zażegnany – następny znów z alarmem
     }
   },
 
@@ -7587,6 +7612,17 @@ const Selectors = {
   squadWages: () => gameState.squad.reduce((s, p) => s + p.wage, 0),
   staffWages: () => Object.values(gameState.staff).reduce((s, m) => s + (m ? m.wage : 0), 0) + Selectors.extraStaffWages(),
   // Pensje sztabu akademii i dyrektora sportowego
+  // 13.86: płatny sztab (do cięć przy groźbie upadłości)
+  paidStaff: () => {
+    const e = Selectors.econ(), out = [];
+    Object.entries(DATA.staffSlots).forEach(([slot, def]) => { const m = gameState.staff[slot]; if (m && m.kind === 'external' && m.wage > 0) out.push({ type: 'staff', key: slot, role: def.label, name: m.name, wage: m.wage }); });
+    const d = gameState.director && gameState.director.hired; if (d) out.push({ type: 'director', key: 'director', role: 'Dyrektor sportowy', name: d.name, wage: Math.round(d.wage * e) });
+    const u = gameState.u19 || {};
+    if (u.coach) out.push({ type: 'u19', key: 'coach', role: 'Trener U19', name: u.coach.name, wage: Math.round(u.coach.wage * e) });
+    if (u.recruiter) out.push({ type: 'u19', key: 'recruiter', role: 'Rekruter U19', name: u.recruiter.name, wage: Math.round(u.recruiter.wage * e) });
+    if (gameState.merch && gameState.merch.manager) out.push({ type: 'shop', key: 'shop', role: 'Kierownik sklepu', name: 'kierownik', wage: Selectors.shopManagerWage() });
+    return out;
+  },
   extraStaffWages: () => {
     const u = gameState.u19, d = gameState.director;
     const e = Selectors.econ();
@@ -8578,6 +8614,8 @@ const UI = {
     if (o && o.type === 'euroMatch' && gameState.euroMatch) return UI.matchOverlay(gameState.euroMatch);
     if ((gameState.crisisQueue || []).length) return UI.crisisOverlay(gameState.crisisQueue[0]);   // kryzys zatrzymuje grę
     if (o && o.type === 'cup' && gameState.cupReport) return UI.cupOverlay(gameState.cupReport);
+    if (o && o.type === 'startCoach') return UI.startCoachOverlay();
+    if (o && o.type === 'startSponsor') return UI.startSponsorOverlay();
     if (o && o.type === 'outcome') return UI.outcomeOverlay(o);
     if (o && o.type === 'dirReport' && gameState.directorReport) return UI.directorReportOverlay(gameState.directorReport);
     if (o && o.type === 'poach' && gameState.poachReport) return UI.poachOverlay(gameState.poachReport);
@@ -9172,6 +9210,47 @@ const UI = {
   },
 
   // Komunikat kryzysowy na cały ekran – wymaga reakcji prezesa
+  // 13.86: kreator startowy – wybór trenera (różne style) i sponsora na początek kariery
+  startCoachOverlay() {
+    const list = Selectors.coachMarket().slice(0, 4);
+    const cards = list.map((co) => {
+      const st = DATA.styles[co.style], off = Selectors.coachOffer(co);
+      return `<button data-action="start-coach" data-id="${co.id}" ${gameState.finance.budget < off.sign ? 'disabled' : ''} class="btn-press w-full text-left rounded-xl bg-desk-800 border border-desk-600 px-3 py-2 disabled:opacity-50">
+        <div class="flex justify-between gap-2"><b class="text-[14px] text-paper-100 truncate">${Utils.escape(co.name)}</b><span class="text-[11.5px] text-amber-glow whitespace-nowrap">${Utils.formatMoney(off.weekly)}/tydz.</span></div>
+        <div class="text-[11.5px] text-paper-300 truncate">${st.label}${co.tactic ? ' · ' + Utils.escape(co.tactic) : ''} · ${DATA.coachLicenses[co.license || 0]} · jakość ${Math.round((co.quality + 0.1) * 100)}</div>
+        <div class="text-[11px] text-paper-400 leading-snug line-clamp-2">${Utils.escape(st.effect || co.desc || '')}</div>
+        <div class="text-[10.5px] text-paper-400">podpis ${Utils.formatMoney(off.sign)}</div>
+      </button>`;
+    }).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-2 text-paper-100">
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Krok 1 z 2 · start kariery</div>
+        <h2 class="text-center text-[22px] font-extrabold tracking-tight mt-1">🧢 Wybierz trenera</h2>
+        <p class="text-center text-[12px] text-paper-400 mt-1 mb-3">Styl trenera decyduje, jak gra drużyna. Resztę sztabu zbudujesz z awansami.</p>
+        <div class="space-y-1.5">${cards}</div>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="start-coach" data-id="mirek" class="btn-press w-full h-12 rounded-xl bg-desk-700 text-paper-100 text-[14px] font-bold">Zostaje Pan Mirek (konserwator, za darmo)</button>
+      </div>`, 'bg-desk-900');
+  },
+  startSponsorOverlay() {
+    const s = gameState.sponsor;
+    const offers = Selectors.sponsorOffers().filter((id) => id !== 'local' && !s.burned.includes(id)).slice(0, 4).map((id) => [id, Selectors.sponsorDef(id)]);
+    const cards = offers.map(([id, sp]) => `<button data-action="start-sponsor" data-id="${id}" class="btn-press w-full text-left rounded-xl bg-desk-800 border border-desk-600 px-3 py-2">
+        <div class="flex justify-between gap-2"><b class="text-[14px] text-paper-100 truncate">${Utils.escape(sp.name)}</b><span class="text-[12px] text-grass font-bold whitespace-nowrap">+${Utils.formatMoney(Selectors.sponsorWeekly(sp))}/tydz.</span></div>
+        <div class="text-[11px] text-stamp leading-snug">${Utils.escape(sp.requirement || '')}</div>
+      </button>`).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-2 text-paper-100">
+        <div class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Krok 2 z 2 · start kariery</div>
+        <h2 class="text-center text-[22px] font-extrabold tracking-tight mt-1">💼 Wybierz sponsora</h2>
+        <p class="text-center text-[12px] text-paper-400 mt-1 mb-3">Sponsor płaci co tydzień, ale ma swoje warunki – złamiesz je, to zerwie umowę.</p>
+        <div class="space-y-1.5">${cards || '<p class="text-[12px] text-paper-400 text-center">Na razie nikt nie dzwoni.</p>'}</div>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="start-sponsor" data-id="local" class="btn-press w-full h-12 rounded-xl bg-desk-700 text-paper-100 text-[14px] font-bold">Na razie Pani Grażynka ze sklepu (bez warunków)</button>
+      </div>`, 'bg-desk-900');
+  },
   crisisOverlay(c) {
     const e = Selectors.econ();
     const b = (v, label, sub, tone) => `<button data-action="crisis-answer" data-value="${v}" class="btn-press w-full rounded-xl ${tone} px-3 py-2.5 text-left"><div class="text-[14.5px] font-extrabold">${label}</div>${sub ? `<div class="text-[11px] opacity-80 leading-snug">${sub}</div>` : ''}</button>`;
@@ -9180,10 +9259,15 @@ const UI = {
       ? b('apology', '📢 Oświadczenie i przeprosiny', 'Agencja PR: ' + Utils.formatMoney(Math.round(150 * e * n / 10) * 10) + ' · kibice +1% · DNA w górę (skutków afery to nie cofnie)', 'bg-amber-glow text-ink-900')
         + b('attack', '⚔️ „To nagonka mediów!”', 'Szatnia +2% · DNA w dół · sponsor notuje skandal', 'bg-desk-700 text-paper-100 border border-desk-600')
         + b('silent', '🤐 Bez komentarza', 'Przeczekać burzę – bez kosztów', 'bg-desk-800 text-paper-300 border border-desk-600')
+      : c.kind === 'bankrupt'
+        ? (Selectors.paidStaff().length ? b('cut-all', '✂️ Zwalniam cały sztab', 'Oszczędność ' + Utils.formatMoney(Selectors.paidStaff().reduce((a, x) => a + x.wage, 0)) + '/tydz. · drużyna traci wszystkie efekty sztabu · szatnia -8%', 'bg-stamp text-white')
+          + b('cut-top', '✂️ Zwalniam dwóch najdroższych', 'Oszczędność ' + Utils.formatMoney(Selectors.paidStaff().sort((x, y) => y.wage - x.wage).slice(0, 2).reduce((a, x) => a + x.wage, 0)) + '/tydz. · szatnia -4%', 'bg-amber-glow text-ink-900') : '')
+          + b('cuts', '📋 Sam wybiorę cięcia i wyprzedaż', 'Finanse → Bilans: lista cięć i zawodników na sprzedaż', 'bg-desk-700 text-paper-100 border border-desk-600')
+          + b('risk', '🎲 Nic nie tnę – gramy va banque', 'Bez cięć: liczysz na wyniki, sponsora albo cud', 'bg-desk-800 text-paper-300 border border-desk-600')
       : c.kind === 'sponsor'
         ? b('sponsor', '💼 Szukam nowego sponsora', 'Przejdź do Finanse → Sponsor', 'bg-amber-glow text-ink-900') + b('ok', 'Później', '', 'bg-desk-800 text-paper-300 border border-desk-600')
         : b('ok', 'ZROZUMIAŁEM', '', 'bg-amber-glow text-ink-900 text-center');
-    const head = { scandal: 'Kryzys wizerunkowy', sponsor: 'Kryzys finansowy', verdict: 'Wydział Dyscypliny', stars: 'Kryzys w szatni' }[c.kind] || 'Kryzys';
+    const head = { bankrupt: 'Ostatnia szansa', scandal: 'Kryzys wizerunkowy', sponsor: 'Kryzys finansowy', verdict: 'Wydział Dyscypliny', stars: 'Kryzys w szatni' }[c.kind] || 'Kryzys';
     return `
     <div class="fixed inset-0 z-[95] flex justify-center bg-black/90">
       <div class="ov-in w-full max-w-[480px] h-full flex flex-col bg-[#1a0b0d]" style="padding-bottom: env(safe-area-inset-bottom);">
@@ -10824,6 +10908,16 @@ const Actions = {
 
   'euro-ko-view'(el) { gameState.ui.euroKoView = el.dataset.value; App.commit(); },
   'euro-ko-round'(el) { gameState.ui.euroKoRound = el.dataset.value; App.commit(); },
+  'start-coach'(el) {
+    if (el.dataset.id !== 'mirek') Engine.hireCoach(el.dataset.id);
+    gameState.ui.overlay = { type: 'startSponsor' };
+    App.commit();
+  },
+  'start-sponsor'(el) {
+    if (el.dataset.id !== 'local') Engine.signSponsor(el.dataset.id);
+    gameState.ui.overlay = null;
+    App.commit();
+  },
   'fixture-info'(el) { gameState.ui.fixInfo = gameState.ui.fixInfo === el.dataset.key ? null : el.dataset.key; App.commit(); },
   'next-week'() {
     const week = gameState.calendar.week;
