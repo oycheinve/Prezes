@@ -6861,11 +6861,9 @@ const Engine = {
     const next = DATA.shopLevels[(m.level || 1) + 1];
     if (!next) return;
     const cost = Math.round(next.cost * Selectors.econ() / 10) * 10;
-    if (gameState.finance.budget < cost) return;
+    if (gameState.finance.budget < cost || Selectors.buildOf('shop', 'shop') || !Selectors.buildFree()) return;
     Engine.money('Rozbudowa sklepu: ' + next.name, -cost);
-    m.level = (m.level || 1) + 1;
-    Engine.applyEffects({ fans: +2 });
-    Engine.addLog('🛍️ Rozbudowa sklepu: ' + next.name + '. Nowy asortyment: ' + next.items.map((id) => DATA.merch[id].label).join(', ') + '. [kibice +2%]', 'finance');
+    Engine.startBuild('shop', 'shop', Selectors.shopWeeks((m.level || 1) + 1), next.name);   // 13.87: rozbudowa sklepu też trwa
   },
 
   toggleShopManager() {
@@ -7133,11 +7131,9 @@ const Engine = {
     const next = DATA.budka.levels[(b.level || 1) + 1];
     if (!next) return;
     const cost = Math.round(next.cost * Selectors.econ() / 10) * 10;
-    if (gameState.finance.budget < cost) return;
+    if (gameState.finance.budget < cost || Selectors.buildOf('budka', 'budka') || !Selectors.buildFree()) return;
     Engine.money('Rozbudowa budki: ' + next.name, -cost);
-    b.level++;
-    Engine.applyEffects({ fans: +2 });
-    Engine.addLog('🏪 Rozbudowa budki: ' + next.name + '. W menu nowe pozycje: ' + next.items.map((id) => DATA.budka.items[id].label).join(', ') + '. [kibice +2%]', 'finance');
+    Engine.startBuild('budka', 'budka', Selectors.budkaWeeks((b.level || 1) + 1), next.name);   // 13.87: rozbudowa budki też trwa
   },
   budkaSetPrice(id, delta) {
     const it = DATA.budka.items[id];
@@ -7197,6 +7193,16 @@ const Engine = {
     } else if (b.kind === 'stadium') {
       st.level = (st.level || 0) + 1;
       Engine.applyEffects({ fans: +4 });
+    } else if (b.kind === 'budka') {
+      const bd = gameState.budka; bd.level = (bd.level || 1) + 1;
+      const L = DATA.budka.levels[bd.level];
+      Engine.applyEffects({ fans: +2 });
+      if (L) Engine.addLog('🏪 W menu budki nowe pozycje: ' + L.items.map((id) => DATA.budka.items[id].label).join(', ') + '. [kibice +2%]', 'finance');
+    } else if (b.kind === 'shop') {
+      const m = gameState.merch; m.level = (m.level || 1) + 1;
+      const L = DATA.shopLevels[m.level];
+      Engine.applyEffects({ fans: +2 });
+      if (L) Engine.addLog('🛍️ Nowy asortyment w sklepie: ' + L.items.map((id) => DATA.merch[id].label).join(', ') + '. [kibice +2%]', 'finance');
     }
     Engine.addLog('✂️ Oddano do użytku: ' + b.label + '. Wójt przeciął wstęgę nożyczkami z sekretariatu.' + (b.kind === 'stadium' ? ' [kibice +4%]' : ''), 'finance');
     Engine.alert('🏗️', 'Budowa zakończona', b.label + ' – oddane do użytku.', 'good');
@@ -7689,6 +7695,8 @@ const Selectors = {
   buildFree: () => Selectors.builds().length < Selectors.buildSlots,
   upgradeWeeks: (id) => ({ roller: 1, boiler: 1, toilets: 1, parking: 2, kiosk: 2, scoreboard: 2, tvcams: 3, gym: 3, shop: 3, irrigation: 3, roof: 3, clubhouse: 4, lights: 4, var: 4, monitoring: 4, vip: 5, stand: 6, training: 6, academyHall: 8 }[id] || 3),
   tierWeeks: (t) => 3 + Math.round((t.minLevel || 1) * 0.9),
+  budkaWeeks: (lvl) => [0, 0, 1, 2, 3, 5][lvl] || 3,
+  shopWeeks: (lvl) => [0, 0, 1, 2, 4, 6][lvl] || 3,
   stadiumWeeks: (i) => [0, 3, 5, 8, 12, 16][i] || 10,
   buildLeft: (b) => Math.max(0, b.ready - gameState.calendar.week),
   academyCost: (i) => Selectors.scaledCost(DATA.academyLevels[i].cost, DATA.academyRef[i] || 1),
@@ -10526,7 +10534,7 @@ const UI = {
       ${rows}
       <div class="flex justify-between text-[11.5px] mt-1.5"><span>Cennik vs „uczciwe” ceny: <b class="${pi > 1.15 ? 'text-stamp' : pi < 0.9 ? 'text-grass' : ''}">${Math.round(pi * 100)}%</b>${pi > 1.15 ? ' · kibice narzekają' : pi < 0.85 ? ' · kibice chwalą' : ''}</span><span>Ost. mecz: <b class="text-grass">${Utils.signedMoney(lastTotal)}</b></span></div>
       ${b.cheapMeat ? '<p class="text-[10.5px] text-stamp mt-1 leading-snug">🥩 Mięso od rzeźnika Waldka: mięsne pozycje o połowę tańsze w zakupie. Papierów brak…</p>' : ''}
-      ${next ? `<button data-action="budka-upgrade" ${gameState.finance.budget < nextCost ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1.5 text-left disabled:opacity-50"><span class="block text-[12.5px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)}</span><span class="block text-[10.5px]">Nowe w menu: ${next.items.map((id) => DATA.budka.items[id].icon + ' ' + DATA.budka.items[id].label).join(', ')}</span></button>` : '<p class="text-[11px] text-grass font-semibold mt-1.5">🏆 Budka w pełni rozbudowana.</p>'}
+      ${next && Selectors.buildOf('budka', 'budka') ? `<p class="text-[11.5px] text-amber-700 font-semibold mt-1.5">🏗️ Trwa rozbudowa: ${Utils.escape(next.name)} – jeszcze ${Selectors.buildLeft(Selectors.buildOf('budka', 'budka'))} tyg.</p>` : next ? `<button data-action="budka-upgrade" ${gameState.finance.budget < nextCost || !Selectors.buildFree() ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1.5 text-left disabled:opacity-50"><span class="block text-[12.5px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)} · ${Selectors.budkaWeeks((gameState.budka.level || 1) + 1)} tyg.${Selectors.buildFree() ? '' : ' (ekipy zajęte)'}</span><span class="block text-[10.5px]">Nowe w menu: ${next.items.map((id) => DATA.budka.items[id].icon + ' ' + DATA.budka.items[id].label).join(', ')}</span></button>` : '<p class="text-[11px] text-grass font-semibold mt-1.5">🏆 Budka w pełni rozbudowana.</p>'}
     `);
   },
 
@@ -10567,7 +10575,7 @@ const UI = {
           ? `<div class="flex items-center gap-1.5 mt-0.5 rounded-md bg-paper-200 pl-2 pr-0.5 h-6"><span class="flex-1 min-w-0 text-[11px] truncate"><b>👔 Kierownik</b> ${Utils.formatMoney(Selectors.shopManagerWage())}/tydz. · <span class="text-ink-700">${m.managerLast ? 'dostawa ' + Utils.escape(m.managerLast) : 'pilnuje zapasów'}</span></span><button data-action="shop-manager" class="btn-press h-5 px-2 rounded-md bg-paper-300 text-[11px] font-semibold">Zwolnij</button></div>`
           : `<button data-action="shop-manager" title="Sam dokupuje gadżety przed meczem – koniec z pustymi półkami" class="btn-press block w-full h-6 mt-0.5 rounded-md bg-ink-900 text-paper-100 px-2 text-left text-[11.5px] leading-6 font-bold truncate">👔 Zatrudnij kierownika sklepu · ${Utils.formatMoney(Selectors.shopManagerWage())}/tydz.</button>`)
         : `<p class="text-[10.5px] text-ink-700 mt-1">👔 Kierownika sklepu zatrudnisz od poziomu ${Selectors.shopManagerLevel} („${Utils.escape(DATA.shopLevels[Selectors.shopManagerLevel].name)}”). Na razie zapasy zamawiasz sam.</p>`}
-      ${next ? `<button data-action="shop-upgrade" ${gameState.finance.budget < nextCost ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1 text-left disabled:opacity-50"><span class="block text-[12px] font-bold">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)}</span><span class="block text-[10.5px] truncate">Nowe: ${next.items.map((id) => DATA.merch[id].icon + ' ' + DATA.merch[id].label).join(', ')}</span></button>` : ''}
+      ${next && Selectors.buildOf('shop', 'shop') ? `<p class="text-[11px] text-amber-700 font-semibold mt-1 truncate">🏗️ Trwa rozbudowa: ${Utils.escape(next.name)} – jeszcze ${Selectors.buildLeft(Selectors.buildOf('shop', 'shop'))} tyg.</p>` : next ? `<button data-action="shop-upgrade" ${gameState.finance.budget < nextCost || !Selectors.buildFree() ? 'disabled' : ''} class="btn-press w-full mt-1.5 rounded-md bg-amber-glow text-ink-900 px-2 py-1 text-left disabled:opacity-50"><span class="block text-[12px] font-bold truncate">🏗️ Rozbuduj: ${Utils.escape(next.name)} · ${Utils.formatMoney(nextCost)} · ${Selectors.shopWeeks((gameState.merch.level || 1) + 1)} tyg.${Selectors.buildFree() ? '' : ' (ekipy zajęte)'}</span><span class="block text-[10.5px] truncate">Nowe: ${next.items.map((id) => DATA.merch[id].icon + ' ' + DATA.merch[id].label).join(', ')}</span></button>` : ''}
     `);
   },
 
@@ -10703,7 +10711,7 @@ const UI = {
       ${anyOpen ? '' : UI.bar(st.pitch, pitchColor)}
       ${anyOpen ? '' : `<p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
       <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
-      ${Selectors.builds().length ? `<p class="text-[11px] mt-1 text-amber-700 font-semibold truncate">🏗️ Budowy (${Selectors.builds().length}/${Selectors.buildSlots}): ${Selectors.builds().map((b) => Utils.escape(b.label) + ' – ' + Selectors.buildLeft(b) + ' tyg.').join(' · ')}</p>` : ''}
+      ${Selectors.builds().length || gameState.academy.building ? `<p class="text-[11px] mt-1 text-amber-700 font-semibold truncate">🏗️ Budowy (${Selectors.builds().length}/${Selectors.buildSlots}): ${Selectors.builds().map((b) => Utils.escape(b.label) + ' – ' + Selectors.buildLeft(b) + ' tyg.').join(' · ')}${gameState.academy.building ? (Selectors.builds().length ? ' · ' : '') + 'szkółka – ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.' : ''}</p>` : ''}
       ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
       ${buildGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
