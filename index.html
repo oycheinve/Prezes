@@ -207,11 +207,11 @@ const DATA = {
         ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
         ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
         ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
-    { name: 'II Liga',        econ: 10,  rivalBase: 2.19, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+    { name: 'II Liga',        econ: 22,  rivalBase: 2.19, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
       pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
-    { name: 'I Liga',         econ: 16,  rivalBase: 2.38, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
+    { name: 'I Liga',         econ: 40,  rivalBase: 2.38, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
       pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
-    { name: 'Ekstraklasa',    econ: 25,  rivalBase: 2.57, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
+    { name: 'Ekstraklasa',    econ: 100,  rivalBase: 2.57, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
@@ -3603,6 +3603,7 @@ function createInitialState() {
     u19Loans: [],               // juniorzy na wypożyczeniu: { player, club, until }
     u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
+    econ1389: true,             // 13.89: kontrakty liczone już w nowej skali pieniędzy
     budkaGate: true,            // 13.85: budka otwiera się dopiero po inwestycji „kiosk” (stare zapisy – zachowana)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
     cup: null,                  // Puchar Polski w bieżącym sezonie   // miesięczne rozliczenie skutków cen (co 4 tygodnie)
@@ -4009,7 +4010,7 @@ const Engine = {
     gameState.matchday.ticket = id;
     const att = Engine.estimateAttendance(next.fixture);
     gameState.matchday.ticket = prev;
-    return { att, gate: att * DATA.tickets[id].price };
+    return { att, gate: att * Selectors.ticketPrice(id) };
   },
 
   // Cennik biletów: ustalany przed rundą; w trakcie rundy jedna delikatna korekta (o jeden próg)
@@ -4335,7 +4336,7 @@ const Engine = {
     if (cup && cup.neutral) {   // finał na neutralnym stadionie: udział w zysku z biletów
       const v = cup.venue || { name: 'PGE Narodowy, Warszawa', att: [40000, 58000] };
       const att = Math.round(Utils.randRange(v.att[0], v.att[1]));
-      const share = Math.round(att * DATA.tickets[gameState.matchday.ticket].price * 0.15);
+      const share = Math.round(att * Selectors.ticketPrice(gameState.matchday.ticket) * 0.15);
       Engine.money('Finał: udział w biletach', share);
       gameState.lastMatch.attendance = att;
       gameState.lastMatch.money.push({ label: 'Udział w biletach (' + v.name + ')', amount: share });
@@ -4380,8 +4381,9 @@ const Engine = {
     const holders = Math.min(att, Selectors.passHolders());   // karnetowicze już zapłacili z góry
     const paying = att - holders;
     if (gameState.bonuses.fetaMatches > 0) gameState.bonuses.fetaMatches--;
-    const gate = paying * ticket.price;
-    Engine.money('Bilety (' + paying + ' × ' + ticket.price + ' zł)', gate);
+    const price = Selectors.ticketPrice(md.ticket);
+    const gate = paying * price;
+    Engine.money('Bilety (' + paying + ' × ' + price + ' zł)', gate);
 
     const pp = Selectors.passPolicy();
     // Budka: każda pozycja menu sprzedaje się osobno – zależnie od swojej ceny
@@ -4404,7 +4406,7 @@ const Engine = {
     if (gameState.lastMatch) {
       gameState.lastMatch.attendance = att;
       gameState.lastMatch.holders = holders;
-      gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + ticket.price + ' zł)', amount: gate });
+      gameState.lastMatch.money.push({ label: 'Bilety (' + paying + ' × ' + price + ' zł)', amount: gate });
       if (Selectors.budkaOpen()) gameState.lastMatch.money.push({ label: 'Gastro: ' + sold + ' szt. (' + sausage.label + ')', amount: grillProfit });
     }
 
@@ -5349,7 +5351,7 @@ const Engine = {
     Object.entries(m.scorerCount || {}).forEach(([id, n]) => { const p = gameState.squad.find((x) => String(x.id) === String(id)); if (p) p.euroGoals = (p.euroGoals || 0) + n; });
     if (home && !neutral) {   // europejski wieczór: komplet na trybunach i ceny ×2 (zwykła bramka już policzona przez silnik meczu)
       const seats = eu.venue === 'narodowy' ? 25000 : Selectors.stadiumCapacity();
-      const price = DATA.tickets[gameState.matchday.ticket].price;
+      const price = Selectors.ticketPrice(gameState.matchday.ticket);
       const full = Math.max(m.attendance || 0, Math.round(seats * Utils.randRange(0.85, 1)));
       const extra = Math.max(0, full * price * 2 - (m.attendance || 0) * price);
       Engine.euroMoney('Bilety: europejski komplet (' + full + ' widzów, ceny UEFA ×2)', extra);
@@ -5587,10 +5589,10 @@ const Engine = {
     let att, income = 0;
     if (neutral) {
       att = Math.round(Selectors.stadiumCapacity() * Utils.randRange(0.9, 1.6) * hype);
-      income = Math.round(att * ticket.price * 0.3);   // udział w zysku z neutralnego stadionu
+      income = Math.round(att * Selectors.ticketPrice(gameState.matchday.ticket) * 0.3);   // udział w zysku z neutralnego stadionu
     } else if (home) {
       att = Math.max(20, Math.min(Selectors.stadiumCapacity(), Math.round((25 + gameState.morale.fans * 1.1) * e * Selectors.upgradeProd('attendance') * ticket.attendance * hype * Utils.randRange(0.9, 1.1))));
-      income = att * ticket.price;
+      income = att * Selectors.ticketPrice(gameState.matchday.ticket);
     } else att = Math.round(Selectors.stadiumCapacity() * Utils.randRange(0.6, 1.3) * hype);
     if (income) Engine.money(opts.moneyLabel || 'Bilety: mecz pucharowy', income);
     return { gf: m.gf, ga: m.ga, goals, cards, att, income, tactic: style.label + ' · zgranie ' + chem + '%', scorers: goals.filter((g) => g.us).map((g) => g.s.split('” ')[1] || g.s) };
@@ -5843,7 +5845,7 @@ const Engine = {
   },
 
   makePlayer({ ageMin = 18, ageMax = 32, skillMin = 3, skillMax = 6, wageMin = 10, wageMax = 30, pos = null, trait = null, pro = null } = {}) {
-    const isPro = pro != null ? pro : gameState.club.leagueLevel >= 6;   // 13.88: od II ligi zawodowcy, niżej amatorzy z ksywkami
+    const isPro = pro != null ? pro : gameState.club.leagueLevel >= 6 || (gameState.club.leagueLevel >= 5 && Math.random() < 0.5);   // 13.88/13.89: od II ligi zawodowcy, III liga – mieszanka, niżej amatorzy z ksywkami
     trait = trait || Utils.rand(isPro ? DATA.proTraits : DATA.traits);
     const positions = ['GK', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD'];
     // Bramkarz, gdy brakuje – reszta losowo
@@ -7907,13 +7909,16 @@ const Selectors = {
   passPolicy: () => DATA.passPolicies[(gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season && gameState.matchday.pass.policy) || 'brak'] || DATA.passPolicies.brak,
   passHolders: () => (gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season ? gameState.matchday.pass.holders : 0),
   // Prognoza karnetów: ilu kupi i ile wpłynie z góry (cena skaluje się z liczbą meczów u siebie)
+  // 13.89: ceny biletów i karnetów rosną w zawodowych ligach (II liga ×2, I liga ×2,5, Ekstraklasa ×4)
+  ticketScale: (lvl = gameState.club.leagueLevel) => ({ 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1),
+  ticketPrice: (id) => Math.round(DATA.tickets[id].price * Selectors.ticketScale()),
   passForecast: (id) => {
     const pp = DATA.passPolicies[id];
     if (!pp || !pp.share) return { holders: 0, revenue: 0 };
     const homeGames = Math.max(1, Math.round((gameState.season.rounds || []).length / 2));
     const base = (25 + gameState.morale.fans * 1.1) * Selectors.econ();
     const holders = Math.min(Math.round(Selectors.stadiumCapacity() * 0.8), Math.round(base * pp.share * (gameState.club.character === 'suburban' && id === 'vip' ? 1.5 : 1)));
-    const price = Math.round(pp.passPrice * homeGames / 9 / 5) * 5;
+    const price = Math.round(pp.passPrice * Selectors.ticketScale() * homeGames / 9 / 5) * 5;
     return { holders, price, revenue: holders * price };
   },
   promo: () => {
@@ -8349,6 +8354,14 @@ const Storage = {
       (sn.rounds || []).forEach((rd) => rd.forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; }));
       (sn.lastResults || []).forEach((f) => { f.home = map[f.home] || f.home; f.away = map[f.away] || f.away; });
     }
+    // 13.89: nowa skala pieniędzy w II lidze, I lidze i Ekstraklasie – przeliczamy zawarte kontrakty trwającej kariery
+    if (saved.econ1389 == null && saved.screen === 'game' && state.club && state.club.leagueLevel >= 6) {
+      const f = ({ 6: 22 / 10, 7: 40 / 16, 8: 100 / 25 })[Math.floor(state.club.leagueLevel)] || 1;
+      (state.squad || []).forEach((p) => { if (p.wage) p.wage = Math.round(p.wage * f / 5) * 5; });
+      if (state.coach && state.coach.weekly) state.coach.weekly = Math.round(state.coach.weekly * f);
+      Object.values(state.staff || {}).forEach((m) => { if (m && m.wage) m.wage = Math.round(m.wage * f); });
+    }
+    state.econ1389 = true;
     if (saved.budkaGate == null && saved.screen === 'game' && state.stadium && state.stadium.upgrades) state.stadium.upgrades.kiosk = true;   // 13.85: stare zapisy zachowują budkę
     state.budkaGate = true;
     (state.squad || []).forEach((p) => { delete p.bargain; delete p.fireSale; });   // 13.59: własni zawodnicy bez etykiet z giełdy
@@ -10531,7 +10544,7 @@ const UI = {
           class="btn-press w-full text-left px-2 py-1.5 border rounded-lg flex items-center gap-2 ${active ? 'border-amber-glow bg-amber-glow/15' : ok ? 'border-paper-300 bg-white' : 'border-paper-300 bg-paper-200 opacity-60 cursor-not-allowed'}">
           <span class="text-[18px] w-6 text-center">${ok || active ? t.icon : '🔒'}</span>
           <span class="min-w-0 flex-1">
-            <span class="block text-[12.5px] ${active ? 'font-bold' : 'font-semibold'} leading-tight">${t.policy} · ${t.price} zł</span>
+            <span class="block text-[12.5px] ${active ? 'font-bold' : 'font-semibold'} leading-tight">${t.policy} · ${Selectors.ticketPrice(id)} zł</span>
             <span class="block text-[10.5px] text-ink-700 leading-snug">${f ? '~' + f.att + ' widzów · ~' + Utils.formatMoney(f.gate) + ' z biletów na mecz' : 'brak meczów u siebie'}${t.fans ? ' · nastroje ' + (t.fans > 0 ? '↑' : '↓') + ' (co miesiąc)' : ''}</span>
           </span>
         </button>`;
