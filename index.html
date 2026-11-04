@@ -945,6 +945,31 @@ const DATA = {
   },
   academyRef: [0, 1, 2, 4, 6, 8, 8, 8],   // szczebel „naturalny” dla poziomów szkółki
 
+  // 13.91: tygodniowe wydarzenia półzawodowe (IV–III liga) i zawodowe (od II ligi)
+  weeklyFlavorBand: {
+    1: [
+      { text: 'Portal „Głos Powiatu” zrobił z prezesem wywiad. Pod artykułem 47 komentarzy, z czego 40 o parkingu.' },
+      { text: 'Radny z komisji sportu dopytuje na sesji, gdzie idą pieniądze z dotacji.' },
+      { text: 'Kablówka nagrała skrót meczu. Komentator pomylił nazwiska trzech zawodników.', effects: { fans: +1 } },
+      { text: 'Kierownik wypełnił wniosek licencyjny w trzech egzemplarzach. Związek prosi o czwarty.' },
+      { text: 'Na fanpage’u burza o nowe stroje. Grafik z gminy broni się, że „tak miało być”.', effects: { fans: -1 } },
+      { text: 'Starosta przeciął wstęgę przy nowych krzesełkach. Krzesełka są z poprzedniego sezonu, wstęga nowa.' },
+      { text: 'Trener udzielił wywiadu regionalnemu radiu. Najczęstsze słowo: „konsekwentnie”.' },
+      { text: 'Lokalna firma budowlana pyta o baner przy linii bocznej „po kosztach”.', effects: { fans: +1 } },
+      { text: 'Szatnia narzeka na dojazdy na wyjazdy busem bez klimatyzacji.', effects: { lockerRoom: -1 } },
+    ],
+    2: [
+      { text: 'Telewizja przesunęła mecz na poniedziałek 20:30. Kibice piszą petycję.', effects: { fans: -1 } },
+      { text: 'Agent naszego pomocnika siedzi w loży VIP z dwoma telefonami. Oba dzwonią.' },
+      { text: 'Konferencja prasowa przed meczem: 14 kamer, 3 pytania o taktykę, 11 o przyszłość trenera.' },
+      { text: 'Dział marketingu przygotował raport z social mediów na 40 slajdów.' },
+      { text: 'Analitycy wyliczyli, że drużyna biega o 3% mniej niż miesiąc temu. Trener prosi o kolejnego analityka.' },
+      { text: 'Rzecznik prasowy dementuje plotki transferowe. Plotki rosną.' },
+      { text: 'Sponsor strategiczny zorganizował w lożach event dla partnerów biznesowych.', effects: { fans: +1 } },
+      { text: 'Dziennikarz ogólnopolskiego portalu pyta o finanse klubu. Księgowa prosi o urlop.' },
+      { text: 'Kapitan nagrał spot dla stacji telewizyjnej. Szatnia ma z tego bekę przez tydzień.', effects: { lockerRoom: +1 } },
+    ],
+  },
   // Zwykłe komunikaty tygodniowe. effects opcjonalne.
   weeklyFlavor: [
     { text: 'Pan Heniek skosił boisko kosiarką od szwagra. Wyszło w paski, ale tylko z jednej strony.' },
@@ -3447,7 +3472,8 @@ const DATA = {
 
   // Sponsor „na zawsze”: gdy klub nie ma żadnej umowy, wspiera go symbolicznie lokalny przedsiębiorca
   localSponsor: {
-    id: 'local', fallback: true, name: 'Sklep spożywczy „U Grażynki”',
+    id: 'local', fallback: true,
+    get name() { return ['Sklep spożywczy „U Grażynki”', 'Hurtownia „Grażyna i Synowie”', 'Grupa „Grażyna Holding” (umowa ramowa)'][Selectors.band()]; },   // 13.91: ton dojrzewa z ligą
     pitch: 'Pani Grażynka zawsze coś dorzuci: skrzynkę wody na mecz, parę złotych na piłki. Nie zrywa, nie wymaga, nie znika.',
     requirement: 'Bez warunków – zostaje, dopóki klub nie podpisze większej umowy.',
     signEffects: {}, breaks: () => false, breakLog: '',
@@ -3744,6 +3770,15 @@ const Utils = {
   },
   val: (x) => (typeof x === 'function' ? x() : x),
   // Wartość rynkowa w złotych: 850 zł · 14 tys. zł · 2,4 mln zł
+  // 13.91: ukryte szanse – zamiast liczby gracz widzi tylko słowną, rozmytą ocenę
+  hideOdds: (t) => {
+    if (typeof t !== 'string') return t;
+    const word = (n) => (n < 15 ? 'marne' : n < 35 ? 'niewielkie' : n < 55 ? 'niepewne' : n < 75 ? 'spore' : 'duże');
+    const out = t.replace(/(ok\.\s*)?(\d{1,3})%\s+szans[ay]?/gi, (m, ok, n) => word(+n) + ' szanse')
+      .replace(/(ok\.\s*)?(\d{1,3})%\s+że/gi, (m, ok, n) => word(+n) + ' szanse, że')
+      .replace(/(\d{1,3})%\s+–/g, (m, n) => (+n < 35 ? 'niewielkie' : +n < 55 ? 'realne' : 'spore') + ' ryzyko –');
+    return /^[A-ZŁŚŻŹĆÓ]/.test(t) && out ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+  },
   formatValue: (v) => (v >= 1e6 ? (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' mln zł' : v >= 1000 ? Math.round(v / 1000) + ' tys. zł' : Math.round(v) + ' zł'),
   formatMoney: (n) => Math.round(n).toLocaleString('pl-PL').replace(/,/g, ' ') + ' zł',
   signedMoney: (n) => (n > 0 ? '+' : '') + Utils.formatMoney(n),
@@ -3927,6 +3962,21 @@ const Engine = {
     Engine.addLog(log + Engine.describeEffects(effects), 'decision');
     Engine._decisionCtx = { title, label: Utils.val(option.label) };   // echa decyzji pamiętają, skąd się wzięły
     try { if (option.onChoose) option.onChoose(); } finally { Engine._decisionCtx = null; }   // może dodać kolejną decyzję (np. następny emeryt)
+    if (decision.cutscene) Engine.decisionMishap();   // 13.91: nawet najlepszy sztab nie zdejmie ryzyka do zera
+  },
+  // Nieprzewidziane konsekwencje: ukryta szansa, mniejsza z dobrym sztabem, ale zawsze co najmniej 4%
+  decisionMishap() {
+    const staff = Object.keys(DATA.staffSlots).reduce((a, k) => a + Selectors.staffRawLevel(k), 0) + ((gameState.director && gameState.director.hired && gameState.director.hired.level) || 0);
+    if (Math.random() >= Utils.clamp(0.11 - staff * 0.006, 0.04, 0.11)) return;
+    const e = Selectors.econ();
+    const pool = [
+      [['Pan Rysio z bazarku rozgadał całą sprawę pod sklepem', { fans: -2 }], ['Szwagier coś pokręcił w papierach', { budget: -Math.round(50 * e) }], ['W szatni poszło na noże przy piwie', { lockerRoom: -3 }]],
+      [['Lokalny portal przekręcił słowa prezesa', { fans: -2 }], ['Radny zażądał wyjaśnień na sesji rady', { budget: -Math.round(60 * e) }], ['Nieporozumienie w sztabie', { lockerRoom: -3 }]],
+      [['Agent zawodnika wydał oświadczenie przeciwko klubowi', { lockerRoom: -3 }], ['Stacja telewizyjna wyemitowała niewygodny materiał', { fans: -2 }], ['Kancelaria wystawiła fakturę za konsultacje prawne', { budget: -Math.round(80 * e) }]],
+    ][Selectors.band()];
+    const [text, fx] = Utils.rand(pool);
+    Engine.applyEffects(fx, 'Nieprzewidziane konsekwencje');
+    Engine.addLog('🎲 Nieprzewidziane konsekwencje: ' + text + '.' + Engine.describeEffects(fx), 'decision');
   },
   // Skutek decyzji odłożony w czasie: po kilku tygodniach wraca jako afera albo „uszło płazem”
   echo(key, chance, args, delay) {
@@ -4451,7 +4501,7 @@ const Engine = {
       sold += n; grillProfit += profit;
     });
     gameState.stats.sausages += sold;
-    if (Selectors.budkaOpen()) Engine.money('Budka u Pana Zenka (' + sold + ' szt.)', grillProfit);
+    if (Selectors.budkaOpen()) Engine.money(Selectors.gastroName() + ' (' + sold + ' szt.)', grillProfit);
     const pi = Selectors.budkaPriceIndex();
     const budkaFans = pi > 1.4 ? -2 : pi > 1.15 ? -1 : pi < 0.85 ? 1 : 0;   // drożyzna w budce psuje humory (rozliczane co miesiąc)
     const sausage = { label: 'menu: ' + Selectors.budkaMenu().length + ' poz.', fans: budkaFans };
@@ -4463,7 +4513,7 @@ const Engine = {
     }
 
     Engine.addLog('🏟️ Frekwencja: ' + att + ' widzów' +
-      '. Bilety: ' + Utils.formatMoney(gate) + (Selectors.budkaOpen() ? '. Budka Zenka: ' + sold + ' szt. (' + sausage.label + ') → ' + Utils.formatMoney(grillProfit) + ' zysku.' : '. Budki jeszcze nie ma – kibice przynoszą kanapki z domu.'), 'finance');
+      '. Bilety: ' + Utils.formatMoney(gate) + (Selectors.budkaOpen() ? '. ' + Selectors.gastroName() + ': ' + sold + ' szt. (' + sausage.label + ') → ' + Utils.formatMoney(grillProfit) + ' zysku.' : '. Budki jeszcze nie ma – kibice przynoszą kanapki z domu.'), 'finance');
 
     const ticketFans = gameState.club.character === 'suburban' && ticket.fans < 0 ? Math.round(ticket.fans / 3) : ticket.fans;
     gameState.monthly.fans += ticketFans + sausage.fans + (pp.fansMatch || 0);   // skutki cen dla kibiców – raz w miesiącu
@@ -7310,7 +7360,8 @@ const Engine = {
       gameState.report = { week: gameState.calendar.week, lines: [], homeMatch: false, result: null };
     },
     function rollFlavor() {
-      const entry = Utils.rand(DATA.weeklyFlavor);
+      const band = Selectors.band();   // 13.91: ton tygodniowych wydarzeń dojrzewa z ligą
+      const entry = Utils.rand(band && Math.random() < 0.85 ? DATA.weeklyFlavorBand[band] : DATA.weeklyFlavor);
       Engine.applyEffects(entry.effects, 'Zdarzenia losowe');
       Engine.addLog(entry.text + Engine.describeEffects(entry.effects), entry.effects ? 'event' : 'flavor');
     },
@@ -8153,6 +8204,7 @@ const Selectors = {
   fireSalePrice: (p) => Math.max(10, Math.round((p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)) * 0.45 / 10) * 10),
   budkaMenu: () => { const lvl = (gameState.budka && gameState.budka.level) || 1; return DATA.budka.levels.slice(1, lvl + 1).flatMap((L) => L.items); },
   budkaPrice: (id) => { const pr = gameState.budka && gameState.budka.prices[id]; return pr != null ? pr : DATA.budka.items[id].base; },
+  gastroName: () => ['Budka u Pana Zenka', 'Punkt gastronomiczny', 'Catering stadionowy'][Selectors.band()],   // 13.91: nazwa dojrzewa z ligą
   budkaOpen: () => !!(gameState.stadium.upgrades && gameState.stadium.upgrades.kiosk),   // 13.85: budka po inwestycji „Blaszana budka u Szwagra”
   budkaCost: (id) => { const it = DATA.budka.items[id]; return it.meat && gameState.budka && gameState.budka.cheapMeat ? Math.max(1, Math.round(it.cost * 0.5)) : it.cost; },
   // Popyt na pozycję: cena względem „uczciwej” – za drogo kolejka znika, tanio schodzi szybciej
@@ -9041,7 +9093,7 @@ const UI = {
       <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
         class="btn-press w-full text-left ${compact ? 'px-3 py-1.5' : 'px-3.5 py-2.5'} rounded-xl bg-desk-800 border border-desk-600 active:bg-desk-700">
         <span class="block ${compact ? 'text-[13px]' : 'text-[14px]'} font-semibold text-paper-100 leading-snug">${Utils.escape(Utils.val(o.label))}</span>
-        <span class="block ${compact ? 'text-[11px]' : 'text-[11.5px]'} text-paper-400 leading-snug">${Utils.escape(Utils.val(o.hint))}</span>
+        <span class="block ${compact ? 'text-[11px]' : 'text-[11.5px]'} text-paper-400 leading-snug">${Utils.escape(Utils.hideOdds(Utils.val(o.hint)))}</span>
       </button>`)).join('');
     const pl = d.player ? d.player() : null;
     return UI.overlayFrame(`
@@ -9230,7 +9282,7 @@ const UI = {
         const opts = d.options.map((o, i) => `
           <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}" class="btn-press w-full text-left px-3 py-2 rounded-xl bg-desk-800 border border-desk-600">
             <span class="block text-[13px] font-semibold text-paper-100 leading-snug">${Utils.escape(Utils.val(o.label))}</span>
-            <span class="block text-[11px] text-paper-400 leading-snug">${Utils.escape(Utils.val(o.hint))}</span>
+            <span class="block text-[11px] text-paper-400 leading-snug">${Utils.escape(Utils.hideOdds(Utils.val(o.hint)))}</span>
           </button>`).join('');
         return `
         <article class="py-3 border-b border-desk-700 last:border-0">
@@ -9755,7 +9807,7 @@ const UI = {
       <button data-action="resolve-decision" data-decision="${d.id}" data-option="${i}"
         class="btn-press w-full min-w-0 text-left px-3 py-2 bg-white active:bg-paper-300 border border-paper-300 rounded-lg [overflow-wrap:anywhere]">
         <span class="text-[13.5px] font-semibold block leading-snug">${Utils.escape(Utils.val(o.label))}</span>
-        <span class="text-[11px] text-ink-700 leading-snug block">${Utils.escape(Utils.val(o.hint))}</span>
+        <span class="text-[11px] text-ink-700 leading-snug block">${Utils.escape(Utils.hideOdds(Utils.val(o.hint)))}</span>
       </button>`)).join('');
     const rest = pending.slice(1).map((id) => Utils.escape(Utils.val(DATA.decisions[id].title))).join(' · ');
     return `
