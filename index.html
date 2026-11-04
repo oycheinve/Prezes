@@ -361,9 +361,9 @@ const DATA = {
      tempo – mnożnik liczby goli po obu stronach (ofensywa = 3:3, defensywa = 1:0)
      formation – [BR, OBR, POM, NAP] */
   styles: {
-    off: { label: 'Ofensywny', motto: 'Tiki-taka na kretowisku',  tempo: 1.3,  formation: [1, 3, 4, 3], effect: 'miażdży słabszych (+18% goli), ale dziurawy z tyłu i cierpi w deszczu' },
+    off: { label: 'Ofensywny', motto: 'Tiki-taka na kretowisku',  tempo: 1.3,  formation: [1, 3, 4, 3], effect: 'miażdży słabszych (+26% goli), ale dziurawy z tyłu i cierpi w deszczu' },
     bal: { label: 'Zbalansowany', motto: 'Na aferę',              tempo: 1.0,  formation: [1, 4, 4, 2], effect: 'bez fajerwerków – przy dobrym zgraniu lekko lepszy w obu tercjach' },
-    def: { label: 'Defensywny', motto: 'Laga i autobus',          tempo: 0.65, formation: [1, 5, 4, 1], effect: 'urywa punkty silniejszym (-28% straconych), ale sam mało strzela' },
+    def: { label: 'Defensywny', motto: 'Laga i autobus',          tempo: 0.65, formation: [1, 5, 4, 1], effect: 'urywa punkty silniejszym (-36% straconych), ale sam mało strzela' },
   },
 
   profiles: {
@@ -639,6 +639,8 @@ const DATA = {
 
   // Karnety na sezon: każda polityka to dylemat – kasa z góry kontra atmosfera, frekwencja i spokój
   passPolicies: {
+    staly: { icon: '🎫', label: 'Karnet sezonowy (stała cena)', sub: 'Sprzedaż zależy od nastrojów kibiców', ticket: 'standard', passPrice: 60, fixed: true, share: 0, homeAdv: 0.02, fansMatch: 0, promo: 1,
+      pros: 'kasa z góry, tym więcej, im lepsze nastroje', cons: '' },
     twierdza: { icon: '🔥', label: 'Karnet kibicowski za grosze', sub: 'Twierdza fanatyków', ticket: 'colaska', passPrice: 30, share: 0.45, homeAdv: 0.06, fansMatch: +1, pyro: 0.1, merch: 1.15, promo: -2,
       pros: 'pełne trybuny, +6% atutu własnego boiska, kibice rosną', cons: 'mało kasy, race = kary od Związku' },
     rodzinny: { icon: '👨‍👩‍👧', label: 'Karnety rodzinne', sub: 'Piknik i strefa dla dzieci', ticket: 'standard', passPrice: 80, share: 0.3, homeAdv: -0.02, fansMatch: 0, boycott: 0.12, grill: 1.2, promo: 3,
@@ -2385,6 +2387,45 @@ const DATA = {
         },
       ],
     },
+    fanBoycott: {
+      id: 'fanBoycott',
+      levels: [1, 8],
+      cutscene: { icon: '🚫', place: 'Pod bramą stadionu · sobota przed meczem', scripted: true },
+      from: 'Stowarzyszenie kibiców',
+      title: 'Bojkot! Kibice nie wejdą na stadion',
+      body: 'Pod bramą transparent „ZARZĄD DO DYMISJI”. Kasa biletowa pusta, budka zamknięta, młyn milczy. Rzecznik kibiców: „Wrócimy, kiedy klub znów będzie nasz”. Prezesie, trzeba coś zrobić.',
+      options: [
+        {
+          label: 'Zwolnić trenera – kozioł ofiarny',
+          show: () => gameState.coach.id !== 'mirek',
+          hint: 'Odprawa dla trenera · kibice +15% · bojkot odwołany · szatnia -5%',
+          effects: { fans: +15, lockerRoom: -5 },
+          log: 'Trener pakuje kartony. Tłum pod bramą bije brawo, szatnia milczy.',
+          onChoose: () => { Engine.fireCoach(true); gameState.boycott.active = false; },
+        },
+        {
+          label: 'Przeprosiny i spotkanie z ultrasami',
+          hint: 'Kibice +12% · szatnia -3% · DNA w dół · bojkot odwołany',
+          effects: { fans: +12, lockerRoom: -3 },
+          log: 'Prezes w młynie, z megafonem i spuszczoną głową. Kapo podaje rękę – na razie.',
+          onChoose: () => { Engine.shiftDNA(-1); gameState.boycott.active = false; },
+        },
+        {
+          label: 'Drastycznie obniżyć ceny biletów',
+          hint: 'Bilety „co łaska” do odwołania · kibice +8% · bojkot odwołany',
+          effects: { fans: +8 },
+          log: 'Nowy cennik na drzwiach kasy: „Wejściówka – co łaska”. Trybuny powoli się zapełniają.',
+          onChoose: () => { gameState.matchday.ticket = 'colaska'; gameState.matchday.ticketNext = null; gameState.boycott.active = false; },
+        },
+        {
+          label: 'Darmowe żarcie i piwo na następnym meczu',
+          hint: () => Utils.signedMoney(-Math.round(400 * Selectors.econ())) + ' · kibice +18% · bojkot odwołany',
+          effects: () => ({ budget: -Math.round(400 * Selectors.econ()), fans: +18 }),
+          log: 'Kiełbasa i piwo na koszt klubu. Kibice jedzą, piją i powoli zapominają, za co się obrazili.',
+          onChoose: () => { gameState.boycott.active = false; },
+        },
+      ],
+    },
     cutFire: {
       id: 'cutFire',
       levels: [1, 4],        // od–do poziomu ligi
@@ -3387,15 +3428,19 @@ const DATA = {
   // Strategia medialna: wybierana raz na sezon, działa pasywnie przez całe rozgrywki
   mediaStrategies: {
     neutral: {
-      icon: '🕊️', label: 'Neutralna', sub: 'Dyplomatycznie: „szacunek dla rywali, dziękujemy kibicom”', tone: 'humble', pressure: 1,
+      icon: '🕊️', label: 'Dyplomatyczna', sub: 'Spokój ze sponsorami: „szacunek dla rywali, dziękujemy kibicom”', tone: 'humble', pressure: 1,
       effects: ['Sponsorzy płacą +10%', 'DNA powoli w stronę profesjonalizmu', 'Bez kar i bez fajerwerków'],
     },
     populist: {
       icon: '📢', label: 'Populistyczna', sub: '„Wszyscy na stadion! Będzie pogrom!”', tone: 'hype', pressure: 2,
       effects: ['+10% widzów na meczach u siebie', 'Wygrana: kibice +2%, porażka: kibice -3%', 'Sponsorzy bez zmian'],
     },
+    meme: {
+      icon: '😂', label: 'Luźna / memowa', sub: 'Memy, gify i dystans do siebie – kibice niższych lig to kochają', tone: 'meme', pressure: 1,
+      effects: ['Do IV ligi: kibice +2% co 2 tygodnie (wyżej +1% co miesiąc)', 'Sklepik +10%', 'Sponsorzy płacą -5%'],
+    },
     spicy: {
-      icon: '🌶️', label: 'Zadziorna', sub: 'Szpilki w sędziów, Związek i rywali z Kosy', tone: 'spicy', pressure: 3,
+      icon: '🌶️', label: 'Agresywna / prowokacyjna', sub: 'Szpilki w sędziów, Związek i rywali z Kosy', tone: 'spicy', pressure: 3,
       effects: ['Kibice +1% po każdym meczu', 'Przed derbami szatnia +3%', 'Sponsorzy płacą -10%', 'Ok. 8% szans co tydzień na karę OZPN, DNA powoli w dół'],
     },
   },
@@ -3646,7 +3691,7 @@ function createInitialState() {
       startError: '',
       startQuote: null,
       // Stan formularza rejestracyjnego (ekran startowy)
-      form: { prefix: 'LZS', customPrefix: '', town: '', character: 'rural', colors: 'gy', stadium: '', stadiumEdited: false, president: '', region: '' },
+      form: { clubName: '', prefix: '', customPrefix: '', town: '', character: null, colors: 'gy', stadium: '', stadiumEdited: false, president: '', region: '' },
       lastLogId: 0,
       seenFeedId: 0,            // licznik nowych postów na zakładce Wirtualny X
       seenScoutKey: '',         // raport Szwagra już obejrzany
@@ -3987,7 +4032,13 @@ const Engine = {
   offerTicketPolicy() {
     if (gameState.matchday.policySeason === gameState.calendar.season) return;
     gameState.matchday.policySeason = gameState.calendar.season;
-    Engine.pushDecision('ticketPolicy');
+    Engine.sellSeasonPasses();   // 13.90: karnety po stałej cenie – sprzedaż zależy od nastrojów kibiców
+  },
+  sellSeasonPasses() {
+    const f = Selectors.passForecast('staly');
+    gameState.matchday.pass = { policy: 'staly', holders: f.holders, season: gameState.calendar.season, revenue: f.revenue };
+    if (f.revenue) Engine.money('Karnety na sezon (' + f.holders + ' szt. po ' + f.price + ' zł)', f.revenue);
+    Engine.addLog('🎫 Karnety na sezon: ' + f.holders + ' szt. po ' + Utils.formatMoney(f.price) + ' (nastroje kibiców ' + gameState.morale.fans + '%) → ' + Utils.formatMoney(f.revenue) + '.', 'finance');
   },
 
   setPassPolicy(id) {
@@ -4095,7 +4146,7 @@ const Engine = {
     s *= 0.88 + chem * 0.0025;
     s *= 0.94 + gameState.morale.lockerRoom * 0.0012;
     // asystent mnoży jakość trenera i sam dokłada swoje; kurs podnosi warsztat
-    s *= 1 + Selectors.coach().quality * Selectors.assistantMult() + Selectors.staffLevel('asystent') * 0.012 + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;
+    s *= 1 + Selectors.coach().quality * Selectors.assistantMult() + Selectors.staffLevel('asystent') * 0.02 + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;
     s *= 1 - Selectors.fatiguePenalty();
     if (Selectors.coachTrait('hardTraining')) s *= 1.04;
     if (Selectors.coachTrait('discipline')) s *= 1.03;
@@ -4112,6 +4163,7 @@ const Engine = {
     const rival = fixture.rivalObj || Selectors.rival(fixture.rival) || { derby: false };
     const ticket = DATA.tickets[gameState.matchday.ticket];
     let base = (25 + gameState.morale.fans * 1.1) * Selectors.revEcon();   // świeżo awansowany klub: mniej widzów, marka się buduje
+    if (gameState.boycott && gameState.boycott.active) base *= 0.15;   // 13.90: bojkot – puste trybuny
     base *= Selectors.upgradeProd('attendance');   // obiekty i ich kolejne poziomy
     base *= Selectors.formFactor();                  // passa przyciąga, kryzys odstrasza
     if (Selectors.coachTrait('mediaStar')) base *= 1.1;   // trener-celebryta ściąga ludzi
@@ -4146,7 +4198,7 @@ const Engine = {
     report.homeMatch = fixture.home;
 
     // --- Kto nie dojechał ---
-    const disc = 1 - Selectors.staffLevel('kierownik') * 0.12;   // dobry kierownik pilnuje, kto dojedzie
+    const disc = 1 - Selectors.staffLevel('kierownik') * 0.17;   // dobry kierownik pilnuje, kto dojedzie
     const absent = gameState.squad.filter((p) => !(p.injured > 0) &&
       ((p.tag === 'worker' && Math.random() < 0.25 * disc) || (p.tag === 'party' && Math.random() < 0.15 * disc)));
     absent.forEach((p) => Engine.addLog('🚧 ' + Selectors.playerName(p) + ' nie dojechał na mecz (' + (p.tag === 'worker' ? 'budowa się przeciągnęła' : 'wesele do 6 rano') + ').', 'event'));
@@ -4174,8 +4226,8 @@ const Engine = {
     let ourL = 1.25 * Math.pow(ratio, 1.3) * style.tempo * homeAdv;
     let oppL = 1.25 * Math.pow(1 / ratio, 1.3) * style.tempo / homeAdv;
     // Styl gry trenera: realny wpływ zależny od rywala i pogody
-    if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.18 : 1.05; oppL *= 1.1; if (weather.rain) ourL *= 0.9; }
-    else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.72 : 0.85; ourL *= 0.85; }
+    if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.26 : 1.08; oppL *= 1.12; if (weather.rain) ourL *= 0.88; }   // 13.90: style trenera mocniej odczuwalne
+    else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.64 : 0.8; ourL *= 0.82; }
     else if (chem >= 60) { ourL *= 1.04; oppL *= 0.96; }
     if (chem < 50) oppL *= 1 + (50 - chem) / 120;                   // głupie straty przy złym zgraniu
     if (coach.mudWeakness && weather.rain) oppL *= 1.35;            // tiki-taka w kałużach
@@ -4212,8 +4264,8 @@ const Engine = {
     lineup.forEach((p) => {
       const pitchRisk = fixture.home && gameState.stadium.pitch < 30 ? 1.3 : 1;   // kretowisko łamie kostki
       const ageRisk = (p.age >= 32 ? 1.3 : 1) * (p.fragile ? 1.6 : 1) * (Selectors.coachTrait('hardTraining') ? 1.5 : 1);
-      if (Math.random() < 0.025 * (1 - fizjo * 0.17) * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk * (1 + Selectors.fatiguePenalty() * 4)) {
-        const severe = Math.random() < 0.15 * (1 - fizjo * 0.15);   // poważny uraz: więzadła, złamanie
+      if (Math.random() < 0.025 * (1 - fizjo * 0.19) * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk * (1 + Selectors.fatiguePenalty() * 4)) {
+        const severe = Math.random() < 0.15 * (1 - fizjo * 0.18);   // poważny uraz: więzadła, złamanie
         const base = severe ? Utils.randInt(5, 9) : Utils.randInt(1, 4);
         p.injured = Math.max(1, base - Math.floor(fizjo / 2) - (severe && fizjo >= 4 ? 2 : 0));
         p.injuryLabel = severe ? Utils.rand(['zerwane więzadło', 'złamana kość śródstopia', 'uszkodzona łąkotka']) : Utils.rand(['naciągnięty mięsień', 'skręcona kostka', 'stłuczenie', 'naderwany przywodziciel']);
@@ -5555,8 +5607,8 @@ const Engine = {
     const ratio = Engine.teamStrength(lineup, chem) / oppS;   // forma i siła składu jak w lidze
     const adv = neutral ? 1 : home ? 1.12 : 1 / 1.08;
     let ourL = 1.2 * Math.pow(ratio, 1.3) * style.tempo * adv, oppL = 1.2 * Math.pow(1 / ratio, 1.3) * style.tempo / adv;
-    if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.18 : 1.05; oppL *= 1.1; }   // taktyka trenera
-    else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.72 : 0.85; ourL *= 0.85; }
+    if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.26 : 1.08; oppL *= 1.12; }   // taktyka trenera
+    else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.64 : 0.8; ourL *= 0.82; }
     else if (chem >= 60) { ourL *= 1.04; oppL *= 0.96; }
     if (chem < 50) oppL *= 1 + (50 - chem) / 120;
     const rawCards = Engine.rollCards(lineup, !!opts.derby);
@@ -5804,6 +5856,7 @@ const Engine = {
   },
 
   gameOver(reason, kind) {
+    Storage.addHof(Selectors.hofEntry());   // 13.90: kariera trafia do Hall of Fame
     gameState.gameOver = { reason, kind: kind || null, season: gameState.calendar.season, week: gameState.calendar.week, budget: gameState.finance.budget, league: Selectors.leagueName(), dna: Selectors.dnaLabel() };
     gameState.screen = 'gameover';
     Storage.clear();
@@ -7270,6 +7323,10 @@ const Engine = {
       const w = gameState.calendar.week;
       if (w % 2 === 0) Engine.mediaPost();
       if (id === 'neutral' && w % 4 === 0 && gameState.club.professionalism < 40) Engine.shiftDNA(+1);
+      if (id === 'meme') {
+        const low = gameState.club.leagueLevel <= 4;
+        if (low ? w % 2 === 0 : w % 4 === 0) gameState.monthly.fans += low ? 2 : 1;   // memy niosą się w gminie
+      }
       if (id === 'spicy') {
         if (w % 4 === 0) Engine.shiftDNA(-1);
         const fx = Selectors.currentFixture();
@@ -7288,6 +7345,16 @@ const Engine = {
       const ctx = gameState.report.matchCtx;
       if (ctx) Engine.matchPosts(ctx);
       else if (Math.random() < 0.6) { const [who, text] = Utils.rand(DATA.xGossip); Engine.xPost(who, text); }
+    },
+    function fanBoycott() {
+      // 13.90: katastrofalne nastroje → bojkot meczów domowych i scenka z wyjściami ratunkowymi (rzadko, nie częściej niż co 20 tygodni)
+      const b = gameState.boycott || (gameState.boycott = { active: false, last: -99 });
+      if (b.active && gameState.morale.fans >= 35) { b.active = false; Engine.addLog('📣 Kibice wracają na trybuny – bojkot odwołany.', 'event'); return; }
+      if (b.active || gameState.morale.fans > 12 || gameState.calendar.week - b.last < 20 || gameState.calendar.week < 4) return;
+      b.active = true; b.last = gameState.calendar.week;
+      Engine.addLog('🚫 BOJKOT! Ultrasi i kibice ogłaszają bojkot meczów domowych. Trybuny świecą pustkami, kasa z biletów leży.', 'event');
+      Engine.xPost('ultras', 'BOJKOT. Dopóki ten zarząd nie zrozumie, gdzie bije serce tego klubu – nie wchodzimy na stadion. ✊');
+      Engine.pushDecision('fanBoycott');
     },
     function constructionTick() {
       const st = gameState.stadium;
@@ -7342,6 +7409,7 @@ const Engine = {
         if (item.favoriteBoost) d *= 1 + 0.25 * Math.min(favorites, 4);   // koszulki z nazwiskiem ulubieńca
         d *= Selectors.upgradeProd('merch');                                // tablica wyników, sklep z witryną
         d *= Selectors.passPolicy().merch || 1;                             // fanatycy z tanich karnetów kupują szaliki
+        if (Selectors.mediaStrategy() === 'meme') d *= 1.1;                 // memy sprzedają gadżety
         d *= Selectors.formFactor();                                       // passa zwycięstw albo kryzys
         if (gameState.report.result === 'W') d *= 1.5;
         if (gameState.report.homeMatch) d *= 1.4;
@@ -7547,7 +7615,7 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => (sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
-    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9 }[Selectors.mediaStrategy()] || 1))),
+    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1))),
   // 13.72: powaga sponsorów rośnie z ligą – większe kontrakty, ale mniej cierpliwości i potrącenia za słabe wyniki
   sponsorTier: (lvl = gameState.club.leagueLevel) => [
     { label: 'lokalny biznes', mult: 1, patience: 5, crash: 3, cut: 0 },
@@ -7747,7 +7815,7 @@ const Selectors = {
   upgradeLabel: (id, b = Selectors.upgradeBandOf(id)) => { const f = DATA.upgradeFlavor[id]; return f ? f.l[b] : DATA.upgrades[id].label; },
   upgradeDesc: (id, b = Selectors.upgradeBandOf(id)) => { const f = DATA.upgradeFlavor[id]; return f ? f.d[b] + ' ' + f.fx : DATA.upgrades[id].desc; },
   // Nazwa klubu z formularza: przedrostek (z listy albo własny) + miejscowość
-  formClubName: (f) => [(f.prefix === 'custom' ? f.customPrefix : f.prefix).trim(), f.town.trim()].filter(Boolean).join(' '),
+  formClubName: (f) => ((f.clubName || '').trim() || (f.town || '').trim()),   // 13.90: pełna, dowolna nazwa klubu (bez gotowych skrótów)
   youthLevel: () => Math.min(DATA.youthLevels.length - 1, Math.round(Selectors.academyLevel() * 0.7)),
   academyLevel: () => (gameState.academy && gameState.academy.level) || 0,
   academy: () => DATA.academyLevels[Selectors.academyLevel()],
@@ -7906,18 +7974,43 @@ const Selectors = {
   },
   formLabel: () => { const f = Selectors.formFactor(); const pct = Math.round((f - 1) * 100); return (pct > 0 ? '+' : '') + pct + '%' + (pct >= 15 ? ' 🔥 passa' : pct <= -15 ? ' 🧊 kryzys' : ''); },
   weeksToMonth: () => 4 - (gameState.calendar.week % 4),
-  passPolicy: () => DATA.passPolicies[(gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season && gameState.matchday.pass.policy) || 'brak'] || DATA.passPolicies.brak,
+  passPolicy: () => DATA.passPolicies[(gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season && gameState.matchday.pass.policy) || 'staly'] || DATA.passPolicies.brak,
   passHolders: () => (gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season ? gameState.matchday.pass.holders : 0),
   // Prognoza karnetów: ilu kupi i ile wpłynie z góry (cena skaluje się z liczbą meczów u siebie)
   // 13.89: ceny biletów i karnetów rosną w zawodowych ligach (II liga ×2, I liga ×2,5, Ekstraklasa ×4)
   ticketScale: (lvl = gameState.club.leagueLevel) => ({ 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1),
   ticketPrice: (id) => Math.round(DATA.tickets[id].price * Selectors.ticketScale()),
+  // 13.90: Wynik Kariery („Score Prezesa”) – trofea z mnożnikami, prestiż najwyższej ligi, sezony i Europa
+  careerScore: (st = gameState) => {
+    const parts = { trofea: 0, prestiz: 0, sezony: 0, europa: 0 };
+    (st.trophies || []).forEach((t0) => {
+      let t = t0;
+      const lvl = Math.floor(t.lvl || 1);
+      const kind = t.kind || (t.name === 'Puchar Polski' ? 'pp' : / Puchar Polski$/.test(t.name) ? 'ppw' : t.name.startsWith('Awans') ? 'medal' : t.name.startsWith('Mistrzostwo') ? 'title' : null);   // stare trofea bez rodzaju
+      t = Object.assign({}, t, { kind });
+      if (t.kind === 'pp') parts.trofea += 400;
+      else if (t.kind === 'ppw') parts.trofea += 80;
+      else if (t.kind === 'medal') parts.trofea += 40 * lvl;
+      else if (t.kind === 'title') parts.trofea += t.name === 'Mistrzostwo Polski' ? 1500 : 60 * lvl;
+      else if (/^Puchar (Liga|Ligi)/.test(t.name) || t.icon === '🌟') parts.trofea += 2000;
+      else parts.trofea += 50;
+    });
+    const s2 = st.stats || {};
+    parts.prestiz = (s2.topLevel || 1) * 150;
+    parts.sezony = (s2.seasons || 0) * 15;
+    parts.europa = (s2.euroSeasons || 0) * 150 + (s2.uefaPts || 0) * 5 + (s2.euroTrophies || 0) * 1000;
+    const total = Math.round(parts.trofea + parts.prestiz + parts.sezony + parts.europa);
+    const rank = total >= 8000 ? 'Legenda polskiej piłki' : total >= 4000 ? 'Prezes ekstraklasowy' : total >= 2000 ? 'Budowniczy potęgi' : total >= 800 ? 'Solidny działacz' : total >= 300 ? 'Prezes z ambicjami' : 'Debiutant z remizy';
+    return { total, parts, rank };
+  },
+  hofEntry: (st = gameState) => ({ club: st.club.name, pres: (st.club.president || 'Prezes'), score: Selectors.careerScore(st).total, seasons: (st.stats || {}).seasons || 0, top: (DATA.leagueLevels[(st.stats || {}).topLevel || 1] || DATA.leagueLevels[1]).name, trophies: (st.trophies || []).length, date: new Date().toISOString().slice(0, 10) }),
   passForecast: (id) => {
     const pp = DATA.passPolicies[id];
-    if (!pp || !pp.share) return { holders: 0, revenue: 0 };
+    if (!pp || (!pp.share && !pp.fixed)) return { holders: 0, revenue: 0 };
     const homeGames = Math.max(1, Math.round((gameState.season.rounds || []).length / 2));
     const base = (25 + gameState.morale.fans * 1.1) * Selectors.econ();
-    const holders = Math.min(Math.round(Selectors.stadiumCapacity() * 0.8), Math.round(base * pp.share * (gameState.club.character === 'suburban' && id === 'vip' ? 1.5 : 1)));
+    const share = pp.fixed ? Utils.clamp((gameState.morale.fans - 20) / 160, 0.02, 0.45) : pp.share;   // stała cena: im lepsze nastroje, tym więcej karnetów
+    const holders = Math.min(Math.round(Selectors.stadiumCapacity() * 0.8), Math.round(base * share * (gameState.club.character === 'suburban' && id === 'vip' ? 1.5 : 1)));
     const price = Math.round(pp.passPrice * Selectors.ticketScale() * homeGames / 9 / 5) * 5;
     return { holders, price, revenue: holders * price };
   },
@@ -7989,21 +8082,21 @@ const Selectors = {
   isClubIcon: (p) => p.legend && (p.seasons >= 6 || p.apps >= 100),
   veteranLevel: (p) => Utils.clamp(2 + Math.floor((p.apps || 0) / 80) + (p.goals >= 40 ? 1 : 0), 2, 5),
   // Sztab: realne i mierzalne efekty każdej roli
-  assistantMult: () => 1 + Selectors.staffLevel('asystent') * 0.15,          // mnożnik jakości trenera
+  assistantMult: () => 1 + Selectors.staffLevel('asystent') * 0.25,   // 13.90: sztab mocniej odczuwalny          // mnożnik jakości trenera
   fatiguePenalty: () => {
     // mecz w środku tygodnia (puchar, Europa) męczy – dobry fizjoterapeuta przyspiesza regenerację
     const mw = gameState.midweekWeek;
     if (!mw || gameState.calendar.week - mw > 1) return 0;
     return 0.06 * (1 - Selectors.staffLevel('fizjo') * 0.18);
   },
-  directorSellBonus: () => (gameState.director && gameState.director.hired ? gameState.director.hired.level * 0.08 : 0),
+  directorSellBonus: () => (gameState.director && gameState.director.hired ? gameState.director.hired.level * 0.12 : 0),
   staffEffect: (slot) => {
     const l = Selectors.staffLevel(slot);
     if (!l) return '';
     if (Selectors.staffOutdated(slot)) return '🔻 Za słaby na ' + Selectors.leagueName() + ' – efekt o połowę, wymień na lepszego';
-    if (slot === 'asystent') return 'Trener ×' + Selectors.assistantMult().toFixed(2) + ' skuteczności, +' + (l * 1.2).toFixed(1) + '% siły, szybszy rozwój młodych';
-    if (slot === 'fizjo') return 'Kontuzje -' + Math.round(l * 17) + '%, krótsze leczenie, zmęczenie po meczach w tygodniu -' + Math.round(l * 18) + '%';
-    if (slot === 'kierownik') return 'Nieobecności na meczach -' + Math.round(l * 12) + '%';
+    if (slot === 'asystent') return 'Trener ×' + Selectors.assistantMult().toFixed(2) + ' skuteczności, +' + (l * 2).toFixed(1) + '% siły, szybszy rozwój młodych';
+    if (slot === 'fizjo') return 'Kontuzje -' + Math.round(l * 19) + '%, krótsze leczenie, zmęczenie po meczach w tygodniu -' + Math.round(l * 18) + '%';
+    if (slot === 'kierownik') return 'Nieobecności na meczach -' + Math.round(l * 17) + '%';
     if (slot === 'skaut') return 'Okazje na giełdzie: ' + Selectors.scoutBargainCount() + ' zawodn. taniej o ok. ' + Math.round((0.3 + l * 0.04) * 100) + '%';
     if (slot === 'masazysta') return 'Lepsza atmosfera w szatni';
     return '';
@@ -8286,6 +8379,9 @@ const Selectors = {
    --------------------------------------------------------------------- */
 const Storage = {
   KEY: 'bklasa-prezes-save',
+  HOF_KEY: 'bklasa-prezes-hof',   // 13.90: Hall of Fame – najlepsze kariery (przetrwa nową grę)
+  hof() { try { return JSON.parse(localStorage.getItem(Storage.HOF_KEY)) || []; } catch (e) { return []; } },
+  addHof(entry) { try { const l = Storage.hof().concat([entry]).sort((a, b) => b.score - a.score).slice(0, 10); localStorage.setItem(Storage.HOF_KEY, JSON.stringify(l)); } catch (e) { /* tryb prywatny */ } },
 
   save() {
     if (gameState.screen !== 'game') return;
@@ -8504,7 +8600,6 @@ const UI = {
   formPreview() {
     const f = gameState.ui.form;
     const name = Selectors.formClubName(f) || 'Twój Klub';
-    const t = DATA.townTypes[f.character];
     const c = DATA.clubColors[f.colors];
     return `
       <div class="flex items-end justify-center gap-3 rounded-lg bg-desk-900 py-4">${UI.crest(f.colors, name, 76)}${UI.kit(f.colors, 88)}</div>
@@ -8512,9 +8607,15 @@ const UI = {
       <div class="text-xs text-ink-700 text-center">${c ? 'Nasi ' + c.nick : ''}${f.town.trim() ? ' · ' + Utils.escape(f.town.trim()) : ''}</div>
       <div class="text-sm mt-3 space-y-1">
         <div>🏟️ ${Utils.escape(f.stadium.trim() || Selectors.defaultStadium(f.town.trim()))}</div>
-        <div>${t.icon} ${t.label}</div>
         <div>🧑‍💼 ${Utils.escape(f.president.trim() || 'Prezes')}</div>
       </div>`;
+  },
+
+  // 13.90: Hall of Fame – najlepsze kariery na tym urządzeniu
+  hofList() {
+    const l = Storage.hof();
+    if (!l.length) return '';
+    return `<section class="paper p-3 mb-4"><h2 class="text-base font-bold mb-1">🏛️ Hall of Fame</h2><ol class="text-[12.5px] space-y-0.5">${l.slice(0, 5).map((e, i) => `<li class="flex justify-between gap-2"><span class="min-w-0 truncate">${i + 1}. <b>${Utils.escape(e.club)}</b> · ${Utils.escape(e.pres)} · ${e.seasons} sez. · ${Utils.escape(e.top)}</span><b class="whitespace-nowrap">${e.score} pkt</b></li>`).join('')}</ol></section>`;
   },
 
   /* ---------- EKRAN STARTOWY: KARTA REJESTRACYJNA KLUBU ---------- */
@@ -8536,14 +8637,6 @@ const UI = {
         ${body}
       </fieldset>`;
 
-    const prefixChips = DATA.clubPrefixes.map((x) => chip('prefix', x, f.prefix === x, Utils.escape(x))).join('') + chip('prefix', 'custom', f.prefix === 'custom', '✏️ Własny');
-    const characterCards = Object.entries(DATA.townTypes).map(([id, t]) => `
-      <button data-action="form-set" data-field="character" data-value="${id}"
-        class="btn-press w-full text-left p-3 border border-paper-400 rounded-lg ${f.character === id ? 'bg-ink-900 text-paper-100' : 'bg-paper-200 hover:bg-paper-300'}">
-        <span class="text-base font-semibold block">${f.character === id ? '●' : '○'} ${t.icon} ${t.label}</span>
-        <span class="text-xs block ${f.character === id ? 'text-paper-300' : 'text-ink-700'}">${t.sub}</span>
-        <ul class="text-xs mt-1 list-disc pl-4 ${f.character === id ? 'text-paper-200' : 'text-ink-700'}">${t.perks.map((x) => `<li>${x}</li>`).join('')}</ul>
-      </button>`).join('');
     const colorSwatches = Object.entries(DATA.clubColors).map(([id, c]) => `
       <button data-action="form-set" data-field="colors" data-value="${id}"
         class="btn-press flex items-center gap-2 px-2 py-1.5 border ${f.colors === id ? 'border-ink-900 bg-paper-300 ring-2 ring-ink-900' : 'border-paper-400 bg-paper-200 hover:bg-paper-300'}">
@@ -8571,6 +8664,7 @@ const UI = {
         </header>
 
         ${saveBox}
+        ${UI.hofList()}
 
         <section class="paper p-4 sm:p-8 relative">
           <div class="text-[11px] font-medium uppercase tracking-wider text-ink-700">Druk OZPN nr B-1 · wypełnić drukowanymi literami</div>
@@ -8583,10 +8677,9 @@ const UI = {
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
             <div>
               ${section('I', 'Nazwa klubu i miejscowość', `
-                <div class="flex flex-wrap gap-2 mb-3">${prefixChips}</div>
-                ${f.prefix === 'custom' ? `<div class="mb-3">${input('customPrefix', f.customPrefix, 'własny przedrostek, np. Coco Jambo, Sokół, Tęcza', 25)}</div>` : ''}
-                ${input('town', f.town, 'Miejscowość / nazwa własna, np. Świbie, Chrząstawa', 30)}
-                <button data-action="random-club" class="btn-press mt-3 px-3 py-1.5 border border-paper-400 rounded-lg bg-amber-glow hover:brightness-110 text-ink-900 text-sm font-bold">🎲 Wylosuj kultowy klub</button>
+                <div class="mb-3">${input('clubName', f.clubName || '', 'Pełna nazwa klubu – dowolna, np. Orły Dolnej Wólki, FC Remiza 1923', 40)}</div>
+                ${input('town', f.town, 'Miejscowość, np. Świbie, Chrząstawa', 30)}
+                <p class="text-xs text-ink-700 mt-1">Puste pole nazwy = klub nazwie się jak miejscowość.</p>
               `)}
               ${section('II', 'Województwo', `
                 <select data-field="region" aria-label="Województwo klubu" class="w-full px-3 py-2 bg-white border border-paper-400 rounded-md text-[14px] text-ink-900 focus:outline-none focus:ring-2 focus:ring-amber-glow">
@@ -8595,13 +8688,12 @@ const UI = {
                 <p id="region-path" class="text-[11.5px] text-ink-700 mt-1.5 leading-snug">🛤️ Start w B-klasie: ${Selectors.promoPath(f.region, 1)}</p>
                 <p class="text-xs text-ink-700 mt-1">Województwo przypisze klub do IV ligi i grupy III ligi po awansach oraz do wojewódzkiego Pucharu Polski (finał na stadionie regionu).</p>
               `)}
-              ${section('III', 'Charakter miejscowości', `<div class="grid grid-cols-1 gap-2">${characterCards}</div>`)}
-              ${section('IV', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
-              ${section('V', 'Obiekt sportowy', `
+              ${section('III', 'Barwy klubowe', `<div class="flex flex-wrap gap-2">${colorSwatches}</div>`)}
+              ${section('IV', 'Obiekt sportowy', `
                 ${input('stadium', f.stadium, Selectors.defaultStadium(f.town.trim() || '[Miejscowość]'), 60)}
                 <p class="text-xs text-ink-700 mt-1">Nazwę może później zmienić Sponsor Tytularny. Puste pole = nazwa domyślna.</p>
               `)}
-              ${section('VI', 'Imię / ksywa Prezesa', `
+              ${section('V', 'Imię / ksywa Prezesa', `
                 ${input('president', f.president, 'Prezes', 30)}
                 <p class="text-xs text-ink-700 mt-1">Jak mówią na Ciebie w gminie: „Prezes Janusz”, „Prezes Mirek”… Pojawi się w pismach, telefonach i w protokole.</p>
               `)}
@@ -9849,7 +9941,8 @@ const UI = {
         <div class="text-[10px] font-bold leading-tight mt-0.5 line-clamp-2">${Utils.escape(t.name.replace('Mistrzostwo: ', 'Mistrz ').replace('Awans do: ', 'Awans: '))}</div>
         <div class="text-[10px] text-ink-700 truncate">${seasons.length > 1 ? 'sezony ' + seasons.slice().sort((a, b) => a - b).join(', ') : 'sezon ' + t.season}</div>
       </div>`).join('');
-    return UI.tiles([
+    const cs = Selectors.careerScore();
+    return `<div class="rounded-lg bg-desk-800 px-2.5 py-1.5 mb-1.5 text-[12px] text-paper-200 flex justify-between gap-2"><span>🏅 <b class="text-amber-glow">Wynik Kariery: ${cs.total} pkt</b> · ${cs.rank}</span><span class="text-paper-400 whitespace-nowrap">🏆${cs.parts.trofea} ⭐${cs.parts.prestiz} 📅${cs.parts.sezony} 🇪🇺${cs.parts.europa}</span></div>` + UI.tiles([
       UI.tile('Puchary Polski', String(count((t) => t.name === 'Puchar Polski')), 'w gablotce'),
       UI.tile('Mistrzostwa', String(count((t) => t.name.startsWith('Mistrzostwo'))), 'wszystkie szczeble'),
       UI.tile('Awanse', String(count((t) => t.name.startsWith('Awans'))), 'medale za awans'),
@@ -10395,6 +10488,7 @@ const UI = {
           <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
           <h2 class="text-base font-bold mb-2">Bilans prezesury</h2>
           <table class="w-full text-sm mb-6">
+            ${(() => { const cs = Selectors.careerScore(); return row('🏅 Wynik Kariery', cs.total + ' pkt · ' + cs.rank) + row('Trofea / prestiż / sezony / Europa', cs.parts.trofea + ' / ' + cs.parts.prestiz + ' / ' + cs.parts.sezony + ' / ' + cs.parts.europa); })()}
             ${row('Rozegrane sezony (pełne)', st.seasons)}
             ${row('Mecze (W-R-P)', st.matches + ' (' + st.wins + '-' + st.draws + '-' + st.losses + ')')}
             ${row('Bramki', st.goalsFor + ':' + st.goalsAgainst)}
@@ -10407,6 +10501,7 @@ const UI = {
             ${row('DNA klubu', '„' + Utils.escape(g.dna || '') + '”')}
             ${row('Skandale w kartotece', gameState.club.scandals)}
           </table>
+          ${UI.hofList()}
           <button data-action="restart" class="btn-press w-full py-4 bg-stamp hover:bg-red-700 text-paper-100 font-bold text-lg rounded-lg">SPRÓBUJ JESZCZE RAZ</button>
           <p class="text-xs text-ink-700 text-center mt-3">Zapis gry został spalony w beczce za blaszakiem.</p>
         </section>
@@ -10828,7 +10923,8 @@ const Actions = {
     if (DATA.rivals.concat(f.region !== '' && DATA.lowerLeagues[+f.region] ? DATA.lowerLeagues[+f.region][1].map((n) => ({ name: n })) : []).some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail('Taki klub już gra w tej B-klasie! Wymyśl coś innego, bo Związek się pogubi.');
     const existing = Storage.load();
     if (existing && existing.club.name && !confirm('W szufladzie jest zapis klubu ' + existing.club.name + '. Nowa prezesura go nadpisze. Kontynuować?')) return;
-    Engine.startGame({ name, town: f.town.trim(), character: f.character, colors: f.colors, stadium: f.stadium, president: f.president, region: f.region });
+    if (existing && existing.club.name && existing.stats) Storage.addHof(Selectors.hofEntry(existing));   // porzucona kariera też zostaje w Hall of Fame
+    Engine.startGame({ name, town: f.town.trim(), character: null, colors: f.colors, stadium: f.stadium, president: f.president, region: f.region });
     App.commit();
     window.scrollTo(0, 0);
   },
