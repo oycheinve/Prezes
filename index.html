@@ -103,9 +103,10 @@ const CONFIG = {
   carpetCooldown: 4,        // co ile tygodni można wezwać trenera na dywanik
   maxFavorites: 4,          // tylu Ulubieńców Trybun naraz
   maxSquad: 22,             // limit kadry (szatnia ma 22 haczyki)
-  maxSkill: 19,             // absolutny sufit (OVR 99) – tylko dla grających w europejskich pucharach
-  domesticMaxSkill: 16,     // sufit rozwoju w rozgrywkach krajowych (OVR ok. 90)
-  domesticOvrCap: 92,       // krajowy sufit OVR; 93–99 zarezerwowane dla europejskich pucharów             // sufit umiejętności (Ekstraklasa wymaga grajków z prawdziwego zdarzenia)
+  maxSkill: 19,             // absolutny sufit (OVR ok. 92) – tylko dla grających w europejskich pucharach
+  domesticMaxSkill: 16,     // sufit rozwoju w rozgrywkach krajowych (OVR 80)
+  domesticOvrCap: 83,       // krajowy sufit OVR (gwiazdy Ekstraklasy 81–83); wyżej tylko po meczach w Europie
+  euroOvrCap: 95,           // światowa czołówka: 85–92             // sufit umiejętności (Ekstraklasa wymaga grajków z prawdziwego zdarzenia)
   scoutCost: 80,            // benzyna + „załącznik” dla Szwagra
   scoutWeeks: 2,            // tyle trwa objazd festynów
   maxFeed: 80,              // tyle postów trzyma Wirtualny X
@@ -6374,7 +6375,7 @@ const Engine = {
     const ovr = Selectors.ovr(p);
     const ps = p.prevSeason;   // w oknie transferowym sezon jest już wyzerowany
     const formStar = ps && ps.apps >= 4 && ps.avg != null && ps.avg >= 7 && ovr >= avgOvr + 4;
-    return ovr >= Math.max(avgOvr + 7, 57 + Selectors.levelSkillBonus() * 3.6) || formStar;
+    return ovr >= Math.max(avgOvr + 8, Selectors.ovrOf(6.95 + Selectors.levelSkillBonus())) || formStar;
   },
 
   // Wywoływane przy otwarciu okna transferowego: znana gwiazda wraca z żądaniem, nowa zgłasza się pierwszy raz
@@ -8493,15 +8494,18 @@ const Selectors = {
   transferBanned: () => { const b = gameState.transferBan; return !!(b && gameState.calendar.season > b.from && gameState.calendar.season <= b.until); },
   transferOffers: () => gameState.pendingDecisions.filter((id) => DATA.decisions[id] && DATA.decisions[id].transfer),
   // OVR 1–99: klasa zawodnika skorygowana o aktualną formę (noty z ostatnich meczów)
-  // Skala: B-klasa ok. 43–61, Ekstraklasa ok. 72–90; krajowy sufit 92 – OVR 93–99 tylko dla gwiazd europejskich pucharów
+  // Skala (16 + 4 × umiejętność): B-klasa ok. 28–48, II liga ok. 52–64 (typowo), I liga ok. 60–72, Ekstraklasa: przeciętny 68–72,
+  // czołówka 74–80, gwiazdy 81–83 (sufit krajowy); 85–92 to poziom europejskich gigantów (tylko po meczach w Europie)
   ovr: (p) => {
     const hist = p.formHistory || [];
     const form = hist.length ? Utils.clamp((hist.reduce((s, r) => s + r, 0) / hist.length - 6) * 1.5, -4, 4) : 0;
-    return Math.round(Utils.clamp(32 + p.skill * 3.6 + form, 1, p.euroApps ? 99 : CONFIG.domesticOvrCap));   // 93–99 tylko po meczach w Europie
+    return Math.round(Utils.clamp(Selectors.ovrOf(p.skill) + form, 1, p.euroApps ? CONFIG.euroOvrCap : CONFIG.domesticOvrCap));   // powyżej 83 tylko po meczach w Europie
   },
   // Sufit rozwoju zależny od ligi klubu: zawodnik nie urośnie dużo ponad poziom rozgrywek
   leagueSkillCap: () => (Selectors.euroThisSeason() ? 18 : Math.min(CONFIG.domesticMaxSkill, 9 + Selectors.levelSkillBonus())),
-  leagueOvrRange: () => { const b = Selectors.levelSkillBonus(); return [Math.round(32 + (3 + b) * 3.6), Math.round(32 + (8 + b) * 3.6)]; },
+  ovrOf: (skill) => 16 + skill * 4,   // umiejętność → OVR (bez formy)
+  ovrPlain: (skill) => Math.round(Utils.clamp(Selectors.ovrOf(skill), 1, CONFIG.domesticOvrCap)),
+  leagueOvrRange: () => { const b = Selectors.levelSkillBonus(); return [Math.round(Selectors.ovrOf(3 + b)), Math.min(CONFIG.domesticOvrCap, Math.round(Selectors.ovrOf(8 + b)))]; },
   teamOvr: () => { const l = Selectors.projectedLineup(); return l.length ? Math.round(l.reduce((s, p) => s + Selectors.ovr(p), 0) / l.length) : 0; },
   potential: (p) => Math.min(CONFIG.maxSkill, Math.max(p.skill, p.potential != null ? p.potential : p.skill + (p.age <= 23 ? 2 : 0))),
   potentialStars: (p) => Utils.clamp(Math.round((Selectors.potential(p) - 2) / 2.8), 1, 5),
@@ -8867,11 +8871,11 @@ const Selectors = {
   // Wartość rynkowa (zł): OVR względem typowego zawodnika ligi, wiek, talent, potencjał; stałe odchylenie osobnicze i widełki ligi
   marketValue: (p, lvl = gameState.club.leagueLevel) => {
     const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1], T = DATA.tmValues[lvl] || DATA.tmValues[1];
-    const avgOvr = 32 + 3.6 * (5.5 + L.skillBonus);
+    const avgOvr = Selectors.ovrOf(5.5 + L.skillBonus);
     if (p.tmVar == null) p.tmVar = Math.round(Utils.randRange(0.8, 1.25) * 100) / 100;   // odchylenie: ten sam zawodnik zawsze tak samo wyceniany
     const age = p.age <= 21 ? 1.35 : p.age <= 24 ? 1.15 : p.age >= 33 ? 0.4 : p.age >= 30 ? 0.7 : 1;
     const pot = 1 + Math.max(0, Selectors.potential(p) - p.skill) * 0.06;
-    const v = T.avg * Math.exp(0.13 * (Selectors.ovr({ ...p, formHistory: [] }) - avgOvr)) * age * pot * (p.talent ? 1.4 : 1) * p.tmVar * 0.7;   // 0.7: kalibracja do średnich z tabel
+    const v = T.avg * Math.exp(0.117 * (Selectors.ovr({ ...p, formHistory: [] }) - avgOvr)) * age * pot * (p.talent ? 1.4 : 1) * p.tmVar * 0.7;   // 0.7: kalibracja do średnich z tabel
     const c = Utils.clamp(v, T.min, T.max);
     const step = c >= 1e6 ? 1e5 : c >= 1e5 ? 1e4 : c >= 1e4 ? 1e3 : c >= 1000 ? 100 : 10;
     return Math.round(c / step) * step;
@@ -10922,7 +10926,7 @@ const UI = {
     if (ctx === 'watch') return picker + UI.watchlistView();
     Engine.ensureRivalIds();
     gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ pid: p.id, name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
-    if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap)), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
+    if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Selectors.ovrPlain(x.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
     const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : 1;
     const val = (x) => (sortKey === 'r' ? (x.apps >= minApps && x.r != null ? x.r : -1) : x[sortKey]);
     rows.sort((x, y) => val(y) - val(x) || y.g - x.g || y.a - x.a || (y.r || 0) - (x.r || 0));
@@ -10950,7 +10954,7 @@ const UI = {
     const t = gameState.transfer;
     const rows = wl.map((w) => {
       const x = Engine.rivalPlayer(w.team, w.id) || w;
-      const ovr = Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap));
+      const ovr = Selectors.ovrPlain(x.skill);
       return UI.row(`<button data-action="rival-player" data-team="${Utils.escape(w.team)}" data-id="${w.id}" class="text-left">⭐ ${Utils.escape(w.n)}</button>`, `${Utils.escape(Selectors.teamName(w.team))} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${ovr}${x.apps ? ' · ' + x.g + ' G, ' + x.a + ' A' : ''}`,
         UI.smallBtn('watch-toggle', `data-team="${Utils.escape(w.team)}" data-id="${w.id}"`, 'Usuń'), '', true);
     }).join('');
@@ -10960,7 +10964,7 @@ const UI = {
   rivalPlayerOverlay(o) {
     const x = Engine.rivalPlayer(o.team, o.id) || (gameState.watchlist || []).find((w) => w.id === o.id);
     if (!x) return '';
-    const ovr = Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap));
+    const ovr = Selectors.ovrPlain(x.skill);
     const val = Selectors.marketValue({ id: x.id, skill: x.skill, age: x.age, pos: x.pos, tmVar: 1 });
     const on = (gameState.watchlist || []).some((w) => w.id === x.id);
     const t = gameState.transfer;
