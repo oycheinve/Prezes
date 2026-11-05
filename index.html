@@ -7555,6 +7555,64 @@ const Engine = {
     Engine.startBuild('up', id, Selectors.upgradeWeeks(id), label);
   },
 
+  // TRYB TESTOWY: natychmiastowe przeskalowanie całego klubu do wybranego szczebla (weryfikacja balansu)
+  debugSetLevel(lvl) {
+    lvl = Number(lvl);
+    const L = DATA.leagueLevels[lvl];
+    if (!L || gameState.screen !== 'game') return;
+    const old = gameState.club.leagueLevel;
+    const oldL = DATA.leagueLevels[old] || DATA.leagueLevels[1];
+    const ratio = L.econ / oldL.econ;
+    const dSkill = L.skillBonus - oldL.skillBonus;
+    gameState.testMode = true;
+    // V liga istnieje tylko w 4 województwach – w razie potrzeby przenosimy klub do jednego z nich
+    if (L.vgroups && !L.vgroups[gameState.club.region]) gameState.club.region = Number(Object.keys(L.vgroups)[0]);
+    // Skład: umiejętności i pensje przesunięte o różnicę poziomów (zachowane proporcje w kadrze)
+    gameState.squad.forEach((p) => {
+      p.skill = Utils.clamp(p.skill + dSkill, 1, CONFIG.maxSkill);
+      if (p.potential != null) p.potential = Utils.clamp(p.potential + dSkill, p.skill, CONFIG.maxSkill);
+      p.wage = Math.max(5, Math.round(p.wage * ratio / 5) * 5);
+      p.injured = 0; p.suspended = 0; p.wantsOut = null;
+    });
+    // Liga i terminarz
+    gameState.club.leagueLevel = lvl;
+    gameState.club.levelSince = gameState.calendar.season;
+    gameState.calendar.round = 0;
+    Object.assign(gameState.record, { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 });
+    Engine.buildLeague(lvl);
+    Engine.newSeason();
+    // Infrastruktura: wszystko, czego wymaga licencja tej ligi, bez trwających budów i wynajmu
+    const st = gameState.stadium;
+    st.level = Math.max(DATA.licenseCapacity[lvl] || 0, lvl >= 2 ? 1 : 0);
+    st.builds = [];
+    Object.keys(DATA.upgrades).forEach((id) => { const u = DATA.upgrades[id]; if ((u.licenseLevel && lvl >= u.licenseLevel) || ((id === 'boiler' || id === 'roller') && lvl >= 2)) st.upgrades[id] = true; });
+    st.pitch = Math.max(st.pitch, 70);
+    gameState.rental = null;
+    gameState.stadiumDilemma = null;
+    // Trener z licencją wymaganą w tej lidze, pensja przeskalowana
+    gameState.coach.license = Math.max(gameState.coach.license || 0, Selectors.coachLicenseReq(lvl));
+    gameState.coach.licenseFor = null;
+    if (gameState.coach.weekly) gameState.coach.weekly = Math.round(gameState.coach.weekly * ratio);
+    // Sztab na standardzie ligi
+    const std = Selectors.staffStandard(lvl);
+    Object.keys(DATA.staffSlots).forEach((slot) => {
+      const pool = (DATA.staffPool[slot] || []).slice().sort((a, b) => a.level - b.level);
+      if (!pool.length) return;
+      const cand = pool.filter((c) => c.level <= std).pop() || pool[0];
+      gameState.staff[slot] = { name: cand.name, kind: 'external', wage: Math.round(cand.wage * L.econ), chem: cand.chem, lockerBase: cand.lockerBase, desc: cand.desc, level: cand.level };
+    });
+    // Finanse: czysta karta i budżet na ok. 10 tygodni działania w tej lidze
+    gameState.finance.budget = Math.round(3000 * L.econ);
+    gameState.finance.incomeAvg = null;
+    gameState.loans.taken = [];
+    if (gameState.debt) { gameState.debt.deepWeeks = 0; gameState.debt.strike = false; }
+    gameState.morale.fans = Math.max(gameState.morale.fans, 50);           // neutralny punkt wyjścia do testów
+    gameState.morale.lockerRoom = Math.max(gameState.morale.lockerRoom, 60);
+    gameState.pendingDecisions = gameState.pendingDecisions.filter((id) => !['stadiumRent', 'coachLicense'].includes(id));
+    Engine.refreshSponsors(true);
+    Engine.addLog('🧪 TRYB TESTOWY: klub przeskalowany do ligi ' + L.name + ' (skład, pensje, budżet ' + Utils.formatMoney(gameState.finance.budget) + ', obiekty licencyjne, sztab, trener). Ta kariera nie trafi do Hall of Fame.', 'system');
+  },
+
   // 13.96: dylemat licencyjny – wynajem cudzego stadionu albo rezygnacja z awansu
   rentStadium() {
     const d = gameState.stadiumDilemma; if (!d) return;
@@ -8798,7 +8856,7 @@ const Storage = {
   KEY: 'bklasa-prezes-save',
   HOF_KEY: 'bklasa-prezes-hof',   // 13.90: Hall of Fame – najlepsze kariery (przetrwa nową grę)
   hof() { try { return JSON.parse(localStorage.getItem(Storage.HOF_KEY)) || []; } catch (e) { return []; } },
-  addHof(entry) { try { const l = Storage.hof().concat([entry]).sort((a, b) => b.score - a.score).slice(0, 10); localStorage.setItem(Storage.HOF_KEY, JSON.stringify(l)); } catch (e) { /* tryb prywatny */ } },
+  addHof(entry) { if (typeof gameState !== 'undefined' && gameState && gameState.testMode) return; try { const l = Storage.hof().concat([entry]).sort((a, b) => b.score - a.score).slice(0, 10); localStorage.setItem(Storage.HOF_KEY, JSON.stringify(l)); } catch (e) { /* tryb prywatny */ } },
 
   save() {
     if (gameState.screen !== 'game') return;
@@ -10390,7 +10448,10 @@ const UI = {
     const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
       `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>${(() => { const cup = !inPre && Selectors.cupAt(s.calendar.round + 1); return cup && cup.next ? `<p class="text-[11.5px] font-semibold mt-0.5">🏆 W środę Puchar Polski (${Utils.escape(cup.R.label.split(' – ')[0])}): ${cup.next.home || cup.next.final ? 'vs' : '@'} ${Utils.escape(cup.next.opp)}</p>` : ''; })()}`);
 
-    return tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
+    // TRYB TESTOWY: nazwa klubu + lista „TEST” do natychmiastowej zmiany szczebla
+    const levels = DATA.leagueLevels.map((L, i) => [i, L]).filter(([, L]) => L).concat(DATA.leagueLevels[3.5] ? [[3.5, DATA.leagueLevels[3.5]]] : []).sort((a, b) => a[0] - b[0]);
+    const test = `<div class="flex items-center gap-2 mb-1.5 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}<select data-test-level aria-label="TEST – zmiana poziomu" class="flex-shrink-0 max-w-[132px] px-1.5 py-0.5 bg-white border border-paper-400 rounded-md text-[11.5px] text-ink-900"><option value="">🧪 TEST</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select></div>`;
+    return test + tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
   // Ostatnie wydarzenia: jedna linijka na tydzień – wynik meczu i bilans kasy (z wpisów, które zapisuje silnik)
@@ -11648,6 +11709,12 @@ document.addEventListener('toggle', (e) => {
 
 document.addEventListener('input', (e) => {
   if (e.target.dataset && e.target.dataset.regionSelect != null) { Actions['set-region'](e.target.value); return; }
+  if (e.target.dataset && e.target.dataset.testLevel != null) {   // TRYB TESTOWY
+    const v = e.target.value; e.target.value = '';
+    if (v !== '' && confirm('TRYB TESTOWY: przeskalować cały klub do ligi ' + DATA.leagueLevels[+v].name + '? Ta kariera nie trafi do Hall of Fame.')) { Engine.debugSetLevel(+v); gameState.ui.overlay = null; App.commit(); }
+    else UI.renderAll();
+    return;
+  }
   if (e.target.dataset && e.target.dataset.tableView != null) { gameState.ui.tableView = e.target.value; Storage.save(); UI.renderAll(); return; }
   const field = e.target.dataset && e.target.dataset.field;
   if (!field || gameState.screen !== 'start') return;
