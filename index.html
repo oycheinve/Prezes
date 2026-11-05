@@ -3674,6 +3674,7 @@ function createInitialState() {
     u19Loans: [],               // juniorzy na wypożyczeniu: { player, club, until }
     u19: null,                  // drużyna juniorów: { squad, table, coach, recruiter, graduates, log }
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
+    academyGate: true,          // 13.92: szkółka zamknięta do wybudowania pierwszego poziomu (stare zapisy – otwarta)
     econ1389: true,             // 13.89: kontrakty liczone już w nowej skali pieniędzy
     budkaGate: true,            // 13.85: budka otwiera się dopiero po inwestycji „kiosk” (stare zapisy – zachowana)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
@@ -4914,6 +4915,7 @@ const Engine = {
   },
   // Kolejka ligi juniorów – równolegle z meczem pierwszej drużyny
   u19Match() {
+    if (!Selectors.academyOpen()) return;   // 13.92: bez szkółki nie ma ligi juniorów
     const u = gameState.u19;
     if (!u || !u.squad.length) return;
     const me = Selectors.u19Name();
@@ -5021,7 +5023,7 @@ const Engine = {
   // Koniec sezonu: rozwój, 19-latkowie do decyzji, nabór nowych
   u19SeasonEnd(summary) {
     const u = gameState.u19;
-    if (!u) return;
+    if (!u || !Selectors.academyOpen()) return;   // 13.92: bez szkółki nie ma rozwoju ani naboru
     const pos = Selectors.u19Standings().findIndex((r) => r.team === Selectors.u19Name()) + 1;
     const grew = [];
     u.squad.forEach((p) => {
@@ -5133,7 +5135,7 @@ const Engine = {
     }
     // 3) Utalentowani juniorzy bez miejsca w kadrze – na wypożyczenie, żeby grali i rośli
     const u = gameState.u19;
-    if (u) {
+    if (u && Selectors.academyOpen()) {
       const done = dir.windowLoans.filter((x) => x.junior).length;
       const jMax = (lvl >= 3 ? 3 : lvl >= 2 ? 2 : 1) - done;
       u.squad.filter((p) => p.age >= 17 && p.age < 19 && (p.talent || Selectors.potentialStars(p) >= 3))
@@ -6630,6 +6632,11 @@ const Engine = {
     const L = DATA.academyLevels[A.level];
     Engine.shiftDNA(+3);
     Engine.applyEffects({ fans: +2 });
+    if (A.level === 1 && gameState.academyGate) {   // 13.92: pierwsza inwestycja otwiera szkółkę
+      Engine.alert('🌱', 'Szkółka otwarta!', L.name + ' gotowe. Rusza drużyna U19, liga juniorów i coroczny nabór talentów.', 'good');
+      Engine.addLog('🌱 SZKÓŁKA OTWARTA: ' + L.name + '. Juniorzy grają w lidze U19, a po sezonie przychodzi nabór. [kibice +2%]', 'finance');
+      return;
+    }
     Engine.alert('🎽', 'Szkółka rozbudowana', L.name + ' gotowa. Lepsi kandydaci na selekcji i w naborze do U19 (perełki: ' + Math.round(L.talent * 100) + '%).', 'good');
     Engine.addLog('🎽 Szkółka rozbudowana: ' + L.name + '. [kibice +2%]', 'finance');
   },
@@ -7579,7 +7586,7 @@ const Engine = {
       });
     },
     function academy() {
-      if (Selectors.isMatchWeek()) Engine.u19Poachers();
+      if (Selectors.isMatchWeek() && Selectors.academyOpen()) Engine.u19Poachers();
     },
     function academyBuild() {
       Engine.academyTick();
@@ -7869,6 +7876,7 @@ const Selectors = {
   formClubName: (f) => ((f.clubName || '').trim() || (f.town || '').trim()),   // 13.90: pełna, dowolna nazwa klubu (bez gotowych skrótów)
   youthLevel: () => Math.min(DATA.youthLevels.length - 1, Math.round(Selectors.academyLevel() * 0.7)),
   academyLevel: () => (gameState.academy && gameState.academy.level) || 0,
+  academyOpen: () => !gameState.academyGate || Selectors.academyLevel() >= 1,   // 13.92: szkółka działa dopiero po inwestycji
   academy: () => DATA.academyLevels[Selectors.academyLevel()],
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
   starPlayer: () => gameState.squad.find((p) => p.id === gameState.star.playerId) || null,
@@ -8510,6 +8518,7 @@ const Storage = {
       Object.values(state.staff || {}).forEach((m) => { if (m && m.wage) m.wage = Math.round(m.wage * f); });
     }
     state.econ1389 = true;
+    if (saved.academyGate == null && saved.screen === 'game') state.academyGate = false;   // 13.92: trwające kariery mają szkółkę od zawsze
     if (saved.budkaGate == null && saved.screen === 'game' && state.stadium && state.stadium.upgrades) state.stadium.upgrades.kiosk = true;   // 13.85: stare zapisy zachowują budkę
     state.budkaGate = true;
     (state.squad || []).forEach((p) => { delete p.bargain; delete p.fireSale; });   // 13.59: własni zawodnicy bez etykiet z giełdy
@@ -9849,6 +9858,13 @@ const UI = {
   },
 
   u19Tab() {
+    if (!Selectors.academyOpen()) {   // 13.92: zamknięta szkółka – tylko zaproszenie do inwestycji
+      const a = DATA.academyLevels[1], b = gameState.academy && gameState.academy.building;
+      return UI.panel('🔒 Szkółka juniorska zamknięta', 'Na razie dzieciaki kopią piłkę za szkołą. Bez szkółki nie ma drużyny U19, ligi juniorów ani naboru talentów.',
+        `<div class="rounded-md bg-paper-200 px-2 py-1.5 text-[12px]"><b>${Utils.escape(a.name)}</b> – ${Utils.formatMoney(Selectors.academyCost(1))} · budowa ${a.weeks} tyg.<br><span class="text-ink-700">Otwiera U19: ${a.cands} kandydatów w naborze, szansa na perełkę ${Math.round(a.talent * 100)}%.</span></div>
+        ${b ? `<p class="text-[12px] font-bold text-amber-700 mt-1.5">🏗️ Budowa trwa – jeszcze ${Math.max(0, b.ready - gameState.calendar.week)} tyg.</p>` : `<button data-action="build-academy" ${gameState.finance.budget < Selectors.academyCost(1) ? 'disabled' : ''} class="btn-press w-full h-10 mt-1.5 rounded-md bg-amber-glow text-ink-900 text-[13px] font-bold disabled:opacity-50">🌱 Buduj szkółkę · ${Utils.formatMoney(Selectors.academyCost(1))}</button>`}
+        <p class="text-[10.5px] text-ink-700 mt-1">Szkółkę zbudujesz też w Finanse → Obiekt → 🎽 Szkółka juniorów.</p>`);
+    }
     const u = gameState.u19;
     if (!u) return UI.panel('Akademia', '', '<p class="text-[12px]">Akademia jeszcze nie ruszyła.</p>');
     const view = UI.sub('u19', 'squad');
@@ -10888,7 +10904,7 @@ const UI = {
     const youthGroup = `
       <details data-fold="st-youth" class="mt-1.5" ${folds['st-youth'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
-          <span>🎽 Szkółka juniorów</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">poziom ${al}/${DATA.academyLevels.length - 1}</span><span class="fold-chevron text-ink-700">⌄</span></span>
+          <span>🎽 Szkółka juniorów${Selectors.academyOpen() ? '' : ' <span class="text-[10.5px] text-stamp font-bold">zamknięta</span>'}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">poziom ${al}/${DATA.academyLevels.length - 1}</span><span class="fold-chevron text-ink-700">⌄</span></span>
         </summary>
         ${youthRows}
       </details>`;
@@ -10913,6 +10929,7 @@ const UI = {
       ${Selectors.builds().length || gameState.academy.building ? `<p class="text-[11px] mt-1 text-amber-700 font-semibold truncate">🏗️ Budowy (${Selectors.builds().length}/${Selectors.buildSlots}): ${Selectors.builds().map((b) => Utils.escape(b.label) + ' – ' + Selectors.buildLeft(b) + ' tyg.').join(' · ')}${gameState.academy.building ? (Selectors.builds().length ? ' · ' : '') + 'szkółka – ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.' : ''}</p>` : ''}
       ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
       ${buildGroup}
+      ${youthGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
       ${group('st-fans', '🏟️ Rozbudowa: dla kibiców', fansList, '')}
       ${group('st-team', '🏋️ Rozbudowa: dla drużyny', teamList, '')}
