@@ -2436,6 +2436,19 @@ const DATA = {
         },
       ],
     },
+    // Trener-oszust: sygnały ostrzegawcze po kilku słabych tygodniach
+    fraudCoach: {
+      id: 'fraudCoach',
+      cutscene: { icon: '🕵️', place: 'Szatnia · po kolejnej klęsce', scripted: true },
+      from: 'Kapitan drużyny (szeptem)',
+      title: 'Coś nie gra z nowym trenerem',
+      body: () => 'Kapitan zamyka drzwi szatni: „Prezesie, ' + Selectors.coach().name + ' każe nam biegać tyłem wokół boiska, taktykę rysuje z gry na telefon, a o spalonym mówi „to ten przepis z linią”. Pytał też, kiedy wpłynie premia za… obóz w Hiszpanii.” Na dyplomie trenera jest pieczątka sklepu z ksero.',
+      options: [
+        { label: 'Zwolnić go natychmiast', hint: 'Bez odprawy – to oszust. Kasy za podpis nie odzyskasz, ale ratujesz sezon', effects: { lockerRoom: +3 }, log: 'Prezes wręcza wypowiedzenie w progu. „Trener” nawet nie protestuje.', onChoose: () => { const n = Selectors.coach().name; Engine.setCoach('mirek'); Engine.addLog('🕵️ ' + n + ' wyrzucony, zanim narobił większych szkód. Pan Mirek wraca na ławkę, szatnia oddycha z ulgą. [szatnia +3%]', 'decision'); } },
+        { label: 'Sprawdzić papiery w Związku', hint: () => Utils.signedMoney(-Math.round(40 * Selectors.econ())) + ' · może uda się odzyskać część pieniędzy za podpis', effects: () => ({ budget: -Math.round(40 * Selectors.econ()) }), log: 'Prezes dzwoni do Wydziału Szkolenia.', onChoose: () => { const n = Selectors.coach().name; const back = Math.round(Selectors.coachOffer(Selectors.coach()).sign * 0.5 / 10) * 10; Engine.setCoach('mirek'); if (back) Engine.money('Zwrot za podpis (oszust)', back); Engine.applyEffects({ lockerRoom: +2 }); Engine.addLog('📜 Związek potwierdza: ' + n + ' nigdy nie miał licencji. Umowa nieważna' + (back ? ', wraca ' + Utils.formatMoney(back) + ' za podpis' : '') + '. Pan Mirek znów prowadzi drużynę. [szatnia +2%]', 'decision'); } },
+        { label: 'Dać mu jeszcze czas', hint: 'Może to nowatorskie metody? Szatnia będzie dalej tracić formę…', effects: { lockerRoom: -2 }, log: 'Prezes macha ręką: „Każdy potrzebuje czasu na wdrożenie”.', onChoose: () => { if (gameState.coach.fraud) gameState.coach.fraud.vanishAt = gameState.calendar.week + 3; } },
+      ],
+    },
     // 13.96: dylemat licencyjny po awansie bez stadionu
     stadiumRent: {
       id: 'stadiumRent',
@@ -4678,6 +4691,7 @@ const Engine = {
     if (gameState.debt.strike) s *= 0.9;           // strajk: nie ma na paliwo, nie ma gry
     if (Selectors.rebel()) s *= 0.92;              // bunt gwiazdy: nikt nie podaje do nikogo
     if ((gameState.star.slumpUntil || 0) > gameState.calendar.week) s *= 0.9;   // kryzys formy po wybuchu buntu
+    if (gameState.coach.fraud) s *= 0.8;   // trener-oszust: treningi z YouTube'a, taktyka z gry na telefon
     return s;
   },
 
@@ -7045,7 +7059,8 @@ const Engine = {
 
   setCoach(id) {
     const c = gameState.coach;
-    c.id = id; c.hiredWeek = gameState.calendar.week; c.hiredSeason = gameState.calendar.season; c.carpetBoost = 0; c.boringStreak = 0; c.lastReport = ''; c.relation = 60; c.mutualTried = null;
+    c.id = id; c.hiredWeek = gameState.calendar.week; c.hiredSeason = gameState.calendar.season; c.carpetBoost = 0; c.boringStreak = 0; c.lastReport = ''; c.relation = 60; c.mutualTried = null; c.fraud = null;
+    gameState.pendingDecisions = (gameState.pendingDecisions || []).filter((d) => d !== 'fraudCoach');   // nowy trener = sprawa oszusta nieaktualna
     const def = Selectors.coachDef(id) || DATA.coaches.mirek;
     c.custom = DATA.coaches[id] ? null : def;   // wygenerowany trener zostaje zapisany w klubie
     c.license = def.license || 0;               // licencja nowego trenera (kurs podnosi ją później)
@@ -7099,7 +7114,14 @@ const Engine = {
     if (!coach || gameState.coach.id !== 'mirek' || id === 'mirek' || gameState.finance.budget < Selectors.coachOffer(coach).sign) return;
     if (Selectors.coachNeedsPro(coach)) return;   // Ekstraklasa: bez UEFA Pro nie ma umowy
     Engine.money('Podpis trenera: ' + coach.name, -Selectors.coachOffer(coach).sign);
+    // Rzadkość: trener „z ogłoszenia za grosze” w B/A-klasie bywa oszustem bez kwalifikacji (najwyżej raz na karierę)
+    const cheap = Selectors.coachMarket().map((c) => Selectors.coachOffer(c).weekly).sort((a, b) => a - b);
+    const isCheap = Selectors.coachOffer(coach).weekly <= (cheap[1] != null ? cheap[1] : Infinity);
     Engine.setCoach(id);
+    if (gameState.club.leagueLevel <= 2 && isCheap && !gameState.fraudCoachSeen && Math.random() < 0.08) {
+      gameState.fraudCoachSeen = true;
+      gameState.coach.fraud = { week: gameState.calendar.week, warned: false, vanishAt: null };
+    }
     Engine.addLog('✍️ Nowy trener: ' + coach.name + ' (' + coach.title + '). Styl: ' + DATA.styles[coach.style].label + ' – „' + DATA.styles[coach.style].motto + '”. Pan Mirek z ulgą wraca do kosiarki.', 'decision');
     if (coach.attracts) Engine.addLog('🤝 ' + coach.name + ': „Mam kolegę z dawnych lat – przyprowadzę go w oknie transferowym.”', 'event');
   },
@@ -8187,6 +8209,24 @@ const Engine = {
       const r = gameState.lastMatch.result;
       c.relation = Utils.clamp(Selectors.relation() + (r === 'W' ? 1 : r === 'L' ? -1 : 0), 0, 100);
       if (Selectors.relation() < 20) gameState.monthly.lockerRoom = (gameState.monthly.lockerRoom || 0) - 1;   // zła krew schodzi na szatnię
+    },
+    function fraudCoachTick() {
+      const f = gameState.coach.fraud;
+      if (!f) return;
+      const w = gameState.calendar.week;
+      gameState.monthly.lockerRoom = (gameState.monthly.lockerRoom || 0) - 1;   // zawodnicy tracą formę i cierpliwość
+      if (!f.warned && w - f.week >= 2) { f.warned = true; Engine.pushDecision('fraudCoach'); return; }
+      if (f.vanishAt != null && w >= f.vanishAt) {
+        const name = Selectors.coach().name;
+        const loss = Math.round((Selectors.coachWeekly() * 6 + 150 * Selectors.econ()) / 10) * 10;
+        Engine.money('Trener zniknął z zaliczką: ' + name, -loss);
+        Engine.setCoach('mirek');
+        Engine.applyEffects({ lockerRoom: -6, fans: -3 });
+        Engine.teamSlump(2);
+        Engine.addLog('🕵️ TRENER-OSZUST ZNIKNĄŁ! ' + name + ' nie przyszedł na trening. Z kasetki zniknęła „zaliczka na obóz” i premia: ' + Utils.formatMoney(loss) + '. Telefon wyłączony, dyplom okazał się wydrukiem z internetu. Drużynę znów prowadzi pan Mirek. [szatnia -6%, kibice -3%]', 'event');
+        Engine.alert('🕵️', 'Trener zniknął z kasą', name + ' ulotnił się z ' + Utils.formatMoney(loss) + ' z klubowej kasy. Zespół został na lodzie – pan Mirek przejmuje drużynę.', 'bad', true);
+        Engine.xPost('portal', 'SKANDAL w ' + Selectors.clubDisplayName() + ': trener zniknął razem z kasą klubu! Policja szuka „licencjonowanego szkoleniowca”. 🕵️💸');
+      }
     },
     function rentalTick() {
       // 13.96: czynsz za wynajęty stadion – płatny co miesiąc (4 tygodnie)
