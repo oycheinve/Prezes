@@ -4245,7 +4245,57 @@ const Engine = {
   },
   newClubPlayer(pos, age, skill, pro) {
     const n = pro ? Engine.proName() : Engine.uniqueName();
-    return { n: pro ? n.first + ' ' + n.last : n.first[0] + '. „' + n.nick + '” ' + n.last, pos, age, skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0, cg: 0, ca: 0, capps: 0 };
+    gameState.nextRivalId = (gameState.nextRivalId || 0) + 1;
+    return { id: 'r' + gameState.nextRivalId, n: pro ? n.first + ' ' + n.last : n.first[0] + '. „' + n.nick + '” ' + n.last, f: n.first, l: n.last, k: n.nick, pro: !!pro, pos, age, skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0, cg: 0, ca: 0, capps: 0 };
+  },
+  // Zawodnik rywala po ID (starsze zapisy: ID nadawane przy pierwszym odczycie)
+  rivalPlayer(team, id) {
+    const c = (gameState.clubSquads || {})[team];
+    return c ? c.squad.find((x) => x.id === id) || null : null;
+  },
+  ensureRivalIds() {
+    Object.values(gameState.clubSquads || {}).forEach((c) => c.squad.forEach((x) => { if (!x.id) { gameState.nextRivalId = (gameState.nextRivalId || 0) + 1; x.id = 'r' + gameState.nextRivalId; } }));
+  },
+  // Lista życzeń: zapamiętujemy migawkę zawodnika (gdy jego klub opuści naszą ligę, i tak może trafić na giełdę)
+  toggleWatch(team, id) {
+    const wl = gameState.watchlist || (gameState.watchlist = []);
+    const i = wl.findIndex((w) => w.team === team && w.id === id);
+    if (i >= 0) { const w = wl.splice(i, 1)[0]; Engine.addLog('⭐ ' + w.n + ' usunięty z listy życzeń.', 'decision'); return false; }
+    const x = Engine.rivalPlayer(team, id);
+    if (!x) return false;
+    if (wl.length >= 8) { Engine.alert('⭐', 'Lista życzeń pełna', 'Na liście może być najwyżej 8 zawodników. Usuń kogoś, żeby dodać nowego.', 'bad'); return false; }
+    wl.push({ team, id, n: x.n, f: x.f, l: x.l, k: x.k, pro: x.pro, pos: x.pos, age: x.age, skill: x.skill, added: gameState.calendar.season });
+    Engine.addLog('⭐ ' + x.n + ' (' + Selectors.teamName(team) + ') na liście życzeń – skaut postara się, żeby trafił na najbliższą giełdę.', 'decision');
+    return true;
+  },
+  // Otwarcie okna: zawodnicy z listy życzeń wystawieni priorytetowo (na górze giełdy, oznaczeni ⭐)
+  watchlistToMarket() {
+    const t = gameState.transfer, wl = gameState.watchlist || [];
+    if (!t || !t.open || !wl.length) return;
+    wl.forEach((w) => {
+      if (t.market.some((p) => p.wlId === w.id)) return;
+      const cur = Engine.rivalPlayer(w.team, w.id);
+      const src = cur || w;
+      const p = Engine.makePlayer({ ageMin: src.age, ageMax: src.age, skillMin: src.skill, skillMax: src.skill, pos: src.pos, pro: !!src.pro });
+      const parsed = String(src.n || '').match(/„(.+)” (.+)$/);
+      p.first = src.f || String(src.n || '').split(' ')[0]; p.last = src.l || (parsed ? parsed[2] : String(src.n || '').split(' ').slice(1).join(' '));
+      p.nick = src.k || (parsed ? parsed[1] : p.last); p.noNick = !!src.pro;
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
+      p.fee = Math.max(30, Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 1.1 / 10) * 10);   // klub nie oddaje go za bezcen
+      Engine.fakeHistory(p, w.team);
+      if (cur && cur.apps) p.prevSeason = { apps: cur.apps + (cur.capps ? 0 : 0), goals: cur.g, avg: cur.rc ? Math.round(cur.rs / cur.rc * 10) / 10 : p.prevSeason.avg };
+      p.wlId = w.id; p.wlTeam = w.team;
+      t.market.unshift(p);
+    });
+    Engine.addLog('⭐ Skaut załatwił rozmowy: zawodnicy z listy życzeń (' + wl.length + ') są na górze giełdy.', 'decision');
+  },
+  // Kupiony zawodnik z listy życzeń znika z kadry rywala i z listy
+  watchSigned(p) {
+    if (!p.wlId) return;
+    const c = (gameState.clubSquads || {})[p.wlTeam];
+    if (c) { const i = c.squad.findIndex((x) => x.id === p.wlId); if (i >= 0) { const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length; c.squad[i] = Engine.newClubPlayer(p.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1), 1, CONFIG.maxSkill), gameState.club.leagueLevel >= 6); } }
+    gameState.watchlist = (gameState.watchlist || []).filter((w) => w.id !== p.wlId);
+    delete p.wlId; delete p.wlTeam;
   },
   // Między sezonami: wiek, rozwój młodych, spadek formy weteranów, emerytury zastępowane juniorami; tylko kluby z bieżącej ligi
   clubSquadsNewSeason() {
@@ -5139,6 +5189,7 @@ const Engine = {
     if (res === 'ok') {
       t.market = t.market.filter((x) => x.id !== id);
       delete p.fee; delete p.beerTried;
+      Engine.watchSigned(p);
       gameState.squad.push(p);
       t.bought++;
       Engine.addLog('🍺 Transfer za skrzynkę piwa i kiełbasę: ' + Selectors.playerName(p) + ' dołącza do klubu (' + p.wage + ' zł/tydz.).', 'decision');
@@ -6528,6 +6579,7 @@ const Engine = {
     (gameState.league.fireSale || []).forEach((name) => Engine.addFireSale(name));
     gameState.league.fireSale = [];
     Engine.scoutBargains();  // skaut wynajduje okazje cenowe i perełki
+    Engine.watchlistToMarket();   // lista życzeń: priorytetowo na górze giełdy
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -6583,6 +6635,7 @@ const Engine = {
     Engine.money('Transfer: ' + Selectors.playerName(p), -p.fee);
     t.market = t.market.filter((x) => x.id !== id);
     delete p.fee; delete p.bargain; delete p.fireSale;   // od teraz to nasz zawodnik – bez etykiet z giełdy
+    Engine.watchSigned(p);
     gameState.squad.push(p);
     t.bought++;
     Engine.addLog('✍️ Transfer: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + ', ' + p.wage + ' zł/tydz.) dołącza do klubu.', 'decision');
@@ -9391,6 +9444,7 @@ const UI = {
     if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
     if (o && o.type === 'youth' && gameState.youthPick && !gameState.youthPick.done) return UI.youthPickOverlay(gameState.youthPick);
     if (o && o.type === 'transfer' && gameState.transfer.open) return UI.transferOverlay();
+    if (o && o.type === 'rivalPlayer') return UI.rivalPlayerOverlay(o);
     // Cut-scenka czeka na decyzję – zawsze na pierwszym planie
     // Oferty transferowe w otwartym oknie czekają w zakładce „Oferty” giełdy, nie jako osobne scenki
     const cut = gameState.pendingDecisions.map((id) => DATA.decisions[id]).find((d) => d && d.cutscene && !(d.transfer && gameState.transfer.open));
@@ -9816,7 +9870,7 @@ const UI = {
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${p.wlId ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -10860,13 +10914,15 @@ const UI = {
   statsView() {
     const ctx = gameState.ui.statsCtx || 'club';
     const euroOn = !!(gameState.euro && gameState.euro.season === gameState.calendar.season);
-    const opts = [['club', '🏟️ Statystyki klubu'], ['league', '⚽ Zawodnicy w lidze: ' + Selectors.leagueName()], ['cup', '🏆 Zawodnicy w ' + Selectors.cupName()], ['euro', '🇪🇺 Zawodnicy w europejskich pucharach']];
+    const opts = [['club', '🏟️ Statystyki klubu'], ['league', '⚽ Zawodnicy w lidze: ' + Selectors.leagueName()], ['cup', '🏆 Zawodnicy w ' + Selectors.cupName()], ['euro', '🇪🇺 Zawodnicy w europejskich pucharach'], ['watch', '⭐ Lista życzeń (' + (gameState.watchlist || []).length + ')']];
     const picker = `<select data-stats-ctx aria-label="Kontekst statystyk" class="w-full mb-1 px-2 py-1.5 rounded-md bg-desk-800 border border-desk-600 text-[13px] text-paper-100 font-semibold">${opts.map(([k, l]) => `<option value="${k}"${k === ctx ? ' selected' : ''}>${Utils.escape(l)}</option>`).join('')}</select>`;
     if (ctx === 'club') return picker + UI.teamStatsCard();
     const sortKey = ['g', 'a', 'r'].includes(gameState.ui.statsSort) ? gameState.ui.statsSort : 'g';
     let rows = [];
-    gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
-    if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap)), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
+    if (ctx === 'watch') return picker + UI.watchlistView();
+    Engine.ensureRivalIds();
+    gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ pid: p.id, name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
+    if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap)), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
     const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : 1;
     const val = (x) => (sortKey === 'r' ? (x.apps >= minApps && x.r != null ? x.r : -1) : x[sortKey]);
     rows.sort((x, y) => val(y) - val(x) || y.g - x.g || y.a - x.a || (y.r || 0) - (x.r || 0));
@@ -10878,15 +10934,57 @@ const UI = {
     const body = top.map((x, i) => `
       <tr class="border-b border-paper-300 last:border-0 ${x.us ? 'bg-amber-glow/25' : ''}">
         <td class="py-[3px] pl-1 pr-1 text-ink-700 text-right">${x.rank}.</td>
-        <td class="py-[3px] pr-1 max-w-0 w-full"><div class="truncate ${x.us ? 'font-bold' : ''}">${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${x.ovr} · ${x.apps} m.</div></td>
+        <td class="py-[3px] pr-1 max-w-0 w-full"><button ${x.us ? `data-action="player-open" data-id="${x.pid}"` : `data-action="rival-player" data-team="${Utils.escape(x.tm)}" data-id="${x.rid}"`} class="block w-full text-left"><div class="truncate ${x.us ? 'font-bold' : ''}">${x.wl ? '⭐ ' : ''}${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${x.ovr} · ${x.apps} m.</div></button></td>
         <td class="px-1 text-right ${sortKey === 'g' ? 'font-bold' : ''}">${x.g}</td><td class="px-1 text-right ${sortKey === 'a' ? 'font-bold' : ''}">${x.a}</td>
         <td class="px-1 pr-1.5 text-right ${sortKey === 'r' ? 'font-bold' : ''}">${x.r != null ? x.r.toFixed(2) : '–'}</td>
       </tr>`).join('');
     const empty = ctx === 'euro' && !euroOn ? 'Klub nie gra w tym sezonie w europejskich pucharach.' : ctx === 'cup' ? 'Jeszcze żadnego meczu w ' + Utils.escape(Selectors.cupName()) + ' w tym sezonie.' : ctx === 'euro' ? 'Europejska przygoda jeszcze się nie zaczęła.' : 'Sezon jeszcze się nie zaczął – klasyfikacje ruszą po 1. kolejce.';
-    const note = ctx === 'league' ? 'Klasyfikacja całej ligi (Twoi zawodnicy podświetleni). Średnia nota od ' + minApps + ' m. Kliknij nagłówek, by sortować.' : 'Twoi zawodnicy w tych rozgrywkach. Kliknij nagłówek, by sortować.';
+    const note = ctx === 'league' ? 'Klasyfikacja całej ligi (Twoi podświetleni). Nota od ' + minApps + ' m. Nagłówek sortuje, zawodnik otwiera profil.' : 'Twoi zawodnicy w tych rozgrywkach. Kliknij nagłówek, by sortować.';
     return picker + `<section class="paper py-0.5 mb-1 overflow-hidden">
         ${top.length ? `<table class="w-full text-[11.5px]"><tr class="text-[10px]"><th></th><th class="text-left uppercase text-ink-700">Zawodnik</th>${th('g', 'Gole')}${th('a', 'Asy')}${th('r', 'Nota')}</tr>${body}</table>` : `<p class="text-[12px] italic text-ink-700 px-2 py-2">${empty}</p>`}
       </section><p class="text-[10.5px] text-paper-400 leading-snug">${note}</p>`;
+  },
+
+  watchlistView() {
+    const wl = gameState.watchlist || [];
+    const t = gameState.transfer;
+    const rows = wl.map((w) => {
+      const x = Engine.rivalPlayer(w.team, w.id) || w;
+      const ovr = Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap));
+      return UI.row(`<button data-action="rival-player" data-team="${Utils.escape(w.team)}" data-id="${w.id}" class="text-left">⭐ ${Utils.escape(w.n)}</button>`, `${Utils.escape(Selectors.teamName(w.team))} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${ovr}${x.apps ? ' · ' + x.g + ' G, ' + x.a + ' A' : ''}`,
+        UI.smallBtn('watch-toggle', `data-team="${Utils.escape(w.team)}" data-id="${w.id}"`, 'Usuń'), '', true);
+    }).join('');
+    return UI.panel('⭐ Lista życzeń', (t && t.open ? 'Okno transferowe otwarte – zawodnicy z listy są na górze giełdy.' : 'Przy najbliższym oknie transferowym skaut wystawi ich na górze giełdy (⭐).') + ' Najwyżej 8 nazwisk.',
+      rows || '<p class="text-[12px] italic text-ink-700">Pusto. Kliknij zawodnika w klasyfikacji ligi i dodaj go do listy.</p>');
+  },
+  rivalPlayerOverlay(o) {
+    const x = Engine.rivalPlayer(o.team, o.id) || (gameState.watchlist || []).find((w) => w.id === o.id);
+    if (!x) return '';
+    const ovr = Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap));
+    const val = Selectors.marketValue({ id: x.id, skill: x.skill, age: x.age, pos: x.pos, tmVar: 1 });
+    const on = (gameState.watchlist || []).some((w) => w.id === x.id);
+    const t = gameState.transfer;
+    const onMarket = t && t.open && t.market.some((p) => p.wlId === x.id);
+    const tile = (l, v, sub) => `<div class="rounded-lg bg-desk-800 px-2 py-1.5"><div class="text-[10px] uppercase text-paper-400">${l}</div><div class="text-[16px] font-extrabold text-paper-100">${v}</div>${sub ? `<div class="text-[10px] text-paper-400 truncate">${sub}</div>` : ''}</div>`;
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
+        <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Profil zawodnika</p>
+        <h2 class="text-center text-[22px] font-extrabold leading-tight mt-1">${on ? '⭐ ' : ''}${Utils.escape(x.n)}</h2>
+        <p class="text-center text-[12px] text-paper-300 mt-0.5">${Utils.escape(Selectors.teamName(o.team))} · ${Utils.escape(Selectors.leagueName())}</p>
+        <div class="grid grid-cols-3 gap-1.5 mt-3">
+          ${tile('OVR', ovr, Selectors.skillLabel(x.skill))}${tile('Wiek', x.age + ' l.', x.age <= 21 ? 'młodzieżowiec' : x.age >= 32 ? 'weteran' : '')}${tile('Pozycja', DATA.positions[x.pos].icon, DATA.positions[x.pos].label)}
+        </div>
+        <p class="text-[11px] uppercase text-paper-400 mt-3 mb-1">Ten sezon (liga)</p>
+        <div class="grid grid-cols-4 gap-1.5">
+          ${tile('Mecze', x.apps || 0)}${tile('Gole', x.g || 0)}${tile('Asysty', x.a || 0)}${tile('Nota', x.rc ? (x.rs / x.rc).toFixed(2) : '–')}
+        </div>
+        <p class="text-[11px] text-paper-300 mt-2">📚 Kariera w lidze: ${(x.capps || 0) + (x.apps || 0)} meczów, ${(x.cg || 0) + (x.g || 0)} goli, ${(x.ca || 0) + (x.a || 0)} asyst · 💰 wartość rynkowa ok. ${Utils.formatValue(val)}</p>
+        <p class="text-[11px] text-paper-400 mt-1.5 leading-snug">${onMarket ? '🔄 Jest teraz na giełdzie (na górze listy, ⭐).' : on ? '⭐ Na liście życzeń – skaut wystawi go na najbliższej giełdzie transferowej.' : 'Dodaj do listy życzeń, a skaut wystawi go priorytetowo na najbliższej giełdzie transferowej.'}</p>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
+        <button data-action="watch-toggle" data-team="${Utils.escape(o.team)}" data-id="${x.id}" class="btn-press w-full h-11 rounded-xl ${on ? 'bg-desk-700 text-paper-100' : 'bg-amber-glow text-ink-900'} text-[14px] font-bold">${on ? 'Usuń z listy życzeń' : '⭐ Dodaj do listy życzeń'}</button>
+        <button data-action="overlay-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">Zamknij</button>
+      </div>`, 'bg-desk-900');
   },
 
   teamStatsCard() {
@@ -11693,6 +11791,8 @@ const Actions = {
     } else gameState.ui.overlay = null;
     App.commit();
   },
+  'rival-player'(el) { gameState.ui.overlay = { type: 'rivalPlayer', team: el.dataset.team, id: el.dataset.id }; App.commit(); },
+  'watch-toggle'(el) { if (Engine.toggleWatch(el.dataset.team, el.dataset.id) && gameState.transfer && gameState.transfer.open) Engine.watchlistToMarket(); App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
   'crisis-answer'(el) { Engine.crisisAnswer(el.dataset.value); App.commit(); },
   'pick-youth'(el) {
