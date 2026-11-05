@@ -2412,6 +2412,24 @@ const DATA = {
         },
       ],
     },
+    // 13.93: dywanik jako scenka – ton rozmowy wybiera prezes, wynik rozstrzyga ukryty rzut
+    carpetTalk: {
+      id: 'carpetTalk',
+      levels: [1, 8],
+      cutscene: { icon: '🟥', scripted: true, get place() { return ['Gabinet prezesa w blaszaku · po treningu', 'Biuro klubu · po odprawie', 'Sala konferencyjna · w obecności agenta'][Selectors.band()]; } },
+      from: 'Wezwanie na dywanik',
+      title: () => (Selectors.carpetTarget().kind === 'player' ? 'Na dywanik: ' + Selectors.carpetTarget().name : 'Na dywanik: trener ' + Selectors.coach().name),
+      body: () => {
+        const t = Selectors.carpetTarget(), b = Selectors.band();
+        if (t.kind === 'player') return ['Wpada spocony, z telefonem w ręku i miną „o co znowu chodzi”. Pod sklepem już wszyscy wiedzą, że się buntuje.', 'Przychodzi spóźniony, w słuchawkach. Lokalny portal pisze o konflikcie w szatni.', 'Przychodzi z agentem i prawnikiem. Agent kładzie na stole telefon: „Nagrywamy, dla porządku”.'][b];
+        return ['Trener siada na skrzynce po piwie i drapie się po głowie. Wyniki są, jakie są.', 'Trener ma przygotowaną prezentację z „danymi”. Radni pytają o wyniki.', 'Trener przychodzi z analitykiem i laptopem. Telewizja czeka na komentarz po rozmowie.'][b];
+      },
+      options: [
+        { label: 'Twardo: krzyk, kary i ultimatum', hint: 'Duże ryzyko, duża nagroda – albo się wezmą, albo wielki foch', effects: {}, log: 'Prezes podnosi głos. Drzwi gabinetu drżą.', onChoose: () => Engine.carpetResolve('hard') },
+        { label: 'Po ludzku: szczera rozmowa w cztery oczy', hint: 'Bezpieczniej, ale efekt może być umiarkowany', effects: {}, log: 'Prezes zamyka drzwi i siada naprzeciwko. Spokojnie.', onChoose: () => Engine.carpetResolve('soft') },
+        { label: 'Marchewka: premia za dobry wynik', hint: () => Utils.signedMoney(-Math.round(150 * Selectors.econ())) + ' · zwykle działa, ale pieniądze nie kupią wszystkiego', effects: () => ({ budget: -Math.round(150 * Selectors.econ()) }), log: 'Prezes kładzie na stole kopertę z premią „za wynik”.', onChoose: () => Engine.carpetResolve('bonus') },
+      ],
+    },
     fanBoycott: {
       id: 'fanBoycott',
       levels: [1, 8],
@@ -6549,17 +6567,51 @@ const Engine = {
 
   carpetCoach() {
     const c = gameState.coach;
-    if (gameState.calendar.week - c.lastCarpetWeek < CONFIG.carpetCooldown) return;
+    if (gameState.calendar.week - c.lastCarpetWeek < CONFIG.carpetCooldown || gameState.pendingDecisions.includes('carpetTalk')) return;
     c.lastCarpetWeek = gameState.calendar.week;
-    const coach = Selectors.coach();
-    if (Math.random() < 0.7) {
-      c.carpetBoost = 0.08;
-      Engine.addLog('🟥 Dywanik: ' + coach.carpetOk + ' [mobilizacja na najbliższy mecz]', 'decision');
+    const rebel = Selectors.rebel() ? Selectors.starPlayer() : null;   // 13.93: najpierw buntownik, inaczej trener
+    gameState.carpet = { pid: rebel ? rebel.id : null, week: gameState.calendar.week };
+    Engine.pushDecision('carpetTalk');
+  },
+  // Ukryty rzut: ton rozmowy, powaga sytuacji i sztab; zawsze margines porażki
+  carpetResolve(style) {
+    const t = Selectors.carpetTarget(), b = Selectors.band(), c = gameState.coach;
+    const base = { hard: 0.42, soft: 0.5, bonus: 0.62 }[style];
+    const staff = Selectors.staffRawLevel('asystent') * 0.03 + Selectors.staffRawLevel('masazysta') * 0.02 + ((gameState.director && gameState.director.hired && gameState.director.hired.level) || 0) * 0.015;
+    const severity = (gameState.record.lossStreak || 0) * 0.04 + (t.kind === 'player' ? 0.08 : 0) + (gameState.morale.lockerRoom < 35 ? 0.08 : 0);
+    const p = Utils.clamp(base + staff - severity, 0.1, 0.88);
+    const r = Math.random();
+    const out = r < p ? 'ok' : r < p + { hard: 0.1, soft: 0.3, bonus: 0.2 }[style] ? 'mid' : 'bad';   // twardo: mało kompromisów; po ludzku: częściej neutralnie
+    const T = {
+      coach: {
+        ok: ['Trener wstaje: „Zrozumiałem, Prezesie”. Na treningu chłopaki biegają, aż kurzy się z kretowisk.', 'Trener zapowiada „plan naprawczy” i rzeczywiście dokręca śrubę. Drużyna wygląda na zmobilizowaną.', 'Trener przyjmuje uwagi bez słowa sprzeciwu. Sztab dostaje nowe wytyczne, zespół – jasny przekaz.'],
+        mid: ['Trener kiwa głową, coś tam obiecuje. Zobaczymy w sobotę.', 'Rozmowa kończy się kompromisem. Trener zmieni „jeden, dwa elementy”.', 'Spotkanie kończy się protokołem rozbieżności. Nic się nie zmienia.'],
+        bad: ['Trener trzaska drzwiami blaszaka: „To niech Prezes sam trenuje!”. Szatnia słyszała.', 'Trener w lokalnym radiu mówi o „braku zaufania zarządu”. W szatni zgrzyta.', 'Agent trenera wydaje oświadczenie o „nieprofesjonalnych naciskach”. Atmosfera siada.'],
+      },
+      player: {
+        ok: ['Przeprasza przy wszystkich w szatni i obiecuje harówkę. Bunt wygasa.', 'Przyznaje się do błędów, w mediach mówi o „nowym otwarciu”. Bunt zażegnany.', 'Agent dziękuje „za konstruktywny dialog”. Zawodnik wraca do pracy, bunt zakończony.'],
+        mid: ['Burknął „dobra” i poszedł. Bunt przycichł, ale nie zniknął.', 'Zawodnik obiecuje „przemyśleć sprawę”. Napięcie zostaje.', 'Agent prosi o czas do namysłu. Status quo.'],
+        bad: ['Wybiega z gabinetu: „Ja tu dłużej nie gram!”. Po sezonie chce odejść, szatnia pęka.', 'Zawodnik w mediach: „Zarząd mnie nie szanuje”. Żąda transferu.', 'Agent ogłasza: „Mój klient nie widzi przyszłości w klubie”. Żądanie transferu na stole.'],
+      },
+    }[t.kind][out][b];
+    if (t.kind === 'coach') {
+      if (out === 'ok') { c.carpetBoost = style === 'hard' ? 0.12 : 0.1; Engine.applyEffects({ lockerRoom: +4 }); }
+      else if (out === 'mid') c.carpetBoost = 0.04;
+      else {
+        c.carpetBoost = -0.04;
+        Engine.applyEffects({ lockerRoom: style === 'hard' ? -8 : -5 });
+        if (gameState.coach.id !== 'mirek' && Math.random() < (style === 'hard' ? 0.25 : 0.12)) {
+          Engine.addLog('🚪 Trener ' + Selectors.coach().name + ' składa rezygnację po rozmowie na dywaniku. Drużynę przejmuje Pan Mirek.', 'event');
+          Engine.setCoach('mirek');
+        }
+      }
     } else {
-      c.carpetBoost = -0.03;
-      Engine.applyEffects({ lockerRoom: -3 });
-      Engine.addLog('🟥 Dywanik: ' + coach.carpetBad + ' [szatnia -3%]', 'decision');
+      const pl = t.p;
+      if (out === 'ok') { gameState.star.rebel = false; pl.formHistory = (pl.formHistory || []).concat([8]).slice(-5); Engine.applyEffects({ lockerRoom: +5 }); }
+      else if (out === 'bad') { pl.wantsOut = pl.wantsOut || Engine.otherClubName(1); Engine.applyEffects({ lockerRoom: style === 'hard' ? -8 : -6 }); }
     }
+    Engine.addLog({ ok: '💪 ', mid: '🤝 ', bad: '💢 ' }[out] + 'Dywanik: ' + T + (out === 'ok' ? ' [mobilizacja]' : out === 'bad' ? ' [foch w szatni]' : ''), 'decision');
+    gameState.carpet = null;
   },
 
   /* ----- Sztab pomocniczy ----- */
@@ -7880,6 +7932,11 @@ const Selectors = {
   academy: () => DATA.academyLevels[Selectors.academyLevel()],
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
   starPlayer: () => gameState.squad.find((p) => p.id === gameState.star.playerId) || null,
+  carpetTarget: () => {   // 13.93: zbuntowana gwiazda albo trener
+    const c = gameState.carpet || {};
+    const p = c.pid && gameState.squad.find((x) => x.id === c.pid);
+    return p ? { kind: 'player', p, name: Selectors.playerName(p) } : { kind: 'coach', name: Selectors.coach().name };
+  },
   rebel: () => { const p = Selectors.starPlayer(); return !!(gameState.star.rebel && p && !p.benched); },
   starFee: (p) => Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 1.5 / 10) * 10,   // klub z wyższej ligi płaci premię
   calmCost: (p) => Math.round(p.skill * 80 * Selectors.econ() / 10) * 10,
