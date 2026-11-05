@@ -7574,7 +7574,9 @@ const Engine = {
       p.wage = Math.max(5, Math.round(p.wage * ratio / 5) * 5);
       p.injured = 0; p.suspended = 0; p.wantsOut = null;
     });
-    // Liga i terminarz
+    // Liga i terminarz – jak po normalnym przełomie sezonów: nowy sezon w nowej lidze
+    Engine.closeTransferWindow();
+    if (gameState.calendar.round > 0 || gameState.calendar.week > CONFIG.preseasonWeeks) gameState.calendar.season++;
     gameState.club.leagueLevel = lvl;
     gameState.club.levelSince = gameState.calendar.season;
     gameState.calendar.round = 0;
@@ -7610,6 +7612,13 @@ const Engine = {
     gameState.morale.lockerRoom = Math.max(gameState.morale.lockerRoom, 60);
     gameState.pendingDecisions = gameState.pendingDecisions.filter((id) => !['stadiumRent', 'coachLicense'].includes(id));
     Engine.refreshSponsors(true);
+    // Otwarcie okna transferowego dla nowej ligi (rynek, wypożyczenia, oferty – jak między sezonami)
+    gameState.seasonSummary = null;
+    Engine.openTransferWindow();
+    gameState.transfer.shown = true;
+    gameState.ui.transferView = Selectors.transferOffers().length ? 'offers' : 'buy';
+    gameState.ui.overlay = { type: 'transfer' };
+    Engine.addLog('🔄 Okno transferowe otwarte – zamknie się z pierwszym gwizdkiem sezonu w lidze ' + L.name + '.', 'system');
     Engine.addLog('🧪 TRYB TESTOWY: klub przeskalowany do ligi ' + L.name + ' (skład, pensje, budżet ' + Utils.formatMoney(gameState.finance.budget) + ', obiekty licencyjne, sztab, trener). Ta kariera nie trafi do Hall of Fame.', 'system');
   },
 
@@ -11711,7 +11720,7 @@ document.addEventListener('input', (e) => {
   if (e.target.dataset && e.target.dataset.regionSelect != null) { Actions['set-region'](e.target.value); return; }
   if (e.target.dataset && e.target.dataset.testLevel != null) {   // TRYB TESTOWY
     const v = e.target.value; e.target.value = '';
-    if (v !== '' && confirm('TRYB TESTOWY: przeskalować cały klub do ligi ' + DATA.leagueLevels[+v].name + '? Ta kariera nie trafi do Hall of Fame.')) { Engine.debugSetLevel(+v); gameState.ui.overlay = null; App.commit(); }
+    if (v !== '' && confirm('TRYB TESTOWY: przeskalować cały klub do ligi ' + DATA.leagueLevels[+v].name + '? Ta kariera nie trafi do Hall of Fame.')) { Engine.debugSetLevel(+v); App.commit(); }
     else UI.renderAll();
     return;
   }
