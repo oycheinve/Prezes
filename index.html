@@ -5241,6 +5241,13 @@ const Engine = {
     let euroNext = level === maxLevel && newLevel === maxLevel && outcome !== 'forced' ? Selectors.euroQualFor(pos) : null;
     if (!euroNext && level === maxLevel && newLevel === maxLevel && gameState.cup && gameState.cup.won && gameState.cup.season === gameState.calendar.season) euroNext = { comp: 'UEL', path: 'cup' };   // zdobywca Pucharu Polski
     if (gameState.cup && gameState.cup.season === gameState.calendar.season) summary.cup = gameState.cup.won ? '🏆 Zdobywca Pucharu Polski!' : gameState.cup.wonRegional ? '🏆 ' + Selectors.cupName() + ' – za rok szczebel centralny!' : Selectors.cupName() + ': ' + (gameState.cup.history[0] || 'bez meczów').replace(/ ❌$/, '');
+    // Zasady UEFA dla zwycięzców pucharów: LM i LE → faza ligowa LM, LKE → faza ligowa LE (niezależnie od miejsca w lidze)
+    const euroWon = Selectors.euroThisSeason() && String(gameState.euro.result || '').startsWith('🏆') ? gameState.euro.comp : null;
+    if (euroWon && outcome !== 'forced') {
+      const titleQ = { comp: euroWon === 'UECL' ? 'UEL' : 'UCL', path: 'holder', direct: true };
+      const rank = { UCL: 3, UEL: 2, UECL: 1 };
+      if (!euroNext || rank[titleQ.comp] > rank[euroNext.comp] || euroNext.comp === titleQ.comp) euroNext = titleQ;
+    }
     if (euroNext) summary.euroQual = Selectors.euroQualLabel(euroNext);
 
     summary.debtNews = (gameState.debtNews || []).filter((d) => ['paidUs', 'stiffedUs', 'recovered', 'ourPaid'].includes(d.kind)).map((d) => d.text).slice(-5);
@@ -5263,7 +5270,12 @@ const Engine = {
       if (gameState.rental && (gameState.stadium.level || 0) >= (DATA.licenseCapacity[newLevel] || 0)) Engine.endRental('📦 Po zmianie ligi własny stadion znów wystarcza – klub wraca do domu z wynajętego obiektu.');
     }
     Engine.newSeason();
-    if (euroNext) Engine.euroSetup(euroNext);
+    if (euroNext) {
+      Engine.euroSetup(euroNext);
+      if (euroNext.direct) {   // obrońca trofeum / zwycięzca LE lub LKE: od razu faza ligowa
+        Engine.euroAdvance('LP', 'Jako ' + ({ UCL: 'zwycięzca europejskiego pucharu', UEL: 'zwycięzca Ligi Konferencji' }[euroNext.comp]) + ' klub startuje od razu w fazie ligowej: ' + DATA.euro.comps[euroNext.comp].name + '!');
+      }
+    }
     Engine.openTransferWindow();
     Engine.refreshSponsors(true);
     summary.outcome = outcome;
@@ -9142,7 +9154,7 @@ const Selectors = {
   euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34) - ((gameState.euro && gameState.euro.shift) || 0)),   // shift: tryb testowy przyspiesza start etapu
   // Kwalifikacja z miejsca w Ekstraklasie: 1. el. LM (mistrzowska), 2. el. LM (ligowa), 3. el. LE, 4. el. LKE
   euroQualFor: (pos) => ({ 1: { comp: 'UCL', path: 'champ' }, 2: { comp: 'UCL', path: 'league' }, 3: { comp: 'UEL', path: 'league' }, 4: { comp: 'UECL', path: 'league' } }[pos] || null),
-  euroQualLabel: (q) => 'eliminacje ' + DATA.euro.comps[q.comp].name + (q.comp === 'UCL' ? (q.path === 'champ' ? ' (ścieżka mistrzowska)' : ' (ścieżka ligowa)') : q.path === 'cup' ? ' (zdobywca Pucharu Polski)' : ''),
+  euroQualLabel: (q) => q.direct ? 'faza ligowa ' + DATA.euro.comps[q.comp].name + ' (zwycięzca pucharu europejskiego)' : 'eliminacje ' + DATA.euro.comps[q.comp].name + (q.comp === 'UCL' ? (q.path === 'champ' ? ' (ścieżka mistrzowska)' : ' (ścieżka ligowa)') : q.path === 'cup' ? ' (zdobywca Pucharu Polski)' : ''),
   persuadeChance: (p) => {
     if (!p) return 0;
     const pos = Selectors.ourPosition(), n = Selectors.leagueSize();
