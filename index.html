@@ -4228,6 +4228,13 @@ const Engine = {
     Engine.clubSquadsNewSeason();   // kadry rywali: nowy sezon (wiek, rozwój, emerytury), statystyki od zera – po ustaleniu siły klubów
   },
 
+  // Nazwisko strzelca drużyny spoza naszej ligi (puchary, baraże) – losowane, bez statystyk
+  oppScorerName(foreign) {
+    if (foreign) { const P = DATA.proNames[Utils.rand(['iber', 'balk', 'north'])]; return Utils.rand(P.first) + ' ' + Utils.rand(P.last); }   // rywal z Europy
+    const pro = gameState.club.leagueLevel >= 6;
+    const n = pro ? Engine.proName() : Engine.uniqueName();
+    return pro ? n.first + ' ' + n.last : n.first[0] + '. „' + n.nick + '” ' + n.last;
+  },
   // Statystyki zawodnika w bieżących rozgrywkach (liga / PP / puchary europejskie)
   cstat(p, comp = Engine._comp || 'league') {
     if (!p.cs) p.cs = {};
@@ -4398,10 +4405,13 @@ const Engine = {
     const res = gf > ga ? 0.5 : gf < ga ? -0.5 : 0;
     const gw = { GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }, aw = { GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 };
     const goals = new Map();
+    const events = [];   // strzelcy i asystenci – także do relacji z naszego meczu
     for (let i = 0; i < gf; i++) {
       const sc = Utils.weightedPick(xi, (x) => gw[x.pos] * x.skill);
       sc.g++; goals.set(sc, (goals.get(sc) || 0) + 1);
-      if (Math.random() < 0.75) { const as = Utils.weightedPick(xi.filter((x) => x !== sc), (x) => aw[x.pos] * x.skill); if (as) as.a++; }
+      let as = null;
+      if (Math.random() < 0.75) { as = Utils.weightedPick(xi.filter((x) => x !== sc), (x) => aw[x.pos] * x.skill); if (as) as.a++; }
+      events.push({ n: sc.n, a: as ? as.n : null });
     }
     const mean = 5.5 + Selectors.levelSkillBonus();
     xi.forEach((x) => {
@@ -4414,10 +4424,11 @@ const Engine = {
       r = Math.round(Utils.clamp(r, 1, 10) * 10) / 10;
       x.apps++; x.rs = Math.round((x.rs + r) * 10) / 10; x.rc++;
     });
+    return events;
   },
   recordResult(home, away, hg, ag) {
-    if (home !== US) Engine.rivalPlayerStats(home, hg, ag);
-    if (away !== US) Engine.rivalPlayerStats(away, ag, hg);
+    if (home !== US) { const e = Engine.rivalPlayerStats(home, hg, ag); if (away === US) Engine._oppGoals = e; }
+    if (away !== US) { const e = Engine.rivalPlayerStats(away, ag, hg); if (home === US) Engine._oppGoals = e; }
     const t = gameState.season.table;
     const H = t[home], A = t[away];
     H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
@@ -4600,6 +4611,7 @@ const Engine = {
   // Jeden silnik dla ligi i pucharu: cup = { opp, oppS, home, neutral, hype, round, oppLeague } – wtedy bez tabeli i kalendarza
   playMatchday(cup) {
     Engine._comp = !cup ? 'league' : cup.euro ? 'euro' : 'cup';   // statystyki zawodników osobno dla ligi, PP i pucharów
+    Engine._oppGoals = null;   // strzelcy rywala (liga: z kadry klubu, zapisywani w statystykach)
     if (!cup) Engine.closeTransferWindow();   // pierwszy gwizdek sezonu zamyka okno transferowe
     if (!cup && gameState.calendar.round === 0) gameState.season.preview = Selectors.seasonPreview();
     const fixture = cup ? { rival: cup.opp, home: !!cup.home && !cup.neutral, rivalObj: { name: cup.opp, derby: false }, hype: cup.hype || 1 } : Selectors.currentFixture();
@@ -4711,6 +4723,17 @@ const Engine = {
       const p = gameState.squad.find((x) => x.id === id);
       return Selectors.shortName(p) + (n > 1 ? ' ×' + n : '');
     });
+    // Gole rywala: w lidze konkretni zawodnicy z jego kadry (te same, które trafiają do klasyfikacji);
+    // w pucharach – zawodnicy spoza naszej ligi, losowani na ten mecz
+    let oppEv = Engine._oppGoals;
+    if (!oppEv || oppEv.length !== ga) {
+      const foreign = cup && cup.euro;
+      const pool = [0, 1, 2].map(() => Engine.oppScorerName(foreign));
+      oppEv = Array.from({ length: ga }, () => ({ n: Utils.weightedPick(pool.map((n, i) => ({ n, w: [5, 3, 2][i] })), (o) => o.w).n, a: null }));
+    }
+    const oppCount = {};
+    oppEv.forEach((e) => { oppCount[e.n] = (oppCount[e.n] || 0) + 1; });
+    const oppScorers = Object.entries(oppCount).map(([n, k]) => n + (k > 1 ? ' ×' + k : ''));
 
     const clubName = Selectors.clubDisplayName();
     const scoreLine = fixture.home
@@ -4720,14 +4743,14 @@ const Engine = {
     let extra = '';
     if (result === 'W' && oppS > ourS && chaos >= 0.5) extra = ' SENSACJA NA BŁOCIE! Faworyt utonął w kałużach.';
     Engine.addLog((cup ? '🏆 ' + (cup.comp || 'Puchar Polski') + ' (' + cup.round + ')' : '⚽ Kolejka ' + kolejka) + derbyTag + ': ' + scoreLine + ' (' + (fixture.home ? 'u siebie, ' + gameState.club.town : 'wyjazd') + ', ' + weather.icon + ' ' +
-      weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
+      weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : '') + (oppScorers.length ? ' Dla rywala: ' + oppScorers.join(', ') + '.' : ''), 'match');
 
     // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
     const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
     const theirRedMin = Math.min(91, ...cards.filter((c) => !c.us && c.card === 'R').map((c) => c.min));
     const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Utils.randInt(m + 1, 90) : Utils.randInt(1, 90));   // przewaga liczebna = gole po kartce
     const goals = goalEvents.map((g) => ({ min: minAfter(theirRedMin), us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
-    for (let i = 0; i < ga; i++) goals.push({ min: minAfter(ourRedMin), us: false, name: rival.name });
+    oppEv.forEach((e) => goals.push({ min: minAfter(ourRedMin), us: false, name: e.n, team: rival.name, assist: e.a ? e.a.split(' ').slice(-1)[0] : null }));
     if (ourRedMin <= 90) Engine.addLog('🟥 Od ' + ourRedMin + '. minuty gramy w osłabieniu – rywal przejmuje inicjatywę.', 'match');
     goals.sort((a, b) => a.min - b.min);
     gameState.lastMatch = {
@@ -6066,7 +6089,8 @@ const Engine = {
       }
       goals.push({ min: Utils.randInt(2, 90), us: true, s: nm(sc), a: as ? as.last : null });
     }
-    for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false });
+    const oppPool = [Engine.oppScorerName(), Engine.oppScorerName()];
+    for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false, name: Math.random() < 0.65 ? oppPool[0] : oppPool[1] });
     goals.sort((a, b) => a.min - b.min);
     const cards = rawCards.filter((c) => c.us).map((c) => ({ card: c.card, min: c.min, name: c.p ? Selectors.shortName(c.p) + (c.name.includes('2. żółta') ? ' (2. żółta)' : '') : c.name }));
     const e = Selectors.econ();
@@ -10080,7 +10104,7 @@ const UI = {
     return `
         <div class="rounded-xl bg-desk-800 px-3 py-2 mt-3">
           <div class="text-[10px] uppercase tracking-wider text-paper-400 font-semibold">⚽ Bramki</div>
-          ${l.goals.length ? l.goals.map((g) => `<div class="text-[12.5px] leading-snug ${g.us ? 'text-paper-100' : 'text-paper-400'}">${g.min}' ${g.us ? Utils.escape(g.s) + (g.a ? ' <span class="text-paper-400">· asysta: ' + Utils.escape(g.a) + '</span>' : '') : 'gol rywala'}</div>`).join('') : '<div class="text-[12.5px] text-paper-400">Bez bramek.</div>'}
+          ${l.goals.length ? l.goals.map((g) => `<div class="text-[12.5px] leading-snug ${g.us ? 'text-paper-100' : 'text-paper-400'}">${g.min}' ${g.us ? Utils.escape(g.s || g.name) + (g.a || g.assist ? ' <span class="text-paper-400">· asysta: ' + Utils.escape(g.a || g.assist) + '</span>' : '') : (g.name ? Utils.escape(g.name) : 'gol rywala')}</div>`).join('') : '<div class="text-[12.5px] text-paper-400">Bez bramek.</div>'}
           ${cards.length ? `<div class="text-[10px] uppercase tracking-wider text-paper-400 font-semibold mt-1.5">Kartki</div>${cards.map((c) => `<div class="text-[12px]">${c}</div>`).join('')}` : ''}
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2 text-center">
