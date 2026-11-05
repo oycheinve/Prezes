@@ -2610,13 +2610,14 @@ const DATA = {
       id: 'cutTransfer',
       cutscene: { icon: '🚐', place: 'Okno transferowe · parking pod sklepem', scripted: true },   // tylko w oknie transferowym
       transfer: true,
-      prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; },
+      prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; gameState.cutscenes.buyer = best && Selectors.giantTarget(best) ? Utils.rand(Selectors.giants()) : null; },
       player: () => Selectors.cutTarget(),
-      from: () => 'Działacz klubu z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name,
-      title: 'Oferta z wyższej ligi',
+      from: () => gameState.cutscenes.buyer ? 'Dyrektor sportowy: ' + gameState.cutscenes.buyer : 'Działacz klubu z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name,
+      title: () => gameState.cutscenes.buyer ? 'Oferta giganta: ' + gameState.cutscenes.buyer : 'Oferta z wyższej ligi',
       body: () => {
         const p = Selectors.cutTarget();
         if (!p) return 'Działacz przyjechał, pokręcił się i odjechał.';
+        if (gameState.cutscenes.buyer) return 'Prywatny odrzutowiec z herbem klubu ' + gameState.cutscenes.buyer + ' ląduje w Balicach. Dyrektor sportowy w szytym na miarę garniturze: „Chcemy ' + Selectors.playerName(p) + '. Oferujemy ' + Utils.formatMoney(Selectors.cutTransferFee()) + '. Zawodnik marzy o tym ruchu, agent już czeka na podpis.”';
         return 'Pod sklep podjeżdża czarny bus z herbem klubu z wyższej ligi. Działacz w dresie z lampasami: „Chcemy ' + Selectors.playerName(p) + '. Dajemy ' + Utils.formatMoney(Selectors.cutTransferFee()) + ' gotówką, dziś. Chłopak już się zgodził, tylko Pan musi podpisać.”';
       },
       options: [
@@ -2624,8 +2625,8 @@ const DATA = {
           label: 'Sprzedać – takich pieniędzy się nie odrzuca',
           hint: () => '+' + Utils.formatMoney(Selectors.cutTransferFee()) + ', szatnia -4%' + (Selectors.cutTarget() && Selectors.cutTarget().favorite ? ', kibice -8% (Ulubieniec!)' : ''),
           effects: () => ({ budget: Selectors.cutTransferFee(), lockerRoom: -4, fans: Selectors.cutTarget() && Selectors.cutTarget().favorite ? -8 : 0 }),
-          log: () => { const p = Selectors.cutTarget(); return p ? Selectors.playerName(p) + ' wsiada do czarnego busa. Na pożegnanie zostawia korki na haczyku.' : 'Transfer nie doszedł do skutku.'; },
-          onChoose: () => { const id = gameState.cutscenes.targetId; gameState.squad = gameState.squad.filter((x) => x.id !== id); gameState.cutscenes.targetId = null; },
+          log: () => { const p = Selectors.cutTarget(); return p ? (gameState.cutscenes.buyer ? '🌍 ' + Selectors.playerName(p) + ' przechodzi do klubu ' + gameState.cutscenes.buyer + '! Transfer roku w historii klubu.' : Selectors.playerName(p) + ' wsiada do czarnego busa. Na pożegnanie zostawia korki na haczyku.') : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => { const id = gameState.cutscenes.targetId; const p = Selectors.cutTarget(); if (p && gameState.cutscenes.buyer) Engine.giantAnnounce(p, gameState.cutscenes.buyer, Selectors.cutTransferFee(), true); gameState.squad = gameState.squad.filter((x) => x.id !== id); gameState.cutscenes.targetId = null; gameState.cutscenes.buyer = null; },
         },
         {
           label: 'Podbić cenę dwa razy',
@@ -2637,7 +2638,8 @@ const DATA = {
             if (p && Math.random() < 0.4) {
               Engine.applyEffects({ budget: Selectors.cutTransferFee() * 2, lockerRoom: -4, fans: p.favorite ? -8 : 0 }, 'Transfer do wyższej ligi');
               gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
-              Engine.addLog('💰 Działacz zaklął i dołożył drugą kopertę. ' + Selectors.playerName(p) + ' odchodzi za ' + Utils.formatMoney(Selectors.cutTransferFee() * 2) + '!', 'event');
+              if (gameState.cutscenes.buyer) Engine.giantAnnounce(p, gameState.cutscenes.buyer, Selectors.cutTransferFee() * 2, true);
+              else Engine.addLog('💰 Działacz zaklął i dołożył drugą kopertę. ' + Selectors.playerName(p) + ' odchodzi za ' + Utils.formatMoney(Selectors.cutTransferFee() * 2) + '!', 'event');
             } else if (p) {
               Engine.applyEffects({ lockerRoom: -3 });
               Engine.addLog('🚐 Działacz odjechał bez słowa. ' + Selectors.playerName(p) + ' przez tydzień nie odzywa się na treningu. [szatnia -3%]', 'event');
@@ -2925,6 +2927,7 @@ const DATA = {
       body: () => {
         const p = Selectors.starPlayer();
         if (!p) return 'Gwiazda zgasła, zanim zdążyła zaświecić.';
+        if (Selectors.giantTarget(p)) { if (!p.giantBuyer) p.giantBuyer = Utils.rand(Selectors.giants()); return '„Prezesie, ja tu już nic więcej nie osiągnę. ' + p.giantBuyer + ' daje ' + Utils.formatMoney(Selectors.starFee(p)) + ' odstępnego i kontrakt marzeń. Albo mnie Pan puści, albo… sam Pan zobaczy, jak się gra bez serca.”'; }
         return '„Prezesie, ja tu już nic więcej nie osiągnę. Klub z wyższej ligi daje ' + Utils.formatMoney(Selectors.starFee(p)) + ' odstępnego i normalny kontrakt. Albo mnie Pan puści, albo… sam Pan zobaczy, jak się gra z kimś, kto nie chce grać.” Menedżer w okularach przeciwsłonecznych kiwa głową.';
       },
       options: [
@@ -2932,8 +2935,8 @@ const DATA = {
           label: 'Puścić go – sprzedaż do wyższej ligi',
           hint: () => { const p = Selectors.starPlayer(); return p ? '+' + Utils.formatMoney(Selectors.starFee(p)) + ', szatnia -2%' + (p.favorite ? ', kibice -6% (Ulubieniec!)' : '') : ''; },
           effects: () => { const p = Selectors.starPlayer(); return p ? { budget: Selectors.starFee(p), lockerRoom: -2, fans: p.favorite ? -6 : 0 } : {}; },
-          log: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' odchodzi wyżej. Na pożegnanie podpisał koszulkę dla pana Heńka.' : 'Transfer nie doszedł do skutku.'; },
-          onChoose: () => Engine.endStar(true),
+          log: () => { const p = Selectors.starPlayer(); return p ? (p.giantBuyer ? '🌍 ' + Selectors.playerName(p) + ' przechodzi do klubu ' + p.giantBuyer + '!' : Selectors.playerName(p) + ' odchodzi wyżej. Na pożegnanie podpisał koszulkę dla pana Heńka.') : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => { const p = Selectors.starPlayer(); if (p && p.giantBuyer) Engine.giantAnnounce(p, p.giantBuyer, Selectors.starFee(p), true); Engine.endStar(true); },
         },
         {
           label: () => 'Spróbować go namówić do zostania (' + Math.round(Selectors.persuadeChance(Selectors.starPlayer()) * 100) + '% szans)',
@@ -4289,20 +4292,64 @@ const Engine = {
     wl.forEach((w) => {
       if (t.market.some((p) => p.wlId === w.id)) return;
       const cur = Engine.rivalPlayer(w.team, w.id);
-      const src = cur || w;
-      const p = Engine.makePlayer({ ageMin: src.age, ageMax: src.age, skillMin: src.skill, skillMax: src.skill, pos: src.pos, pro: !!src.pro, trait: src.ae ? Utils.rand(DATA.proTraits.filter((t) => t.tag !== 'party')) : null });
-      if (src.ae) p.alterEgo = true;   // abolicja: poza aferami
-      const parsed = String(src.n || '').match(/„(.+)” (.+)$/);
-      p.first = src.f || String(src.n || '').split(' ')[0]; p.last = src.l || (parsed ? parsed[2] : String(src.n || '').split(' ').slice(1).join(' '));
-      p.nick = src.k || (parsed ? parsed[1] : p.last); p.noNick = !!src.pro;
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
-      p.fee = Math.max(30, Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 1.1 / 10) * 10);   // klub nie oddaje go za bezcen
-      Engine.fakeHistory(p, w.team);
-      if (cur && cur.apps) p.prevSeason = { apps: cur.apps + (cur.capps ? 0 : 0), goals: cur.g, avg: cur.rc ? Math.round(cur.rs / cur.rc * 10) / 10 : p.prevSeason.avg };
-      p.wlId = w.id; p.wlTeam = w.team;
+      const p = Engine.marketFromRival(w.team, Object.assign({ id: w.id }, cur || w));
+      p.wl = true;
       t.market.unshift(p);
     });
     Engine.addLog('⭐ Skaut załatwił rozmowy: zawodnicy z listy życzeń (' + wl.length + ') są na górze giełdy.', 'decision');
+  },
+  // Transfer do europejskiego giganta: jasny komunikat z nazwą klubu (nasz zawodnik albo gwiazda rywala)
+  giantAnnounce(p, giant, fee, ours, fromTeam) {
+    const name = ours ? Selectors.playerName(p) : p.n;
+    const from = ours ? Selectors.clubDisplayName() : Selectors.teamName(fromTeam);
+    const txt = '🌍 TRANSFER DO GIGANTA: ' + name + ' (' + from + ') przechodzi do klubu ' + giant + (fee ? ' za ' + Utils.formatMoney(fee) : '') + '.';
+    Engine.addLog(txt, ours ? 'decision' : 'event');
+    if (ours) Engine.alert('🌍', 'Transfer do klubu ' + giant, name + ' odchodzi do klubu ' + giant + (fee ? ' za ' + Utils.formatMoney(fee) : '') + '. Cała Polska pisze o transferze z ' + from + '.', 'good', true);
+    Engine.xPost('portal', 'TRANSFER! ' + name + ' z ' + from + ' podpisuje kontrakt z klubem ' + giant + '. 🌍✈️');
+    gameState.giantDeals = (gameState.giantDeals || []).concat({ season: gameState.calendar.season, giant, name, from, fee: fee || 0 }).slice(-20);
+  },
+  // Po sezonie: giganci wykupują najlepszych zawodników rywali z Ekstraklasy (najwyżej 3 transfery na lato)
+  giantRaid() {
+    if (gameState.club.leagueLevel < 7) return;
+    let n = 0;
+    const cands = Utils.shuffle(Object.entries(gameState.clubSquads || {}).flatMap(([team, c]) => c.squad.map((x) => ({ team, c, x }))));
+    cands.forEach(({ team, c, x }) => {
+      {
+        const i = c.squad.indexOf(x);
+        const ovr = Selectors.ovrPlain(x.skill);
+        if (i < 0 || n >= 3 || x.age > 30 || ovr < (x.ae ? 76 : 78) || Math.random() > 0.3) return;
+        const giant = Utils.rand(Selectors.giants());
+        const fee = Math.round(Selectors.feeFromValue(Selectors.marketValue({ id: x.id, skill: x.skill, age: x.age, pos: x.pos, tmVar: 1 })) * 2.5 / 100) * 100;
+        Engine.giantAnnounce(x, giant, fee, false, team);
+        const wl = (gameState.watchlist || []).find((w) => w.id === x.id);
+        if (wl) { gameState.watchlist = gameState.watchlist.filter((w) => w.id !== x.id); Engine.alert('🌍', 'Ucieka z listy życzeń', x.n + ' (' + Selectors.teamName(team) + ') wybrał ' + giant + '. Skreślony z listy życzeń.', 'bad', true); }
+        const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length;
+        c.squad[i] = Engine.newClubPlayer(x.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1), 1, CONFIG.maxSkill), true);
+        n++;
+      }
+    });
+  },
+  // Giełda: zawodnik rywala (np. alter-ego z Ekstraklasy) wystawiony przez swój klub
+  marketFromRival(team, src) {
+    const p = Engine.makePlayer({ ageMin: src.age, ageMax: src.age, skillMin: src.skill, skillMax: src.skill, pos: src.pos, pro: !!src.pro, trait: src.ae ? Utils.rand(DATA.proTraits.filter((t) => t.tag !== 'party')) : null });
+    if (src.ae) p.alterEgo = true;   // abolicja: poza aferami
+    const parsed = String(src.n || '').match(/„(.+)” (.+)$/);
+    p.first = src.f || String(src.n || '').split(' ')[0]; p.last = src.l || (parsed ? parsed[2] : String(src.n || '').split(' ').slice(1).join(' '));
+    p.nick = src.k || (parsed ? parsed[1] : p.last); p.noNick = !!src.pro;
+    p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
+    p.fee = Math.max(30, Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 1.1 / 10) * 10);
+    Engine.fakeHistory(p, team);
+    if (src.apps) p.prevSeason = { apps: src.apps, goals: src.g, avg: src.rc ? Math.round(src.rs / src.rc * 10) / 10 : p.prevSeason.avg };
+    p.wlId = src.id; p.wlTeam = team;
+    return p;
+  },
+  rivalsToMarket() {
+    const t = gameState.transfer;
+    if (!t || !t.open || gameState.club.leagueLevel < 6) return;
+    const cands = Object.entries(gameState.clubSquads || {}).flatMap(([team, c]) => (gameState.season.table[team] ? c.squad.map((x) => ({ team, x })) : []))
+      .filter(({ x }) => !t.market.some((p) => p.wlId === x.id) && x.age <= 32);
+    const pick = Utils.shuffle(cands.filter(({ x }) => x.ae)).slice(0, 2).concat(Utils.shuffle(cands.filter(({ x }) => !x.ae)).slice(0, 1)).slice(0, 2);
+    pick.forEach(({ team, x }) => { const p = Engine.marketFromRival(team, x); p.listedBy = team; t.market.push(p); });
   },
   // Kupiony zawodnik z listy życzeń znika z kadry rywala i z listy
   watchSigned(p) {
@@ -4317,6 +4364,7 @@ const Engine = {
     const cs = gameState.clubSquads || {};
     const names = new Set(gameState.league.rivals.map((r) => r.name));
     Object.keys(cs).forEach((team) => { if (!names.has(team)) delete cs[team]; });
+    if (Object.values(cs).some((c) => c.season < gameState.calendar.season)) Engine.giantRaid();   // lato: giganci kupują gwiazdy ligi
     if (gameState.club.leagueLevel === 8) Object.keys(cs).forEach((team) => { if (DATA.alterEgo[team] && !cs[team].ae && cs[team].season < gameState.calendar.season) delete cs[team]; });
     Object.entries(cs).forEach(([team, c]) => {
       if (c.season >= gameState.calendar.season) return;
@@ -6596,6 +6644,7 @@ const Engine = {
     gameState.league.fireSale = [];
     Engine.scoutBargains();  // skaut wynajduje okazje cenowe i perełki
     Engine.watchlistToMarket();   // lista życzeń: priorytetowo na górze giełdy
+    Engine.rivalsToMarket();      // kluby z ligi wystawiają też swoich zawodników (m.in. alter-ego)
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -8519,6 +8568,13 @@ const Selectors = {
   // Sufit rozwoju zależny od ligi klubu: zawodnik nie urośnie dużo ponad poziom rozgrywek
   leagueSkillCap: () => (Selectors.euroThisSeason() ? 18 : Math.min(CONFIG.domesticMaxSkill, 9 + Selectors.levelSkillBonus())),
   ovrOf: (skill) => 16 + skill * 4,   // umiejętność → OVR (bez formy)
+  // Skala europejska: siła klubu z pucharów → OVR (skromny mistrz ok. 68–72, czołówka ok. 80–85, giganci 85–92)
+  euroOvr: (s) => Math.round(Utils.clamp(68 + (s - 2.4) * 18.5, 60, 94)),
+  giants: () => DATA.euro.lp.UCL.slice(0, 16),
+  // Zawodnik na tyle dobry, że może go kupić europejski gigant (tylko z Ekstraklasy / czołówki I ligi)
+  giantTarget: (p) => gameState.club.leagueLevel >= 7 && Selectors.ovr(p) >= (p.alterEgo ? 76 : 78) && p.age <= 31,
+  // Kupiec w ofercie za naszego zawodnika: gigant (z nazwy) albo klub z wyższej ligi
+  cutBuyer: () => gameState.cutscenes.buyer || ('klub z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name),
   ovrPlain: (skill) => Math.round(Utils.clamp(Selectors.ovrOf(skill), 1, CONFIG.domesticOvrCap)),
   leagueOvrRange: () => { const b = Selectors.levelSkillBonus(); return [Math.round(Selectors.ovrOf(3 + b)), Math.min(CONFIG.domesticOvrCap, Math.round(Selectors.ovrOf(8 + b)))]; },
   teamOvr: () => { const l = Selectors.projectedLineup(); return l.length ? Math.round(l.reduce((s, p) => s + Selectors.ovr(p), 0) / l.length) : 0; },
@@ -8626,7 +8682,7 @@ const Selectors = {
   loanOutFee: (p) => Math.max(10, Math.round(Selectors.sellPrice(p) * 0.25 / 10) * 10),
   sellPrice: (p) => Math.max(20, Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 0.85 * (p.listed ? 1.15 : 1) * (1 + Selectors.directorSellBonus()) / 10) * 10),   // ok. 85% wartości; lista +15%, dyrektor negocjuje lepiej   // lista +15%, dyrektor negocjuje lepiej   // lista transferowa: kupcy wiedzą, +15%
   cutTarget: () => gameState.squad.find((p) => p.id === gameState.cutscenes.targetId) || null,
-  cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? Math.round(p.skill * 160 * Selectors.econ()) : 0; },
+  cutTransferFee: () => { const p = Selectors.cutTarget(); return p ? (gameState.cutscenes.buyer ? Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * 2.2 / 100) * 100 : Math.round(p.skill * 160 * Selectors.econ())) : 0; },
   // Ukryty poziom osoby w sztabie (0 = wakat); starsze zapisy bez poziomu = przeciętny
   staffRawLevel: (slot) => { const m = gameState.staff[slot]; return m ? (m.level != null ? m.level : m.kind === 'volunteer' ? 1 : 2) : 0; },
   // 13.72: standard ligi – fachowiec poniżej minimum rynku tej ligi jest „przestarzały” i daje połowę efektu
@@ -9889,7 +9945,7 @@ const UI = {
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${p.wlId ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -10776,7 +10832,7 @@ const UI = {
     const pre = i === gameState.calendar.round && !Selectors.isMatchWeek();
     return `<li class="-mx-1 px-2 py-1.5 rounded-md bg-paper-200 border border-sky-500/40 text-[11.5px] leading-snug space-y-0.5">
       <div><b>${eur.C.icon} ${Utils.escape(eur.C.name)}</b> · ${Utils.escape(eur.label)} · tydzień ${eur.k}. kolejki</div>
-      <div>⚔️ ${Utils.escape(eur.opp)} – ${level}${eur.where === 'finał' ? ' · neutralny stadion' : ''}</div>
+      <div>⚔️ ${Utils.escape(eur.opp)} – ${level}${s != null ? ' · <b>OVR ~' + Selectors.euroOvr(s) + '</b> (nasza XI: ' + Selectors.teamOvr() + ')' : ''}${eur.where === 'finał' ? ' · neutralny stadion' : ''}</div>
       <div>🚑 Kontuzje: ${inj.length ? nm(inj) : 'brak'} · 🟥 Pauzy: ${sus.length ? nm(sus) : 'brak'}</div>
       ${risk.length ? `<div class="text-amber-700">🟨 Na granicy pauzy (3 żółte): ${nm(risk)}</div>` : ''}
       <div class="text-ink-700">Mecz w środku tygodnia męczy kadrę – dobry fizjoterapeuta skraca regenerację.</div>
