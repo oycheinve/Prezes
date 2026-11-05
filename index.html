@@ -2442,7 +2442,7 @@ const DATA = {
       player: () => gameState.squad.find((x) => x.id === gameState.calls.renewId) || null,
       from: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); return p ? Selectors.playerName(p) + ' z menedżerem' : 'Szatnia'; },
       title: 'Kończy się kontrakt',
-      body: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); return p ? 'Umowa ' + Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ', ' + p.age + ' l., ' + Utils.formatMoney(p.wage) + '/tydz.) wygasa po sezonie. Jeśli nie podpiszecie nowej, odejdzie za darmo.' : 'Sprawa nieaktualna.'; },
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); if (!p) return 'Sprawa nieaktualna.'; const st = Engine.ownTalkStatus(p); return 'Umowa ' + Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ', ' + p.age + ' l., ' + Utils.formatMoney(p.wage) + '/tydz.) wygasa po sezonie. Jeśli nie podpiszecie nowej, odejdzie za darmo. ' + (st.mood === 'ok' ? '🟢 Chętny do rozmów.' : st.mood === 'wall' ? '🟠 ' + st.reason : '🔴 ' + st.reason); },
       options: [
         { label: '🤝 Siadamy do negocjacji', hint: 'Mini-negocjacje: kwota i długość umowy', effects: {}, log: 'Prezes zaprasza na kawę i rozmowę o przyszłości.', onChoose: () => Engine.startNegotiation(gameState.calls.renewId, 'renew') },
         { label: 'Niech odejdzie po sezonie', hint: 'Zero kosztów, ale odejdzie za darmo', effects: {}, log: 'Prezes nie przedłuża umowy.', onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); if (p) p.wantsOut = 'nowy klub (wolny transfer – koniec kontraktu)'; } },
@@ -4444,7 +4444,6 @@ const Engine = {
     const acc = Selectors.foreignSignChance(p);
     if (Math.random() > acc) {
       t.foreign = t.foreign.filter((x) => x.id !== id);
-      Engine.alert('🙅', 'Odmowa z zagranicy', Selectors.playerName(p) + ' (' + p.fromClub + '): „' + Selectors.refusalReason(p) + '”', 'bad');
       Engine.addLog('🙅 ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' odrzucił naszą ofertę.', 'decision');
       return false;
     }
@@ -4466,13 +4465,14 @@ const Engine = {
     const over = Selectors.ovr({ ...p, formHistory: [] }) - Selectors.teamOvr();
     const mw = Selectors.marketWage(p);
     const tough = Utils.clamp(0.35 + over * 0.05 + (p.talent ? 0.1 : 0), 0.2, 0.95);   // lepszy zawodnik = twardsze negocjacje
-    let ask = Math.max(Math.round(p.wage * (kind === 'raise' ? 1.15 : 1.05)), Math.round(mw * (1 + Math.max(0, over) * 0.04)));
-    let mood = 'ok';
-    const unhappy = p.demandOut || p.id === gameState.star.playerId && gameState.star.rebel || p.exiled;
-    if (unhappy) { mood = Math.random() < 0.5 ? 'refuse' : 'wall'; if (mood === 'wall') ask = Math.round(ask * 2); }   // gardzi klubem: zaporowe warunki albo brak rozmów
+    // żądanie: w stronę stawki rynkowej, ale bez skoków z kosmosu (przedłużenie do +50%, podwyżka do +35% obecnej pensji)
+    let ask = Math.min(Math.max(Math.round(p.wage * (kind === 'raise' ? 1.15 : 1.05)), Math.round(mw * (1 + Math.max(0, over) * 0.04))), Math.round(p.wage * (kind === 'raise' ? 1.35 : 1.5)));
+    const st = Engine.ownTalkStatus(p);
+    const mood = st.mood;
+    if (mood === 'wall') ask = Math.round(ask * 2);   // chce odejść: zaporowe warunki
     ask = Math.round(ask / 5) * 5;
     const floor = Math.round(ask * (mood === 'wall' ? 0.95 : 1 - 0.18 * (1 - tough)) / 5) * 5;
-    gameState.negotiation = { pid, kind, ask, floor, offer: Math.round(Math.max(p.wage, ask * 0.85) / 5) * 5, years: 2, rounds: 0, patience: over >= 4 ? 2 : 3, mood, log: [], done: null };
+    gameState.negotiation = { pid, kind, ask, floor, offer: Math.round(Math.max(p.wage, ask * 0.85) / 5) * 5, years: 2, rounds: 0, patience: over >= 4 ? 2 : 3, mood, reason: st.reason, log: [], done: null };
     const n = gameState.negotiation;
     if (mood === 'refuse') { n.done = 'refused'; n.log.unshift('„Nie mam o czym rozmawiać. Szukam nowego klubu.”'); if (kind === 'renew') p.wantsOut = p.wantsOut || 'nowy klub (odmówił rozmów o kontrakcie)'; }
     else n.log.unshift((mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
@@ -4534,6 +4534,24 @@ const Engine = {
     Engine.pushDecision('contractRenew');
   },
 
+  // Gotowość zawodnika do rozmów: {ok, reason}. Wymogi sprawdzane na bieżąco, losowa niechęć ustalana raz na okno.
+  talkStatus(p, list) {
+    if (!Selectors.signReqsOk(p)) return { ok: false, reason: Selectors.refusalReason(p) };
+    if (p.talkRoll == null) p.talkRoll = Math.random();
+    const acc = list === 'foreign' || p.fTier ? Selectors.foreignSignChance(p) : Selectors.signChance(p);
+    return acc < 1 && p.talkRoll > acc ? { ok: false, reason: Selectors.refusalReason(p) } : { ok: true, reason: '' };
+  },
+  // Nastrój własnego zawodnika przed rozmową o kontrakcie
+  ownTalkStatus(p) {
+    if (p.exiled) return { mood: 'refuse', reason: 'Zesłany do rezerw – nie chce słyszeć o nowej umowie.' };
+    if (p.id === gameState.star.playerId && gameState.star.rebel) return { mood: 'refuse', reason: 'Bunt w szatni – czuje się oszukany obietnicą transferu.' };
+    if (p.demandOut) return { mood: 'wall', reason: 'Żąda transferu – zostanie tylko za zaporowe pieniądze.' };
+    if (p.wantsOut && !/koniec kontraktu/.test(p.wantsOut)) return { mood: 'wall', reason: 'Ma już ofertę: ' + p.wantsOut + '.' };
+    const over = Selectors.ovr({ ...p, formHistory: [] }) - Selectors.teamOvr();
+    if (over >= 8 && Selectors.giantTarget(p)) return { mood: 'wall', reason: 'Czuje, że wyrósł z klubu – interesują go wielkie europejskie marki.' };
+    return { mood: 'ok', reason: '' };
+  },
+
   // ===== LICYTACJE TRANSFEROWE =====
   // Atrakcyjność zawodnika (0–1,6): OVR ponad poziom ligi, wiek, potencjał, talent – im wyższa, tym więcej klubów walczy
   auctionDemand(p) {
@@ -4549,7 +4567,9 @@ const Engine = {
     n = Utils.clamp(n, 0, 6);
     const lvl = gameState.club.leagueLevel, T = DATA.euro.clubs;
     const domestic = (gameState.league.rivals || []).map((r) => r.name).filter((x) => x !== p.fromClub && x !== p.wlTeam);
-    const foreignPool = lvl >= 6 ? (d > 1 ? T[2].concat(T[3]) : d > 0.6 ? T[1].concat(T[2]) : T[0].concat(T[1])) : [];
+    // zagraniczni chętni dobrani do klasy zawodnika (bezwzględny OVR): giganci walczą tylko o gwiazdy i fenomeny
+    const ovrAbs = Selectors.ovr({ ...p, formHistory: [] });
+    const foreignPool = lvl < 6 || ovrAbs < 68 ? [] : ovrAbs >= 86 || p.prodigy ? T[2].concat(T[3]) : ovrAbs >= 80 ? T[1].concat(T[2]) : ovrAbs >= 74 ? T[0].concat(T[1]) : T[0];
     const names = new Set();
     const out = [];
     for (let i = 0; i < n * 3 && out.length < n; i++) {
@@ -4570,16 +4590,8 @@ const Engine = {
     const p = t.open && pool.find((x) => x.id === id);
     if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
     if (p.declined) return;
-    // ukryte ambicje i zwykła odmowa – jeszcze przed licytacją
-    if (!Selectors.signReqsOk(p)) { Engine.ambitionRefusal(p, list === 'foreign' ? 'foreign' : 'market'); return; }
-    const acc = list === 'foreign' ? Selectors.foreignSignChance(p) : Selectors.signChance(p);
-    if (acc < 1 && Math.random() > acc) {
-      p.declined = true;
-      if (list === 'foreign') t.foreign = t.foreign.filter((x) => x.id !== id); else t.market = t.market.filter((x) => x.id !== id);
-      Engine.alert('🙅', 'Agent odmawia', Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ': „' + Selectors.refusalReason(p) + '”', 'warn');
-      Engine.addLog('🙅 ' + Selectors.playerName(p) + ' odrzucił rozmowy.', 'decision');
-      return;
-    }
+    // ukryte ambicje i niechęć – widoczne jako status przy zawodniku, bez wyskakujących okienek
+    if (!Engine.talkStatus(p, list).ok) return;
     const rivals = Engine.auctionRivals(p);
     t.auction = { pid: p.id, list, bid: p.fee, leader: 'us', rivals, log: [] };
     if (!rivals.length) { t.auction.log.unshift('Nikt inny się nie zgłosił – zawodnik jest nasz za cenę wywoławczą.'); Engine.auctionWin(); return; }
@@ -4631,12 +4643,14 @@ const Engine = {
     Engine.money((a.list === 'foreign' ? 'Transfer z zagranicy: ' : 'Transfer: ') + Selectors.playerName(p), -a.bid);
     if (a.list === 'foreign') t.foreign = t.foreign.filter((x) => x.id !== p.id); else t.market = t.market.filter((x) => x.id !== p.id);
     const beaten = a.rivals.length;
+    const valueAt = Selectors.marketValue(p);   // wartość rynkowa w chwili zakupu (z premią marki)
     delete p.fee; delete p.bargain; delete p.fireSale; delete p.clubTier;
     Engine.watchSigned(p);
     gameState.squad.push(p);
     t.bought++;
-    a.result = { name: Selectors.playerName(p), price: a.bid, beaten };
-    Engine.addLog('🔨 WYGRANA LICYTACJA: ' + Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ' za ' + Utils.formatMoney(a.bid) + (beaten ? ' – pokonaliśmy ' + beaten + ' ' + (beaten === 1 ? 'klub' : beaten < 5 ? 'kluby' : 'klubów') : '') + '. Pensja ' + Utils.formatMoney(p.wage) + '/tydz.', 'decision');
+    const diff = Math.round((a.bid / valueAt - 1) * 100);
+    a.result = { name: Selectors.playerName(p), price: a.bid, beaten, value: valueAt, diff, verdict: diff <= -5 ? 'bargain' : diff <= 5 ? 'fair' : diff <= 25 ? 'over' : 'way' };
+    Engine.addLog('🔨 WYGRANA LICYTACJA: ' + Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ' za ' + Utils.formatMoney(a.bid) + ' (' + (diff > 0 ? '+' : '') + diff + '% wartości)' + (beaten ? ' – pokonaliśmy ' + beaten + ' ' + (beaten === 1 ? 'klub' : beaten < 5 ? 'kluby' : 'klubów') : '') + '. Pensja ' + Utils.formatMoney(p.wage) + '/tydz.', 'decision');
     if (p.fTier === 'star' || p.fTier === 'elite') { Engine.applyEffects({ fans: +4 }); Engine.xPost('portal', 'HIT TRANSFEROWY! ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' zagra w ' + Selectors.clubDisplayName() + '! 🌍🔥'); }
     gameState.ui.overlay = { type: 'auction', back: (gameState.ui.overlay && gameState.ui.overlay.back) || true, done: true };
   },
@@ -4653,7 +4667,6 @@ const Engine = {
     const why = Selectors.refusalReason(p);
     if (list === 'foreign') t.foreign = (t.foreign || []).filter((x) => x.id !== p.id);
     else t.market = t.market.filter((x) => x.id !== p.id);
-    Engine.alert('🙅', 'Agent odmawia', Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ': „' + why + '”', 'bad');
     Engine.addLog('🙅 ' + Selectors.playerName(p) + ' odrzucił rozmowy – nasz klub nie spełnia jego ambicji.', 'decision');
   },
   // Giełda: zawodnik rywala (np. alter-ego z Ekstraklasy) wystawiony przez swój klub
@@ -7085,7 +7098,6 @@ const Engine = {
     if (acc < 1 && Math.random() > acc) {
       p.declined = true;
       t.market = t.market.filter((x) => x.id !== id);
-      Engine.alert('🙅', 'Odmowa transferu', Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ') odrzucił ofertę: „' + Selectors.refusalReason(p) + '” Nic nie zapłaciliśmy.', 'warn');
       Engine.addLog('🙅 ' + Selectors.playerName(p) + ' odrzucił naszą ofertę i wybrał inny klub.', 'decision');
       return false;
     }
@@ -10442,6 +10454,7 @@ const UI = {
       <details data-fold="${key}" class="border-b border-desk-700 last:border-0" ${folds[key] ? 'open' : ''}>
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
+            ${(() => { if (p.fee == null || (p.loan && p.loan.from)) return ''; const ts = Engine.talkStatus(p, p.fTier ? 'foreign' : 'market'); p._talk = ts; return `<div class="text-[10.5px] font-semibold truncate ${ts.ok ? 'text-grass' : 'text-stamp'}">${ts.ok ? '🟢 chętny do rozmów' : '🔴 ' + Utils.escape(ts.reason)}</div>`; })()}
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] text-paper-400 truncate">${p.fTier && p.fee != null ? '<b class="text-sky-500">🌍 ' + Utils.escape(p.fromClub || '') + '</b> · ' : ''}${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
@@ -10490,12 +10503,12 @@ const UI = {
           const reqHtml = () => '';   // kryteria zawodnika są ukryte – decyzja zapada przy próbie zakupu
           const head = (txt) => `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-2.5 mb-0.5">${txt}</div>`;
           const tierLbl = { talent: '🌱 talent z akademii', solid: '🧱 solidny ligowiec', star: '⭐ gwiazda', elite: '👑 światowy top' };
-          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + beer(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('');
+          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + beer(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !(p._talk || {}).ok, 'bg-amber-glow text-ink-900'))).join('');
           const fl = t.foreign || [];
           const lvl = gameState.club.leagueLevel;
           const fnote = lvl < 6 ? '🔒 Agenci z Europy dzwonią do klubów od II ligi.'
             : 'Wyższe pensje niż w kraju. Najlepsi rozmawiają tylko z klubami, które spełniają ich ambicje.' + (Selectors.foreignStarsOpen() ? '' : lvl >= 7 ? ' ⭐ Gwiazdy: skaut poz. 2+ albo puchary.' : ' ⭐ Gwiazdy: od I ligi.') + (Selectors.foreignElitesOpen() ? '' : lvl >= 8 ? ' 👑 Światowy top: skaut poz. 3+ albo Liga Mistrzów.' : '');
-          const frg = fl.map((p) => card(p, Utils.formatMoney(p.fee), Utils.formatMoney(p.wage) + '/tydz.', `<span class="text-[11px] text-paper-400 self-center">${tierLbl[p.fTier] || ''}</span>` + btn('buy-foreign', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('');
+          const frg = fl.map((p) => card(p, Utils.formatMoney(p.fee), Utils.formatMoney(p.wage) + '/tydz.', `<span class="text-[11px] text-paper-400 self-center">${tierLbl[p.fTier] || ''}</span>` + btn('buy-foreign', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !(p._talk || {}).ok, 'bg-amber-glow text-ink-900'))).join('');
           return head('🇵🇱 Rynek krajowy') + (dom || '<p class="text-[12.5px] text-paper-400 py-1">Wszyscy krajowi kandydaci rozpatrzeni.</p>')
             + head('🌍 Zagranica') + `<p class="text-[10.5px] text-paper-400 leading-snug">${fnote}</p>` + frg;
         })();
@@ -11553,6 +11566,7 @@ const UI = {
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
         <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
         <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
+        <p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}</p>
         <div class="grid grid-cols-2 gap-2 mt-3 text-center">
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Żąda</div><div class="text-[19px] font-extrabold text-stamp">${n.mood === 'refuse' ? '—' : Utils.formatMoney(n.ask)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Nasza oferta</div><div class="text-[19px] font-extrabold text-grass">${Utils.formatMoney(n.offer)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
@@ -11589,7 +11603,10 @@ const UI = {
         </div>
         ${a.rivals.length ? `<p class="text-[10.5px] uppercase text-paper-400 mt-3 mb-0.5">Konkurencja</p><ul class="rounded-xl bg-desk-800 px-3 py-1.5">${rivals}</ul>` : ''}
         <ul class="mt-2.5 space-y-0.5">${a.log.slice(0, 5).map((l) => `<li class="text-[11.5px] text-paper-300 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
-        ${won ? `<p class="text-[12.5px] text-paper-200 mt-2 leading-snug">${Utils.escape(a.result.name)} dołącza do klubu za ${Utils.formatMoney(a.result.price)}. Pensja ${Utils.formatMoney(p.wage)}/tydz.</p>` : ''}
+        ${won ? `<div class="rounded-xl mt-2 px-3 py-2 ${a.result.verdict === 'bargain' ? 'bg-grass/20' : a.result.verdict === 'fair' ? 'bg-desk-800' : 'bg-stamp/20'}">
+          <div class="text-[14px] font-extrabold">${{ bargain: '💰 Okazja!', fair: '👍 Uczciwa cena', over: '😬 Lekko przepłacone', way: '🔥 Mocno przepłacone' }[a.result.verdict]}</div>
+          <div class="text-[12px] text-paper-200 leading-snug">Zapłaciliśmy ${Utils.formatMoney(a.result.price)} przy wartości rynkowej ${Utils.formatMoney(a.result.value)} (${a.result.diff > 0 ? '+' : ''}${a.result.diff}%).${a.result.beaten ? ' Pokonana konkurencja: ' + a.result.beaten + '.' : ''} Pensja ${Utils.formatMoney(p.wage)}/tydz.</div>
+        </div>` : ''}
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${won ? '' : `<div class="flex gap-2">${btn(5, b5)}${btn(15, b15)}</div>`}
