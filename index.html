@@ -7709,6 +7709,49 @@ const Engine = {
     Engine.addLog('🧪 TRYB TESTOWY: klub przeskalowany do ligi ' + L.name + ' (skład, pensje, budżet ' + Utils.formatMoney(gameState.finance.budget) + ', obiekty licencyjne, sztab, trener). Ta kariera nie trafi do Hall of Fame.', 'system');
   },
 
+  // TRYB TESTOWY: europejskie puchary na żądanie – rozgrywki i etap startowy (eliminacje / faza ligowa / faza pucharowa)
+  debugEuro(comp, start) {
+    if (gameState.screen !== 'game') return;
+    gameState.testMode = true;
+    if (!comp) {
+      gameState.euro = null;
+      Engine.addLog('🧪 TRYB TESTOWY: klub nie gra w tym sezonie w europejskich pucharach.', 'system');
+      return;
+    }
+    const C = DATA.euro.comps[comp];
+    if (!C) return;
+    Engine.euroSetup({ comp, path: 'test' });
+    const eu = gameState.euro;
+    const raw = (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34));
+    const next = gameState.calendar.round + 1;   // najbliższa kolejka ligowa
+    if (start === 'LP' || start === 'KO') Engine.euroAdvance('LP', '');
+    if (start === 'KO') {
+      // Faza ligowa rozegrana od razu (do skutku, aż klub zmieści się w top 24), potem drabinka
+      for (let tries = 0; tries < 40; tries++) {
+        eu.lp = { played: 0, pts: 0, gf: 0, ga: 0, rank: null };
+        Engine.euroBuildLp();
+        for (let i = 0; i < C.lpGames; i++) {
+          const opp = Engine.euroNextOpp();
+          const gf = Utils.poisson(1.5), ga = Utils.poisson(1.1);
+          Engine.euroLpRound(opp.name, gf, ga);
+          eu.lpPlayed = (eu.lpPlayed || []).concat(opp.name);
+          eu.lp.played++; eu.lp.gf += gf; eu.lp.ga += ga; eu.lp.pts += gf > ga ? 3 : gf === ga ? 1 : 0;
+        }
+        eu.lp.rank = Selectors.euroLpStandings().findIndex((r) => r.team === US) + 1;
+        if (eu.lp.rank <= 24) break;
+      }
+      eu.history.unshift({ stage: 'LP', opp: '', text: C.short + ' · faza ligowa (test): ' + eu.lp.rank + '. miejsce, ' + eu.lp.pts + ' pkt, bramki ' + eu.lp.gf + ':' + eu.lp.ga });
+      Engine.euroBuildKo();
+      Engine.euroAdvance(eu.lp.rank <= 8 ? 'R16' : 'KPO', 'Faza ligowa (test): ' + eu.lp.rank + '. miejsce – ' + (eu.lp.rank <= 8 ? 'prosto do 1/8 finału.' : 'baraż o 1/8 finału.'));
+      eu.shift = raw(DATA.euro.stages.KPO.kolejka) - next;   // baraże (i cudze pary) w najbliższej kolejce
+    } else if (start === 'LP') eu.shift = raw(DATA.euro.stages.LP.kolejki[0]) - next;
+    else eu.shift = raw(DATA.euro.stages[eu.stage].kolejka) - next;   // także ujemny: start w środku sezonu
+    eu.nextOpp = null;
+    const lastK = Selectors.euroKolejka(DATA.euro.stages.F.kolejka), total = (gameState.season.rounds || []).length;
+    if (lastK > total) Engine.addLog('🧪 Uwaga: do końca sezonu ligowego zostało za mało kolejek na całą europejską kampanię – dla pełnego testu wybierz najpierw ligę (TEST: liga), żeby zacząć sezon od początku.', 'system');
+    Engine.addLog('🧪 TRYB TESTOWY: ' + C.icon + ' ' + C.name + ' – start: ' + DATA.euro.stages[eu.stage].label + ', pierwszy mecz w najbliższej kolejce ligowej.', 'system');
+  },
+
   // 13.96: dylemat licencyjny – wynajem cudzego stadionu albo rezygnacja z awansu
   rentStadium() {
     const d = gameState.stadiumDilemma; if (!d) return;
@@ -8854,7 +8897,7 @@ const Selectors = {
     return [{ k, C, label: st.label, where: 'finał', opp, next: true }];
   },
   euroAt: (k) => Selectors.euroSchedule().find((x) => x.k === k) || null,
-  euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34)),
+  euroKolejka: (k) => Math.max(1, Math.round(k * (gameState.season.rounds || []).length / 34) - ((gameState.euro && gameState.euro.shift) || 0)),   // shift: tryb testowy przyspiesza start etapu
   // Kwalifikacja z miejsca w Ekstraklasie: 1. el. LM (mistrzowska), 2. el. LM (ligowa), 3. el. LE, 4. el. LKE
   euroQualFor: (pos) => ({ 1: { comp: 'UCL', path: 'champ' }, 2: { comp: 'UCL', path: 'league' }, 3: { comp: 'UEL', path: 'league' }, 4: { comp: 'UECL', path: 'league' } }[pos] || null),
   euroQualLabel: (q) => 'eliminacje ' + DATA.euro.comps[q.comp].name + (q.comp === 'UCL' ? (q.path === 'champ' ? ' (ścieżka mistrzowska)' : ' (ścieżka ligowa)') : q.path === 'cup' ? ' (zdobywca Pucharu Polski)' : ''),
@@ -10546,7 +10589,11 @@ const UI = {
 
     // TRYB TESTOWY: nazwa klubu + lista „TEST” do natychmiastowej zmiany szczebla
     const levels = DATA.leagueLevels.map((L, i) => [i, L]).filter(([, L]) => L).concat(DATA.leagueLevels[3.5] ? [[3.5, DATA.leagueLevels[3.5]]] : []).sort((a, b) => a[0] - b[0]);
-    const test = `<div class="flex items-center gap-2 mb-1.5 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}<select data-test-level aria-label="TEST – zmiana poziomu" class="flex-shrink-0 max-w-[132px] px-1.5 py-0.5 bg-white border border-paper-400 rounded-md text-[11.5px] text-ink-900"><option value="">🧪 TEST</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select></div>`;
+    const eu = Selectors.euroLive() ? s.euro : null;
+    const euroOpts = [['', '🚫 Bez europejskich pucharów']].concat(...['UCL', 'UEL', 'UECL'].map((k) => { const C = DATA.euro.comps[k]; return [[k + ':Q', C.icon + ' ' + C.name + ' – eliminacje'], [k + ':LP', C.icon + ' ' + C.name + ' – faza ligowa'], [k + ':KO', C.icon + ' ' + C.name + ' – faza pucharowa']]; }));
+    const selCls = 'flex-1 min-w-0 px-1.5 py-0.5 bg-white border border-paper-400 rounded-md text-[11.5px] text-ink-900';
+    const test = `<div class="flex items-center gap-2 mb-1 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}</div>
+      <div class="flex items-center gap-1.5 mb-1.5"><select data-test-level aria-label="TEST – zmiana poziomu" class="${selCls}"><option value="">🧪 TEST: liga</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select><select data-test-euro aria-label="TEST – europejskie puchary" class="${selCls}"><option value="-">🇪🇺 TEST: ${eu ? Utils.escape(DATA.euro.comps[eu.comp].short + ' · ' + DATA.euro.stages[eu.stage].label) : 'puchary'}</option>${euroOpts.map(([v, l]) => `<option value="${v}">${Utils.escape(l)}</option>`).join('')}</select></div>`;
     return test + tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
@@ -11840,6 +11887,12 @@ document.addEventListener('toggle', (e) => {
 document.addEventListener('input', (e) => {
   if (e.target.dataset && e.target.dataset.regionSelect != null) { Actions['set-region'](e.target.value); return; }
   if (e.target.dataset && e.target.dataset.statsCtx != null) { gameState.ui.statsCtx = e.target.value; App.commit(); return; }
+  if (e.target.dataset && e.target.dataset.testEuro != null) {   // TRYB TESTOWY: puchary
+    const v = e.target.value; e.target.value = '-';
+    if (v !== '-') { const [comp, start] = v.split(':'); if (confirm(comp ? 'TRYB TESTOWY: ' + DATA.euro.comps[comp].name + ' od etapu: ' + ({ Q: 'eliminacje', LP: 'faza ligowa', KO: 'faza pucharowa' }[start]) + '?' : 'TRYB TESTOWY: wycofać klub z europejskich pucharów w tym sezonie?')) { Engine.debugEuro(comp, start); App.commit(); return; } }
+    UI.renderAll();
+    return;
+  }
   if (e.target.dataset && e.target.dataset.testLevel != null) {   // TRYB TESTOWY
     const v = e.target.value; e.target.value = '';
     if (v !== '' && confirm('TRYB TESTOWY: przeskalować cały klub do ligi ' + DATA.leagueLevels[+v].name + '? Ta kariera nie trafi do Hall of Fame.')) { Engine.debugSetLevel(+v); App.commit(); }
