@@ -4458,7 +4458,20 @@ const Engine = {
   },
   // ===== MINI-NEGOCJACJE KONTRAKTOWE =====
   // kind: 'renew' (przedłużenie wygasającej umowy) | 'raise' (żądanie podwyżki)
-  startNegotiation(pid, kind) {
+  // Chęć nowego nabytku (0–1): klasa zawodnika względem kadry, puchary, liga, los
+  signWillingness(p) {
+    const over = Selectors.ovr({ ...p, formHistory: [] }) - Selectors.teamOvr();
+    const eu = Selectors.euroThisSeason() ? ({ UCL: 0.25, UEL: 0.15, UECL: 0.08 }[gameState.euro.comp] || 0) : 0;
+    const w = 0.7 - Math.max(0, over) * 0.04 + eu + (gameState.club.leagueLevel - 4) * 0.03 + (p.fTier === 'elite' ? -0.2 : p.fTier === 'star' ? -0.1 : 0) + Utils.randRange(-0.15, 0.15);
+    return Math.round(Utils.clamp(w, 0.1, 0.95) * 100) / 100;
+  },
+  // Ryzyko zerwania rozmów przy danej ofercie (rośnie z każdą rundą i przy ofercie dużo poniżej oczekiwań)
+  breakRisk(n, offer) {
+    if (n.kind !== 'sign') return 0;
+    const lowball = Math.max(0, 0.85 - offer / n.ask) * 2.2;
+    return Utils.clamp((1 - n.will) * 0.3 + n.rounds * (0.08 + (1 - n.will) * 0.12) + lowball, 0, 0.95);
+  },
+  startNegotiation(pid, kind, fee) {
     Engine.ensureContracts();
     const p = gameState.squad.find((x) => x.id === pid);
     if (!p) return;
@@ -4469,17 +4482,18 @@ const Engine = {
     let ask = Math.min(Math.max(Math.round(p.wage * (kind === 'raise' ? 1.15 : 1.05)), Math.round(mw * (1 + Math.max(0, over) * 0.04))), Math.round(p.wage * (kind === 'raise' ? 1.35 : 1.5)));
     const st = kind === 'sign' ? { mood: 'ok', reason: '' } : Engine.ownTalkStatus(p);   // nowy nabytek chce tu grać
     const mood = st.mood;
-    if (kind === 'sign') ask = Math.round(p.wage * Utils.randRange(1.0, 1.12) * (1 + Math.max(0, over) * 0.02));   // żądanie wokół oczekiwanej pensji
+    const will = kind === 'sign' ? Engine.signWillingness(p) : 1;
+    if (kind === 'sign') ask = Math.round(p.wage * Utils.randRange(1.0, 1.08) * (1 + Math.max(0, over) * 0.02) * (1 + (1 - will) * 0.45));   // mniej chętny = wyższe żądanie
     if (mood === 'wall') ask = Math.round(ask * 2);   // chce odejść: zaporowe warunki
     ask = Math.round(ask / 5) * 5;
     const floor = Math.round(ask * (mood === 'wall' ? 0.95 : 1 - 0.18 * (1 - tough)) / 5) * 5;
     const lvl = gameState.club.leagueLevel;
     gameState.negotiation = { pid, kind, ask, floor, offer: Math.round(Math.max(p.wage, ask * 0.85) / 5) * 5, years: 2, rounds: 0, patience: over >= 4 ? 2 : 3, mood, reason: st.reason, log: [], done: null,
       promo: Selectors.clauseAllowed('promo') ? 15 : 0, releg: Selectors.clauseAllowed('releg') ? 15 : 0, back: kind === 'sign' };
-    if (kind === 'sign') { const ng = gameState.negotiation; ng.years = 3; ng.patience = 3; ng.offer = Math.round(ask * 0.9 / 5) * 5; }
+    if (kind === 'sign') { const ng = gameState.negotiation; ng.years = 3; ng.will = will; ng.fee = fee || 0; ng.patience = will >= 0.7 ? 4 : will >= 0.45 ? 3 : 2; ng.offer = Math.round(ask * 0.9 / 5) * 5; ng.floor = Math.round(ask * (0.86 + (1 - will) * 0.1) / 5) * 5; }
     const n = gameState.negotiation;
     if (mood === 'refuse') { n.done = 'refused'; n.log.unshift('„Nie mam o czym rozmawiać. Szukam nowego klubu.”'); if (kind === 'renew') p.wantsOut = p.wantsOut || 'nowy klub (odmówił rozmów o kontrakcie)'; }
-    else n.log.unshift(kind === 'sign' ? '„Cieszę się, że tu jestem. Mój agent oczekuje ' + Utils.formatMoney(ask) + '/tydz.”' : (mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
+    else n.log.unshift(kind === 'sign' ? (will >= 0.7 ? '„Cieszę się, że tu jestem. Mój agent oczekuje ' : will >= 0.45 ? '„Kluby się dogadały, ale ja jeszcze się zastanawiam. Oczekuję ' : '„Szczerze? Miałem lepsze opcje. Przekonajcie mnie: ') + Utils.formatMoney(ask) + '/tydz.”' : (mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
     gameState.ui.overlay = { type: 'negotiation' };
   },
   negotiateAdjust(dir) {
@@ -4508,6 +4522,14 @@ const Engine = {
       Engine.addLog('✍️ ' + Selectors.playerName(p) + ' podpisuje nową umowę: ' + Utils.formatMoney(n.offer) + '/tydz. do końca sezonu ' + p.contractEnd + '. [szatnia +2%]', 'decision');
       return;
     }
+    if (n.kind === 'sign') {
+      const risk = Engine.breakRisk(n, n.offer);
+      if (n.rounds >= n.patience || Math.random() < risk) { Engine.cancelSigning(p, n); return; }
+      n.ask = Math.max(need, Math.round(((n.ask + n.offer) / 2) / 5) * 5);
+      const next = Engine.breakRisk(n, n.offer);
+      n.log.unshift(next >= 0.35 || n.patience - n.rounds === 1 ? '😤 „Tracę cierpliwość. ' + Utils.formatMoney(n.ask) + '/tydz. albo kończymy rozmowy.”' : '🤨 „Za mało. Mogę zejść do ' + Utils.formatMoney(n.ask) + '/tydz.”');
+      return;
+    }
     if (n.rounds >= n.patience) {
       n.done = 'broken';
       if (n.kind === 'sign') {
@@ -4526,8 +4548,25 @@ const Engine = {
     n.ask = Math.max(need, Math.round(((n.ask + n.offer) / 2) / 5) * 5);
     n.log.unshift('🤨 „Za mało. Mogę zejść do ' + Utils.formatMoney(n.ask) + '/tydz.”' + (n.patience - n.rounds === 1 ? ' (cierpliwość na wyczerpaniu)' : ''));
   },
+  // Zerwane rozmowy z nowym nabytkiem: transfer upada, kasa wraca, zawodnik trafia do rywala
+  cancelSigning(p, n) {
+    n.done = 'cancelled';
+    n.ghost = { ...p };   // do wyświetlenia ekranu po odejściu zawodnika
+    gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
+    if (n.fee) Engine.money('Zwrot: transfer zerwany (' + Selectors.playerName(p) + ')', n.fee);
+    if (gameState.transfer) gameState.transfer.bought = Math.max(0, (gameState.transfer.bought || 1) - 1);
+    const to = Utils.rand((gameState.league.rivals || []).map((r) => r.name).concat(DATA.euro.clubs[1]));
+    n.log.unshift('💥 „Nie widzę tu dla siebie miejsca.” Rozmowy zerwane – transfer upada. ' + Selectors.playerName(p) + ' wybiera ' + to + '.');
+    Engine.applyEffects({ fans: -2 });
+    Engine.addLog('💥 Transfer ' + Selectors.playerName(p) + ' upadł na etapie kontraktu – zawodnik zerwał rozmowy i wybrał ' + to + '.' + (n.fee ? ' Kwota ' + Utils.formatMoney(n.fee) + ' wraca do kasy.' : '') + ' [kibice -2%]', 'decision');
+  },
   negotiateClose() {
     const n = gameState.negotiation;
+    if (n && !n.done && n.kind === 'sign') {   // nowy nabytek: zgoda na warunki agenta (transfer zostaje)
+      const p = gameState.squad.find((x) => x.id === n.pid);
+      if (p) { p.wage = n.ask; p.contractEnd = gameState.calendar.season + 2; p.clause = { promo: 0, releg: 0 }; Engine.addLog('📄 ' + Selectors.playerName(p) + ': przyjęliśmy warunki agenta – ' + Utils.formatMoney(n.ask) + '/tydz. do końca sezonu ' + p.contractEnd + '.', 'decision'); }
+      n.done = 'forced';
+    }
     if (n && !n.done) {   // wyjście z rozmów = zerwanie
       n.rounds = n.patience; n.offer = 0; Engine.negotiateSubmit();
     }
@@ -11587,17 +11626,18 @@ const UI = {
 
   negotiationOverlay() {
     const n = gameState.negotiation;
-    const p = gameState.squad.find((x) => x.id === n.pid);
+    const p = gameState.squad.find((x) => x.id === n.pid) || n.ghost;
     if (!p) return '';
     const ended = !!n.done;
     const yrs = [1, 2, 3].map((y) => `<button data-action="neg-years" data-y="${y}" ${ended ? 'disabled' : ''} class="btn-press flex-1 h-10 rounded-lg text-[13px] font-bold ${n.years === y ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${y} ${y === 1 ? 'sezon' : 'sezony'}</button>`).join('');
-    const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'forced' ? '📄 Warunki agenta' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'sign' ? '✍️ Kontrakt nowego nabytku' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
+    const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'cancelled' ? '💥 Transfer upadł' : n.done === 'forced' ? '📄 Warunki agenta' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'sign' ? '✍️ Kontrakt nowego nabytku' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
         <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
         <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
-        <p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}</p>
+        ${n.kind === 'sign' ? (() => { const risk = ended ? 0 : Engine.breakRisk(n, n.offer); const w = n.will; const lab = n.done === 'cancelled' ? '💥 Transfer zerwany' : w >= 0.7 ? '🟢 Chętny do podpisu' : w >= 0.45 ? '🟡 Waha się' : '🟠 Mało przekonany'; return `<p class="text-center text-[12px] font-semibold mt-1 ${n.done === 'cancelled' ? 'text-stamp' : w >= 0.7 ? 'text-grass' : w >= 0.45 ? 'text-amber-300' : 'text-amber-500'}">${lab} · chęć ${Math.round(w * 100)}%${ended ? '' : ' · ryzyko zerwania przy tej ofercie: <b class="' + (risk >= 0.35 ? 'text-stamp' : risk >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(risk * 100) + '%</b>'}</p>`; })()
+        : `<p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}</p>`}
         <div class="grid grid-cols-2 gap-2 mt-3 text-center">
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Żąda</div><div class="text-[19px] font-extrabold text-stamp">${n.mood === 'refuse' ? '—' : Utils.formatMoney(n.ask)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Nasza oferta</div><div class="text-[19px] font-extrabold text-grass">${Utils.formatMoney(n.offer)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
@@ -12527,9 +12567,9 @@ const Actions = {
   'auction-bid'(el) { Engine.auctionBid(+el.dataset.pct); App.commit(); },
   'auction-close'() { Engine.auctionClose(); App.commit(); },
   'auction-contract'() {   // po wygranej licytacji: od razu rozmowy o kontrakcie z nowym nabytkiem
-    const a = gameState.transfer.auction, pid = a && a.pid;
+    const a = gameState.transfer.auction, pid = a && a.pid, fee = a && a.result ? a.result.price : 0;
     gameState.transfer.auction = null;
-    if (pid && gameState.squad.some((x) => x.id === pid)) Engine.startNegotiation(pid, 'sign'); else gameState.ui.overlay = { type: 'transfer' };
+    if (pid && gameState.squad.some((x) => x.id === pid)) Engine.startNegotiation(pid, 'sign', fee); else gameState.ui.overlay = { type: 'transfer' };
     App.commit();
   },
   'buy-beer'(el)     { Engine.buyTransferBeer(el.dataset.id); App.commit(); },
