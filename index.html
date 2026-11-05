@@ -4467,17 +4467,19 @@ const Engine = {
     const tough = Utils.clamp(0.35 + over * 0.05 + (p.talent ? 0.1 : 0), 0.2, 0.95);   // lepszy zawodnik = twardsze negocjacje
     // żądanie: w stronę stawki rynkowej, ale bez skoków z kosmosu (przedłużenie do +50%, podwyżka do +35% obecnej pensji)
     let ask = Math.min(Math.max(Math.round(p.wage * (kind === 'raise' ? 1.15 : 1.05)), Math.round(mw * (1 + Math.max(0, over) * 0.04))), Math.round(p.wage * (kind === 'raise' ? 1.35 : 1.5)));
-    const st = Engine.ownTalkStatus(p);
+    const st = kind === 'sign' ? { mood: 'ok', reason: '' } : Engine.ownTalkStatus(p);   // nowy nabytek chce tu grać
     const mood = st.mood;
+    if (kind === 'sign') ask = Math.round(p.wage * Utils.randRange(1.0, 1.12) * (1 + Math.max(0, over) * 0.02));   // żądanie wokół oczekiwanej pensji
     if (mood === 'wall') ask = Math.round(ask * 2);   // chce odejść: zaporowe warunki
     ask = Math.round(ask / 5) * 5;
     const floor = Math.round(ask * (mood === 'wall' ? 0.95 : 1 - 0.18 * (1 - tough)) / 5) * 5;
     const lvl = gameState.club.leagueLevel;
     gameState.negotiation = { pid, kind, ask, floor, offer: Math.round(Math.max(p.wage, ask * 0.85) / 5) * 5, years: 2, rounds: 0, patience: over >= 4 ? 2 : 3, mood, reason: st.reason, log: [], done: null,
-      promo: Selectors.clauseAllowed('promo') ? 15 : 0, releg: Selectors.clauseAllowed('releg') ? 15 : 0 };
+      promo: Selectors.clauseAllowed('promo') ? 15 : 0, releg: Selectors.clauseAllowed('releg') ? 15 : 0, back: kind === 'sign' };
+    if (kind === 'sign') { const ng = gameState.negotiation; ng.years = 3; ng.patience = 3; ng.offer = Math.round(ask * 0.9 / 5) * 5; }
     const n = gameState.negotiation;
     if (mood === 'refuse') { n.done = 'refused'; n.log.unshift('„Nie mam o czym rozmawiać. Szukam nowego klubu.”'); if (kind === 'renew') p.wantsOut = p.wantsOut || 'nowy klub (odmówił rozmów o kontrakcie)'; }
-    else n.log.unshift((mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
+    else n.log.unshift(kind === 'sign' ? '„Cieszę się, że tu jestem. Mój agent oczekuje ' + Utils.formatMoney(ask) + '/tydz.”' : (mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
     gameState.ui.overlay = { type: 'negotiation' };
   },
   negotiateAdjust(dir) {
@@ -4508,6 +4510,13 @@ const Engine = {
     }
     if (n.rounds >= n.patience) {
       n.done = 'broken';
+      if (n.kind === 'sign') {
+        p.wage = n.ask; p.contractEnd = gameState.calendar.season + 2; p.clause = { promo: 0, releg: 0 };
+        n.done = 'forced';
+        n.log.unshift('📄 Agent: „Transfer jest, ale warunki są moje.” Umowa na ' + Utils.formatMoney(n.ask) + '/tydz. do końca sezonu ' + p.contractEnd + '.');
+        Engine.addLog('📄 ' + Selectors.playerName(p) + ': agent wymusił warunki – ' + Utils.formatMoney(n.ask) + '/tydz. do końca sezonu ' + p.contractEnd + '.', 'decision');
+        return;
+      }
       n.log.unshift('🚪 „Dziękuję, to nie ma sensu.” Zawodnik wychodzi z rozmów.');
       if (n.kind === 'renew') { p.wantsOut = 'nowy klub (wolny transfer – nie doszli do porozumienia)'; Engine.addLog('🚪 ' + Selectors.playerName(p) + ' zerwał rozmowy o kontrakcie – odejdzie po sezonie za darmo.', 'decision'); }
       else { Engine.applyEffects({ lockerRoom: -3 }); if (Math.random() < 0.4) p.wantsOut = Utils.rand(gameState.league.rivals).name; Engine.addLog('🚪 ' + Selectors.playerName(p) + ' bez podwyżki: „Zapamiętam to”.' + (p.wantsOut ? ' Po sezonie odchodzi do ' + p.wantsOut + '.' : '') + ' [szatnia -3%]', 'decision'); }
@@ -4522,8 +4531,9 @@ const Engine = {
     if (n && !n.done) {   // wyjście z rozmów = zerwanie
       n.rounds = n.patience; n.offer = 0; Engine.negotiateSubmit();
     }
+    const back = n && n.back && gameState.transfer && gameState.transfer.open;
     gameState.negotiation = null;
-    gameState.ui.overlay = null;
+    gameState.ui.overlay = back ? { type: 'transfer' } : null;   // po kontrakcie nowego nabytku – z powrotem na giełdę
   },
   // Wygasające umowy: w końcówce sezonu zawodnik z kończącym się kontraktem prosi o rozmowę
   ensureContracts() {
@@ -10475,7 +10485,7 @@ const UI = {
       <details data-fold="${key}" class="border-b border-desk-700 last:border-0" ${folds[key] ? 'open' : ''}>
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
-            ${(() => { if (p.fee == null || (p.loan && p.loan.from)) return ''; const ts = Engine.talkStatus(p, p.fTier ? 'foreign' : 'market'); p._talk = ts; return `<div class="text-[10.5px] font-semibold truncate ${ts.ok ? 'text-grass' : 'text-stamp'}">${ts.ok ? '🟢 chętny do rozmów' : '🔴 ' + Utils.escape(ts.reason)}</div>`; })()}
+            ${(() => { if (p.fee == null || (p.loan && p.loan.from)) return ''; const ts = Engine.talkStatus(p, p.fTier ? 'foreign' : 'market'); return `<div class="text-[10.5px] font-semibold truncate ${ts.ok ? 'text-grass' : 'text-stamp'}">${ts.ok ? '🟢 chętny do rozmów' : '🔴 ' + Utils.escape(ts.reason)}</div>`; })()}
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] text-paper-400 truncate">${p.fTier && p.fee != null ? '<b class="text-sky-500">🌍 ' + Utils.escape(p.fromClub || '') + '</b> · ' : ''}${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
@@ -10524,12 +10534,12 @@ const UI = {
           const reqHtml = () => '';   // kryteria zawodnika są ukryte – decyzja zapada przy próbie zakupu
           const head = (txt) => `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-2.5 mb-0.5">${txt}</div>`;
           const tierLbl = { talent: '🌱 talent z akademii', solid: '🧱 solidny ligowiec', star: '⭐ gwiazda', elite: '👑 światowy top' };
-          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + beer(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !(p._talk || {}).ok, 'bg-amber-glow text-ink-900'))).join('');
+          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + beer(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !Engine.talkStatus(p, 'market').ok, 'bg-amber-glow text-ink-900'))).join('');
           const fl = t.foreign || [];
           const lvl = gameState.club.leagueLevel;
           const fnote = lvl < 6 ? '🔒 Agenci z Europy dzwonią do klubów od II ligi.'
             : 'Wyższe pensje niż w kraju. Najlepsi rozmawiają tylko z klubami, które spełniają ich ambicje.' + (Selectors.foreignStarsOpen() ? '' : lvl >= 7 ? ' ⭐ Gwiazdy: skaut poz. 2+ albo puchary.' : ' ⭐ Gwiazdy: od I ligi.') + (Selectors.foreignElitesOpen() ? '' : lvl >= 8 ? ' 👑 Światowy top: skaut poz. 3+ albo Liga Mistrzów.' : '');
-          const frg = fl.map((p) => card(p, Utils.formatMoney(p.fee), Utils.formatMoney(p.wage) + '/tydz.', `<span class="text-[11px] text-paper-400 self-center">${tierLbl[p.fTier] || ''}</span>` + btn('buy-foreign', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !(p._talk || {}).ok, 'bg-amber-glow text-ink-900'))).join('');
+          const frg = fl.map((p) => card(p, Utils.formatMoney(p.fee), Utils.formatMoney(p.wage) + '/tydz.', `<span class="text-[11px] text-paper-400 self-center">${tierLbl[p.fTier] || ''}</span>` + btn('buy-foreign', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !Engine.talkStatus(p, 'foreign').ok, 'bg-amber-glow text-ink-900'))).join('');
           return head('🇵🇱 Rynek krajowy') + (dom || '<p class="text-[12.5px] text-paper-400 py-1">Wszyscy krajowi kandydaci rozpatrzeni.</p>')
             + head('🌍 Zagranica') + `<p class="text-[10.5px] text-paper-400 leading-snug">${fnote}</p>` + frg;
         })();
@@ -11581,7 +11591,7 @@ const UI = {
     if (!p) return '';
     const ended = !!n.done;
     const yrs = [1, 2, 3].map((y) => `<button data-action="neg-years" data-y="${y}" ${ended ? 'disabled' : ''} class="btn-press flex-1 h-10 rounded-lg text-[13px] font-bold ${n.years === y ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${y} ${y === 1 ? 'sezon' : 'sezony'}</button>`).join('');
-    const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
+    const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'forced' ? '📄 Warunki agenta' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'sign' ? '✍️ Kontrakt nowego nabytku' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
@@ -11600,7 +11610,7 @@ const UI = {
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : 'sezony'}</button>`}
-        <button data-action="neg-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">${ended ? 'Zamknij' : 'Zerwij rozmowy'}</button>
+        <button data-action="neg-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">${ended ? (n.back ? 'Wróć na giełdę' : 'Zamknij') : n.kind === 'sign' ? 'Zgódź się na warunki agenta' : 'Zerwij rozmowy'}</button>
       </div>`, 'bg-desk-900');
   },
   auctionOverlay(o) {
@@ -11632,7 +11642,7 @@ const UI = {
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${won ? '' : `<div class="flex gap-2">${btn(5, b5)}${btn(15, b15)}</div>`}
-        <button data-action="auction-close" class="btn-press w-full h-11 rounded-xl ${won ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-100'} text-[14px] font-bold">${won ? 'Wróć na giełdę' : 'Wycofaj się z licytacji'}</button>
+        ${won ? `<button data-action="auction-contract" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">✍️ Negocjuj kontrakt ›</button>` : `<button data-action="auction-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">Wycofaj się z licytacji</button>`}
       </div>`, 'bg-desk-900');
   },
   watchlistView() {
@@ -12516,6 +12526,12 @@ const Actions = {
   'neg-close'() { Engine.negotiateClose(); App.commit(); },
   'auction-bid'(el) { Engine.auctionBid(+el.dataset.pct); App.commit(); },
   'auction-close'() { Engine.auctionClose(); App.commit(); },
+  'auction-contract'() {   // po wygranej licytacji: od razu rozmowy o kontrakcie z nowym nabytkiem
+    const a = gameState.transfer.auction, pid = a && a.pid;
+    gameState.transfer.auction = null;
+    if (pid && gameState.squad.some((x) => x.id === pid)) Engine.startNegotiation(pid, 'sign'); else gameState.ui.overlay = { type: 'transfer' };
+    App.commit();
+  },
   'buy-beer'(el)     { Engine.buyTransferBeer(el.dataset.id); App.commit(); },
   'loan-in'(el)      { Engine.loanIn(el.dataset.id); App.commit(); },
   'player-open'(el)  { gameState.ui.playerSheet = el.dataset.id; App.commit(); },
