@@ -208,11 +208,11 @@ const DATA = {
         ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
         ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
         ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
-    { name: 'II Liga',        econ: 22,  rivalBase: 2.40, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+    { name: 'II Liga',        econ: 26, econ0: 22,  rivalBase: 2.40, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
       pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
-    { name: 'I Liga',         econ: 40,  rivalBase: 2.63, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
+    { name: 'I Liga',         econ: 70, econ0: 40,  rivalBase: 2.63, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
       pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
-    { name: 'Ekstraklasa',    econ: 100,  rivalBase: 2.88, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
+    { name: 'Ekstraklasa',    econ: 220, econ0: 100,  rivalBase: 2.88, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
@@ -3823,6 +3823,7 @@ function createInitialState() {
     director: { hired: null, mode: 'manual', log: [] },   // Dyrektor Sportowy (tryb: sam prezes / dyrektor)
     academyGate: true,          // 13.92: szkółka zamknięta do wybudowania pierwszego poziomu (stare zapisy – otwarta)
     econ1389: true,             // 13.89: kontrakty liczone już w nowej skali pieniędzy
+    econ1414: true,             // realne kwoty szczytu tabeli (II liga, I liga, Ekstraklasa)
     budkaGate: true,            // 13.85: budka otwiera się dopiero po inwestycji „kiosk” (stare zapisy – zachowana)
     trophies: [],               // gablotka: { icon, name, season, league } – na zawsze w historii klubu
     cup: null,                  // Puchar Polski w bieżącym sezonie   // miesięczne rozliczenie skutków cen (co 4 tygodnie)
@@ -5801,7 +5802,7 @@ const Engine = {
     list.splice(Utils.randInt(24, 35), 1);   // zwalniamy miejsce z dołu stawki
     const base = C.base + DATA.euro.stages.LP.add;
     eu.lpTable = {};
-    list.forEach((name, i) => { eu.lpTable[name] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: Math.round((base + 0.38 - 0.76 * i / (list.length - 1)) * 100) / 100 }; });
+    list.forEach((name, i) => { eu.lpTable[name] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: Math.round((base + 0.38 - 0.76 * i / (list.length - 1) + 0.45 * Math.pow(Math.max(0, 1 - i / 12), 1.5) * ({ UCL: 1, UEL: 0.5 }[eu.comp] || 0)) * 100) / 100 }; });   // giganci: ściana (najmocniej w LM)
     eu.lpTable[US] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: 0 };
     eu.lpPlayed = [];
   },
@@ -5977,6 +5978,7 @@ const Engine = {
   },
   euroMoney(label, amount) {
     if (!amount) return;
+    if (amount > 0) amount = Math.round(amount * 4 / 100) * 100;   // premie UEFA: pieniądze z innego świata niż liga
     Engine.money(label, amount);
     if (amount > 0) gameState.euro.earned += amount;
     if (Engine._euroM) Engine._euroM.money.push({ label, amount });   // linia na ekranie meczu europejskiego
@@ -6547,7 +6549,7 @@ const Engine = {
 
   // Potencjał = sufit umiejętności. Młodzi mają zapas, starsi są już blisko szczytu.
   rollPotential(p) {
-    const room = p.age <= 20 ? Utils.randInt(1, 5) : p.age <= 23 ? Utils.randInt(0, 3) : p.age <= 26 ? Utils.randInt(0, 1) : 0;
+    const room = p.age <= 20 ? Utils.randInt(0, 4) : p.age <= 23 ? Utils.randInt(0, 2) : p.age <= 26 ? Utils.randInt(0, 1) : 0;   // rozwój naturalny, nie każdy junior to gwiazda
     // sufit skalowany do ligi klubu (+1 dla zwykłych, +2 dla Perełek ponad poziom rozgrywek)
     p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() + (p.talent ? 2 : 1), p.skill + room + (p.talent ? 2 : 0)));
   },
@@ -6555,20 +6557,25 @@ const Engine = {
   markTalent(p) {
     p.talent = true;
     p.potential = Math.min(Selectors.leagueSkillCap() + 2, Math.max(p.potential || p.skill, p.skill) + 2);   // Perełka = wyższy sufit (ale w granicach ligi)
+    // Fenomen na miarę światowych gwiazd: ok. 1 na 50 perełek, tylko nastolatkowie – sufit ponad ligę i skokowy rozwój
+    if (p.age <= 18 && Math.random() < 0.02) { p.prodigy = true; p.potential = Math.min(CONFIG.maxSkill, p.skill + Utils.randInt(7, 10)); }
   },
 
   // Rozwój na koniec sezonu: im więcej gry, tym szybciej; regularna gra na wypożyczeniu = pewny postęp
   develop(p, apps, onLoan) {
-    const cap = p.ace ? Selectors.potential(p) : Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
+    const cap = p.ace || p.prodigy ? Selectors.potential(p) : Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
     if (p.age > (p.ace ? 28 : 24) || p.skill >= cap) return 0;
     const share = Utils.clamp(apps / Math.max(1, gameState.season.rounds.length || 18), 0, 1);
     let gain = 0;
-    if (onLoan) {
-      gain = 1 + (Math.random() < 0.45 + (p.talent ? 0.2 : 0) ? 1 : 0);
+    if (p.prodigy && share >= 0.4) {
+      gain = 1 + (Math.random() < 0.6 ? 1 : 0);   // fenomen: rośnie skokowo, o ile gra
+    } else if (onLoan) {
+      gain = Math.random() < 0.65 + (p.talent ? 0.15 : 0) ? 1 : 0;
+      if (gain && p.talent && Math.random() < 0.15) gain++;
     } else {
-      const chance = 0.2 + 0.55 * share + (p.talent ? 0.15 : 0) + Selectors.staffLevel('asystent') * 0.04 + (Selectors.coachTrait('youthDev') && p.age <= 21 ? 0.2 : 0);
+      const chance = 0.1 + 0.42 * share + (p.talent ? 0.1 : 0) + Selectors.staffLevel('asystent') * 0.03 + (Selectors.coachTrait('youthDev') && p.age <= 21 ? 0.12 : 0);
       gain = Math.random() < chance ? 1 : 0;
-      if (gain && p.talent && share >= 0.7 && Math.random() < 0.25) gain++;
+      if (gain && p.talent && share >= 0.8 && Math.random() < 0.1) gain++;
     }
     gain = Math.min(gain, cap - p.skill);
     p.skill += gain;
@@ -8440,9 +8447,9 @@ const Selectors = {
   leagueName: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).name,
   econ: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).econ,
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
-  sponsorWeekly: (sp) => (sp.fallback
+  sponsorWeekly: (sp) => Math.round((sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
-    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1))),
+    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1))) * ({ 6: 2, 7: 4, 8: 8 }[Math.floor(gameState.club.leagueLevel)] || 1)),   // na szczycie sponsorzy płacą realne kwoty
   // 13.72: powaga sponsorów rośnie z ligą – większe kontrakty, ale mniej cierpliwości i potrącenia za słabe wyniki
   sponsorTier: (lvl = gameState.club.leagueLevel) => [
     { label: 'lokalny biznes', mult: 1, patience: 5, crash: 3, cut: 0 },
@@ -8623,7 +8630,9 @@ const Selectors = {
   // 13.70: ceny ulepszeń rosną z rangą ligi: (współczynnik ligi / współczynnik szczebla bazowego)^0.7, w widełkach 0,5–12×
   costScale: (ref = 1, lvl = gameState.club.leagueLevel) => { const now = (DATA.leagueLevels[lvl] || DATA.leagueLevels[1]).econ, base = (DATA.leagueLevels[ref] || DATA.leagueLevels[1]).econ; return Utils.clamp(Math.pow(now / base, 0.7), 0.5, 12); },
   niceCost: (v) => { const step = v >= 100000 ? 5000 : v >= 20000 ? 1000 : v >= 5000 ? 500 : v >= 1000 ? 100 : 10; return Math.max(step, Math.round(v / step) * step); },
-  scaledCost: (base, ref) => Selectors.niceCost(base * Selectors.costScale(ref)),
+  // econBoost: przeskalowanie pieniędzy szczytu tabeli do realiów (II ×1,2, I ×1,75, Ekstraklasa ×2,2)
+  econBoost: (lvl = gameState.club.leagueLevel) => { const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1]; return L.econ0 ? L.econ / L.econ0 : 1; },
+  scaledCost: (base, ref) => Selectors.niceCost(base * Selectors.costScale(ref) * Selectors.econBoost(ref)),
   upgradeRef: (id) => { const u = DATA.upgrades[id], f = DATA.upgradeFlavor[id]; return (f && f.ref) || u.licenseLevel || 1; },
   upgradeCost: (id, noDiscount) => Selectors.niceCost(Selectors.scaledCost(DATA.upgrades[id].cost, Selectors.upgradeRef(id)) * (Selectors.upgradeRef(id) >= 4 ? 1.5 : 1) * (!noDiscount && id === 'roller' && gameState.club.character === 'rural' ? 0.75 : 1)),   // 13.84: zaawansowane ×1,5
   tierCost: (t) => Selectors.niceCost(Selectors.scaledCost(t.cost, t.minLevel || 1) * 1.6),   // 13.84: modernizacje droższe
@@ -8902,7 +8911,7 @@ const Selectors = {
   passHolders: () => (gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season ? gameState.matchday.pass.holders : 0),
   // Prognoza karnetów: ilu kupi i ile wpłynie z góry (cena skaluje się z liczbą meczów u siebie)
   // 13.89: ceny biletów i karnetów rosną w zawodowych ligach (II liga ×2, I liga ×2,5, Ekstraklasa ×4)
-  ticketScale: (lvl = gameState.club.leagueLevel) => ({ 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1),
+  ticketScale: (lvl = gameState.club.leagueLevel) => ({ 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1) * Selectors.econBoost(Math.floor(lvl)),
   ticketPrice: (id) => Math.round(DATA.tickets[id].price * Selectors.ticketScale()),
   // 13.90: Wynik Kariery („Score Prezesa”) – trofea z mnożnikami, prestiż najwyższej ligi, sezony i Europa
   careerScore: (st = gameState) => {
@@ -9124,17 +9133,19 @@ const Selectors = {
   // Prawa TV za mecz (po zainstalowaniu kamer): rosną z ligą
   // Wartość rynkowa w złotówkach gry (ta sama skala co kasa, pensje i obiekty): przeciętny zawodnik ligi wart ok. kilkanaście
   // (amatorzy) do ok. 80 (Ekstraklasa) tygodniówek; gwiazdy i talenty odpowiednio więcej. Odstępne = wartość × premia sytuacji.
-  valueAvg: (lvl = gameState.club.leagueLevel) => ({ 1: 300, 2: 600, 3: 1200, 3.5: 2000, 4: 3000, 5: 6000, 6: 25000, 7: 70000, 8: 250000 }[lvl] || 300),
+  // Średnie z baz rynkowych (przeliczone na zł): Ekstraklasa ok. 760 tys. € ≈ 3,2 mln zł, I liga ok. 110 tys. € ≈ 470 tys. zł,
+  // II liga ok. 7 tys. € ≈ 30 tys. zł, III liga ok. 1–5 tys. € ≈ 14 tys. zł; niżej szacunki
+  valueAvg: (lvl = gameState.club.leagueLevel) => ({ 1: 400, 2: 800, 3: 1500, 3.5: 3000, 4: 6000, 5: 14000, 6: 30000, 7: 470000, 8: 3200000 }[lvl] || 400),
   marketValue: (p, lvl = gameState.club.leagueLevel) => {
     const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1];
     const avgOvr = Selectors.ovrOf(5.5 + L.skillBonus);
     if (p.tmVar == null) p.tmVar = Math.round(Utils.randRange(0.8, 1.25) * 100) / 100;   // odchylenie: ten sam zawodnik zawsze tak samo wyceniany
     const age = p.age <= 21 ? 1.35 : p.age <= 24 ? 1.15 : p.age >= 33 ? 0.4 : p.age >= 30 ? 0.7 : 1;
     const pot = 1 + Math.max(0, Selectors.potential(p) - p.skill) * 0.06;
-    const rel = Math.exp(0.1 * (Selectors.ovr({ ...p, formHistory: [] }) - avgOvr)) * age * pot * (p.talent ? 1.4 : 1) * p.tmVar * 0.85;
+    const rel = Math.exp(0.12 * (Selectors.ovr({ ...p, formHistory: [] }) - avgOvr)) * age * pot * (p.prodigy ? 2.5 : p.talent ? 1.4 : 1) * p.tmVar * 0.85;
     const avg = Selectors.valueAvg(lvl);
     const c = Utils.clamp(avg * rel, avg * 0.08, avg * 40);   // od rezerwowego weterana do gwiazdy światowego formatu
-    const step = c >= 1e6 ? 1e4 : c >= 1e5 ? 1e3 : c >= 1e4 ? 100 : 10;
+    const step = c >= 1e7 ? 1e5 : c >= 1e6 ? 1e4 : c >= 1e5 ? 1e3 : c >= 1e4 ? 100 : 10;
     return Math.round(c / step) * step;
   },
   // Wartość jest już w złotówkach gry – cena wynika z niej wprost (premie liczone przy konkretnej transakcji)
@@ -9143,7 +9154,7 @@ const Selectors = {
   // Marka klubu rośnie z czasem: świeżo awansowany klub zarabia mniej (kibice, sponsorzy, TV dopiero się przekonują)
   establishedFactor: () => { const since = gameState.club.levelSince; if (since == null) return 1; const y = gameState.calendar.season - since; return y <= 0 ? 0.75 : y === 1 ? 0.88 : 1; },
   revEcon: () => Selectors.econ() * Selectors.establishedFactor(),
-  tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.revEcon() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) / 5) * 5 : 0),
+  tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.revEcon() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) * ({ 6: 2, 7: 4, 8: 9 }[Math.floor(gameState.club.leagueLevel)] || 1) / 5) * 5 : 0),   // prawa TV: na szczycie główne źródło przychodu
   // Lista województw do <select> (alfabetycznie)
   regionOptions: (cur) => DATA.cupRegions.map((r, i) => ({ i, n: Selectors.voivodeship(i) })).sort((a, b) => a.n.localeCompare(b.n, 'pl'))
     .map((x) => `<option value="${x.i}"${String(cur) === String(x.i) ? ' selected' : ''}>${Utils.escape(x.n)}</option>`).join(''),
@@ -9382,6 +9393,16 @@ const Storage = {
       Object.values(state.staff || {}).forEach((m) => { if (m && m.wage) m.wage = Math.round(m.wage * f); });
     }
     state.econ1389 = true;
+    if (saved.econ1414 == null && saved.screen === 'game' && state.club && state.club.leagueLevel >= 6) {   // 14.14: realne kwoty szczytu tabeli
+      const L = DATA.leagueLevels[Math.floor(state.club.leagueLevel)];
+      const f = L && L.econ0 ? L.econ / L.econ0 : 1;
+      (state.squad || []).forEach((p) => { if (p.wage) p.wage = Math.round(p.wage * f / 5) * 5; });
+      if (state.coach && state.coach.weekly) state.coach.weekly = Math.round(state.coach.weekly * f);
+      Object.values(state.staff || {}).forEach((m) => { if (m && m.wage) m.wage = Math.round(m.wage * f); });
+      if (state.finance) state.finance.budget = Math.round(state.finance.budget * f);
+      ((state.loans && state.loans.taken) || []).forEach((l) => { if (l.rate) l.rate = Math.round(l.rate * f); });
+    }
+    state.econ1414 = true;
     if (saved.academyGate == null && saved.screen === 'game') state.academyGate = false;   // 13.92: trwające kariery mają szkółkę od zawsze
     if (saved.budkaGate == null && saved.screen === 'game' && state.stadium && state.stadium.upgrades) state.stadium.upgrades.kiosk = true;   // 13.85: stare zapisy zachowują budkę
     state.budkaGate = true;
@@ -9918,7 +9939,7 @@ const UI = {
       <div class="rounded-xl border bg-desk-800 border-desk-600 text-paper-100 px-3 py-2 mt-3">
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] text-paper-400">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · <b class="text-paper-100">OVR ${Selectors.ovr(p)}</b> (drużyna ${team})</div>
           </div>
           ${UI.profileBadge(p.profile)}
@@ -9947,7 +9968,7 @@ const UI = {
       <div class="rounded-xl border ${box} px-3 py-2 mt-3">
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] ${sub}">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · <b>OVR ${Selectors.ovr(p)}</b> (drużyna ${Selectors.teamOvr()}) · ${Selectors.skillLabel(p.skill)}</div>
           </div>
           ${UI.profileBadge(p.profile)}
@@ -10029,7 +10050,7 @@ const UI = {
         <div class="flex items-center gap-2">
           ${UI.ovrBadge(p)}
           <div class="min-w-0 flex-1">
-            <div class="text-[13.5px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[13.5px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] text-paper-400 truncate">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · sufit <span class="text-amber-glow">${UI.potentialText(p)}</span></div>
           </div>
           <button data-action="pick-youth" data-id="${p.id}" ${full ? 'disabled' : ''} class="btn-press h-9 px-3 rounded-lg text-[12.5px] font-bold ${full ? 'bg-desk-700 text-paper-400 opacity-60' : 'bg-amber-glow text-ink-900'}">Biorę</button>
@@ -10126,7 +10147,7 @@ const UI = {
       <details data-fold="${key}" class="border-b border-desk-700 last:border-0" ${folds[key] ? 'open' : ''}>
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
-            <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
+            <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] text-paper-400 truncate">${p.fTier && p.fee != null ? '<b class="text-sky-500">🌍 ' + Utils.escape(p.fromClub || '') + '</b> · ' : ''}${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
@@ -11419,7 +11440,7 @@ const UI = {
       return `
       <button data-action="player-open" data-id="${p.id}" class="${cols} w-full text-left h-[27px] px-1.5 text-[12px] border-b border-paper-300 last:border-0 border-l-[3px] ${inXI ? 'border-l-grass' : 'border-l-transparent'} ${gameState.ui.playerSheet === p.id ? 'bg-amber-glow/15' : 'active:bg-paper-200'}">
         <span class="text-[11px]">${DATA.positions[p.pos].icon}</span>
-        <span class="truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</span>
+        <span class="truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</span>
         <span class="text-center text-ink-700">${p.age}</span>
         <span class="text-center">${p.seasonApps}</span>
         <span class="text-center font-semibold">${p.seasonGoals}</span>
