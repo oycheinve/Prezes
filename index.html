@@ -4509,8 +4509,9 @@ const Engine = {
     round.forEach((f) => {
       if (f.home === US || f.away === US) return;
       const hs = gameState.season.strength[f.home], as = gameState.season.strength[f.away];
-      const hg = Utils.poisson(1.25 * Math.pow(hs / as, 1.3) * 1.1);
-      const ag = Utils.poisson(1.25 * Math.pow(as / hs, 1.3) / 1.05);
+      const tp = Engine.goalTempo();
+      const hg = Utils.poisson(1.25 * Math.pow(hs / as, 1.3) * 1.1 * tp);
+      const ag = Utils.poisson(1.25 * Math.pow(as / hs, 1.3) / 1.05 * tp);
       Engine.recordResult(f.home, f.away, hg, ag);
       results.push({ home: f.home, away: f.away, hg, ag });
     });
@@ -4716,8 +4717,9 @@ const Engine = {
     const style = DATA.styles[coach.style];
     const ratio = ourS / oppS;
     const homeAdv = cup && cup.neutral ? 1 : fixture.home ? 1.12 * (1 + (Selectors.passPolicy().homeAdv || 0)) : 1 / 1.08;   // karnetowicze robią (albo nie) atmosferę
-    let ourL = 1.25 * Math.pow(ratio, 1.3) * style.tempo * homeAdv;
-    let oppL = 1.25 * Math.pow(1 / ratio, 1.3) * style.tempo / homeAdv;
+    const tempo = Engine.goalTempo(cup);
+    let ourL = 1.25 * Math.pow(ratio, 1.3) * style.tempo * homeAdv * tempo;
+    let oppL = 1.25 * Math.pow(1 / ratio, 1.3) * style.tempo / homeAdv * tempo;
     // Styl gry trenera: realny wpływ zależny od rywala i pogody
     if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.26 : 1.08; oppL *= 1.12; if (weather.rain) ourL *= 0.88; }   // 13.90: style trenera mocniej odczuwalne
     else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.64 : 0.8; ourL *= 0.82; }
@@ -4772,18 +4774,23 @@ const Engine = {
     lineup.forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
     const scorerCount = {};
     const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
+    const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
+    const theirRedMin = Math.min(91, ...cards.filter((c) => !c.us && c.card === 'R').map((c) => c.min));
+    const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Utils.randInt(m + 1, 90) : Utils.randInt(1, 90));   // przewaga liczebna = gole po kartce
     for (let i = 0; i < gf; i++) {
+      const gmin = minAfter(theirRedMin);
+      const field = Engine.onPitch(lineup, cards, gmin);   // wyrzucony z boiska już nie strzela
       const w = (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.tag === 'freekick' ? 1.5 : 1) * (p.ace ? 2 : 1);
-      const scorer = Utils.weightedPick(lineup, w);
+      const scorer = Utils.weightedPick(field, w);
       scorer.goals++; scorer.seasonGoals++; Engine.cstat(scorer).g++;
       scorerCount[scorer.id] = (scorerCount[scorer.id] || 0) + 1;
       if (Math.random() < 0.75) {   // asysta: najczęściej pomocnik albo skrzydłowy, nigdy sam strzelec
-        const mates = lineup.filter((x) => x !== scorer);
+        const mates = field.filter((x) => x !== scorer);
         const ace = mates.find((p) => p.ace);   // Kacper Chudy kreuje większość akcji kolegów
         const assist = ace && Math.random() < 0.55 ? ace : mates.length && Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
         if (assist) { assist.assists = (assist.assists || 0) + 1; assist.seasonAssists = (assist.seasonAssists || 0) + 1; Engine.cstat(assist).a++; }
-        goalEvents.push({ p: scorer, a: assist || null });
-      } else goalEvents.push({ p: scorer, a: null });
+        goalEvents.push({ p: scorer, a: assist || null, min: gmin });
+      } else goalEvents.push({ p: scorer, a: null, min: gmin });
     }
     const scorers = Object.entries(scorerCount).map(([id, n]) => {
       const p = gameState.squad.find((x) => x.id === id);
@@ -4812,10 +4819,7 @@ const Engine = {
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : '') + (oppScorers.length ? ' Dla rywala: ' + oppScorers.join(', ') + '.' : ''), 'match');
 
     // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
-    const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
-    const theirRedMin = Math.min(91, ...cards.filter((c) => !c.us && c.card === 'R').map((c) => c.min));
-    const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Utils.randInt(m + 1, 90) : Utils.randInt(1, 90));   // przewaga liczebna = gole po kartce
-    const goals = goalEvents.map((g) => ({ min: minAfter(theirRedMin), us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
+    const goals = goalEvents.map((g) => ({ min: g.min, us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
     oppEv.forEach((e) => goals.push({ min: minAfter(ourRedMin), us: false, name: e.n, team: rival.name, assist: e.a ? e.a.split(' ').slice(-1)[0] : null }));
     if (ourRedMin <= 90) Engine.addLog('🟥 Od ' + ourRedMin + '. minuty gramy w osłabieniu – rywal przejmuje inicjatywę.', 'match');
     goals.sort((a, b) => a.min - b.min);
@@ -5199,7 +5203,7 @@ const Engine = {
       p.prevSeason = { apps: p.seasonApps, goals: p.seasonGoals, assists: p.seasonAssists || 0, avg: Selectors.avgRating(p) };   // do okna transferowego
       p.cs = {};   // statystyki rozgrywek zerują się z nowym sezonem
       p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0; p.seasonAssists = 0; p.seasonRatingSum = 0; p.seasonRatingCount = 0;
-      p.yellows = 0; p.seasonYellows = 0; p.seasonReds = 0; p.suspended = 0;   // kartki zerują się z nowym sezonem
+      p.yellows = 0; p.seasonYellows = 0; p.seasonReds = 0;   // żółte zerują się z nowym sezonem; pauza za czerwoną przechodzi na kolejny oficjalny mecz
       // młodzi rosną do swojego potencjału – tym szybciej, im więcej grali (Perełki i dobry asystent pomagają)
       const gain = p.loan ? 0 : Engine.develop(p, p.prevSeason.apps, false);
       if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + (p.prevSeason.apps >= 12 ? ' (regularna gra)' : p.prevSeason.apps >= 5 ? ' (rezerwowy)' : ' (ławka)'));
@@ -5797,7 +5801,7 @@ const Engine = {
   euroKoLeg(t, leg, neutral) {
     const sa = Engine.euroKoStr(t.a), sb = Engine.euroKoStr(t.b), r = sa / sb;
     const adv = neutral ? 1 : leg === 1 ? 1 / 1.08 : 1.08;   // 1. mecz u B, rewanż u A
-    return [Utils.poisson(Math.max(0.15, 1.3 * Math.pow(r, 1.6) * adv)), Utils.poisson(Math.max(0.15, 1.3 * Math.pow(1 / r, 1.6) / adv))];
+    return [Utils.poisson(Math.max(0.15, 1.05 * Math.pow(r, 1.6) * adv)), Utils.poisson(Math.max(0.15, 1.05 * Math.pow(1 / r, 1.6) / adv))];
   },
   euroKoDecide(t) {
     const ga = t.l1[0] + (t.l2 ? t.l2[0] : 0), gb = t.l1[1] + (t.l2 ? t.l2[1] : 0);
@@ -5884,7 +5888,7 @@ const Engine = {
     for (let i = 0; i + 1 < rest.length; i += 2) {
       const a = T[rest[i]], b = T[rest[i + 1]];
       const r = a.s / b.s;
-      const ag = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(r, 1.6) * 1.1)), bg = Utils.poisson(Math.max(0.15, 1.35 * Math.pow(1 / r, 1.6) / 1.1));
+      const ag = Utils.poisson(Math.max(0.15, 1.1 * Math.pow(r, 1.6) * 1.1)), bg = Utils.poisson(Math.max(0.15, 1.1 * Math.pow(1 / r, 1.6) / 1.1));   // Europa: mecze taktyczne
       Engine.euroLpRow(a, ag, bg); Engine.euroLpRow(b, bg, ag);
     }
   },
@@ -6138,11 +6142,13 @@ const Engine = {
     const neutral = !!opts.neutral;
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
+    const servedBan = gameState.squad.filter((p) => p.suspended > 0);   // pauzujący w tym meczu (np. po czerwonej w 1. meczu baraży)
     const lineup = Engine.pickLineup([]);
     const chem = Engine.chemistry(lineup);
     const ratio = Engine.teamStrength(lineup, chem) / oppS;   // forma i siła składu jak w lidze
     const adv = neutral ? 1 : home ? 1.12 : 1 / 1.08;
-    let ourL = 1.2 * Math.pow(ratio, 1.3) * style.tempo * adv, oppL = 1.2 * Math.pow(1 / ratio, 1.3) * style.tempo / adv;
+    const tempo = Engine.goalTempo(opts.euro ? { euro: true } : null);
+    let ourL = 1.2 * Math.pow(ratio, 1.3) * style.tempo * adv * tempo, oppL = 1.2 * Math.pow(1 / ratio, 1.3) * style.tempo / adv * tempo;
     if (coach.style === 'off') { ourL *= ratio > 1.05 ? 1.26 : 1.08; oppL *= 1.12; }   // taktyka trenera
     else if (coach.style === 'def') { oppL *= ratio < 0.95 ? 0.64 : 0.8; ourL *= 0.82; }
     else if (chem >= 60) { ourL *= 1.04; oppL *= 0.96; }
@@ -6157,20 +6163,24 @@ const Engine = {
     const nm = (p) => Selectors.shortName(p);
     const goals = [];
     for (let i = 0; i < m.gf; i++) {
-      const sc = Utils.weightedPick(lineup, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.ace ? 2 : 1));
+      const gmin = Utils.randInt(2, 90);
+      const field = Engine.onPitch(lineup, rawCards, gmin);   // wyrzucony z boiska już nie strzela
+      const sc = Utils.weightedPick(field, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.ace ? 2 : 1));
       if (!sc) continue;
       sc.goals++; sc.cupGoals = (sc.cupGoals || 0) + 1;
       let as = null;
       if (Math.random() < 0.75) {
-        const mates = lineup.filter((x) => x !== sc), ace = mates.find((p) => p.ace);
+        const mates = field.filter((x) => x !== sc), ace = mates.find((p) => p.ace);
         as = ace && Math.random() < 0.55 ? ace : Utils.weightedPick(mates, (p) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[p.pos]) * p.skill);
         if (as) as.assists = (as.assists || 0) + 1;
       }
-      goals.push({ min: Utils.randInt(2, 90), us: true, s: nm(sc), a: as ? as.last : null });
+      goals.push({ min: gmin, us: true, s: nm(sc), a: as ? as.last : null });
     }
     const oppPool = [Engine.oppScorerName(), Engine.oppScorerName()];
     for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false, name: Math.random() < 0.65 ? oppPool[0] : oppPool[1] });
     goals.sort((a, b) => a.min - b.min);
+    servedBan.forEach((p) => { p.suspended = Math.max(0, p.suspended - 1); });
+    Engine.applyCardBans(rawCards);   // czerwona = pauza w kolejnym oficjalnym meczu (także po barażu)
     const cards = rawCards.filter((c) => c.us).map((c) => ({ card: c.card, min: c.min, name: c.p ? Selectors.shortName(c.p) + (c.name.includes('2. żółta') ? ' (2. żółta)' : '') : c.name }));
     const e = Selectors.econ();
     const ticket = DATA.tickets[gameState.matchday.ticket];
@@ -6482,6 +6492,18 @@ const Engine = {
     return cards.sort((a, b) => a.min - b.min);
   },
   // Pauzy: czerwona = 1 mecz (bezpośrednia = 2), co 4. żółta = 1 mecz
+  // Zawodnicy na boisku w danej minucie – wyrzuceni czerwoną kartką nie strzelają ani nie asystują
+  onPitch(lineup, cards, min) {
+    const off = new Map();
+    cards.filter((c) => c.us && c.card === 'R' && c.p).forEach((c) => off.set(c.p.id, Math.min(off.get(c.p.id) || 99, c.min)));
+    const on = lineup.filter((p) => !(off.get(p.id) < min));
+    return on.length ? on : lineup;
+  },
+  // Tempo strzeleckie szczebla: w B-klasie „hokej”, wyżej mecze taktyczne (różnica klas nadal daje wysokie wyniki)
+  goalTempo(cup) {
+    if (cup && cup.euro) return 0.9;
+    return { 1: 1.25, 2: 1.15, 3: 1.07, 3.5: 1.02, 4: 1.0, 5: 0.97, 6: 0.94, 7: 0.91, 8: 0.9 }[gameState.club.leagueLevel] || 1;
+  },
   applyCardBans(cards) {
     cards.filter((c) => c.us).forEach((c) => {
       const p = c.p;
