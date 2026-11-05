@@ -3513,6 +3513,17 @@ const DATA = {
         () => 'Kto nie przyjdzie w sobotę, ten nie jest z naszej wsi! Zenek już rozpala grilla! 📢',
       ],
     },
+    // 14.0 (fix): ton memowy – wcześniej brakowało go w tonach i post klubu wywracał tydzień
+    meme: {
+      label: 'Memy i dystans', icon: '😂',
+      texts: [
+        (rival) => 'Nasz plan na mecz z ' + rival + ': 1) nie przegrać 2) jak przegramy, zrobić z tego mema. Wiadomo, który punkt pewniejszy. 😂',
+        () => 'Pan Heniek skosił boisko w kratkę. Taktyka? Nie. Po prostu mu się spodobało. 🌱',
+        (rival) => 'Kiedy ' + rival + ' pisze, że są faworytem, a nasz bramkarz właśnie wrócił z wesela: 👀🍾',
+        () => 'Nowy nabytek klubu: druga piłka. Szatnia w szoku. ⚽⚽',
+        () => 'Trener na odprawie: „grajcie prosto”. Zawodnicy: grają prosto w aut. 📐',
+      ],
+    },
     spicy: {
       label: 'Ostra Szpilka', icon: '🌶️',
       desc: 'W sędziego, Związek albo rywala z Kosy. Kibice +8%, przed derbami szatnia +4%. Ale 35% szans na 300 zł kary od Wydziału Dyscypliny OZPN.',
@@ -6935,12 +6946,13 @@ const Engine = {
 
   // Post z profilu klubu w tonie strategii (bez kosztów i efektów – sam klimat feedu)
   mediaPost() {
-    const st = DATA.mediaStrategies[Selectors.mediaStrategy()];
-    const t = DATA.xTones[st.tone];
+    const st = DATA.mediaStrategies[Selectors.mediaStrategy()] || DATA.mediaStrategies.neutral;
+    const t = DATA.xTones[st.tone] || DATA.xTones.humble;
     const fx = Selectors.currentFixture();
-    const text = st.tone === 'humble' ? Utils.rand(t.texts)
-      : st.tone === 'hype' ? Utils.rand(t.texts)(fx.rival)
-      : t.texts[Selectors.rival(fx.rival).derby ? 'rival' : Utils.rand(['ref', 'union'])](fx.rival);
+    const rival = (fx && fx.rival) || 'rywal';
+    const rv = fx && fx.rival ? Selectors.rival(fx.rival) : null;
+    const pick = Array.isArray(t.texts) ? Utils.rand(t.texts) : t.texts[rv && rv.derby ? 'rival' : Utils.rand(['ref', 'union'])];
+    const text = typeof pick === 'function' ? pick(rival) : pick;
     Engine.xPost('official', text, true);
   },
 
@@ -7830,7 +7842,11 @@ const Engine = {
 
   nextWeek() {
     if (!Engine.canAdvanceWeek()) return false;
-    Engine.weeklyHooks.forEach((hook) => { if (gameState.screen === 'game') hook(); });
+    // 14.0 (fix): błąd w jednym module nie może zablokować tygodnia – reszta symulacji idzie dalej
+    Engine.weeklyHooks.forEach((hook) => {
+      if (gameState.screen !== 'game') return;
+      try { hook(); } catch (e) { console.error('Błąd w module tygodnia ' + (hook.name || '?') + ':', e); }
+    });
     Engine.checkGameOver();
     return true;
   },
