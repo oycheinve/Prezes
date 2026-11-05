@@ -2610,7 +2610,12 @@ const DATA = {
       id: 'cutTransfer',
       cutscene: { icon: '🚐', place: 'Okno transferowe · parking pod sklepem', scripted: true },   // tylko w oknie transferowym
       transfer: true,
-      prepare: () => { const best = gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0]; gameState.cutscenes.targetId = best ? best.id : null; gameState.cutscenes.buyer = best && Selectors.giantTarget(best) ? Utils.rand(Selectors.giants()) : null; },
+      prepare: () => {
+        const prospect = gameState.squad.filter((x) => !x.loan && Selectors.giantTarget(x)).sort((a, b) => Selectors.potential(b) - Selectors.potential(a) || a.age - b.age)[0];
+        const best = prospect || gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0];
+        gameState.cutscenes.targetId = best ? best.id : null;
+        gameState.cutscenes.buyer = prospect ? Utils.rand(Selectors.giants()) : null;
+      },
       player: () => Selectors.cutTarget(),
       from: () => gameState.cutscenes.buyer ? 'Dyrektor sportowy: ' + gameState.cutscenes.buyer : 'Działacz klubu z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name,
       title: () => gameState.cutscenes.buyer ? 'Oferta giganta: ' + gameState.cutscenes.buyer : 'Oferta z wyższej ligi',
@@ -4317,7 +4322,8 @@ const Engine = {
       {
         const i = c.squad.indexOf(x);
         const ovr = Selectors.ovrPlain(x.skill);
-        if (i < 0 || n >= 3 || x.age > 30 || ovr < (x.ae ? 76 : 78) || Math.random() > 0.3) return;
+        const sc = Selectors.giantScore(ovr, Selectors.projOvr(x.skill, x.age), x.age);
+        if (i < 0 || n >= 3 || !sc || Math.random() > 0.35 * sc) return;
         const giant = Utils.rand(Selectors.giants());
         const fee = Math.round(Selectors.feeFromValue(Selectors.marketValue({ id: x.id, skill: x.skill, age: x.age, pos: x.pos, tmVar: 1 })) * 2.5 / 100) * 100;
         Engine.giantAnnounce(x, giant, fee, false, team);
@@ -8572,7 +8578,11 @@ const Selectors = {
   euroOvr: (s) => Math.round(Utils.clamp(68 + (s - 2.4) * 18.5, 60, 94)),
   giants: () => DATA.euro.lp.UCL.slice(0, 16),
   // Zawodnik na tyle dobry, że może go kupić europejski gigant (tylko z Ekstraklasy / czołówki I ligi)
-  giantTarget: (p) => gameState.club.leagueLevel >= 7 && Selectors.ovr(p) >= (p.alterEgo ? 76 : 78) && p.age <= 31,
+  // Profil transferowy gigantów: młodzi z wysokim potencjałem (do 23 l.), wyjątkowo 24–26 l. z już wysokim OVR; nigdy starsze gwiazdy
+  growthRoom: (age) => (age <= 19 ? 4 : age <= 21 ? 3 : age <= 23 ? 2 : age <= 25 ? 1 : 0),
+  projOvr: (skill, age, pot) => Selectors.ovrPlain(Math.min(CONFIG.domesticMaxSkill + 1, pot != null ? Math.max(skill, pot) : skill + Selectors.growthRoom(age))),
+  giantScore: (ovr, proj, age) => (age <= 23 && proj >= 76 && ovr >= 66 ? 1 : age <= 26 && ovr >= 79 ? 0.35 : 0),
+  giantTarget: (p) => gameState.club.leagueLevel >= 7 && Selectors.giantScore(Selectors.ovr(p), Selectors.projOvr(p.skill, p.age, Selectors.potential(p)), p.age) > 0,
   // Kupiec w ofercie za naszego zawodnika: gigant (z nazwy) albo klub z wyższej ligi
   cutBuyer: () => gameState.cutscenes.buyer || ('klub z ligi ' + (DATA.leagueLevels[Selectors.stepLevel(gameState.club.leagueLevel, 2)] || DATA.leagueLevels[1]).name),
   ovrPlain: (skill) => Math.round(Utils.clamp(Selectors.ovrOf(skill), 1, CONFIG.domesticOvrCap)),
