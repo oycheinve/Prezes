@@ -176,11 +176,11 @@ const DATA = {
     // teams – liczba drużyn; up – bezpośredni awans; upPO – miejsca barażowe o awans; down – bezpośredni spadek;
     // downPO – miejsce barażowe o utrzymanie; euro – miejsca w europejskich pucharach (Ekstraklasa)
     { name: 'B-klasa',        econ: 1,   rivalBase: 1.25, skillBonus: 0, teams: 10, up: 1, upPO: [2], down: 0, downPO: null, pool: null },
-    { name: 'A-klasa',        econ: 1.6, rivalBase: 1.43, skillBonus: 1, teams: 14, up: 1, upPO: [2], down: 2, downPO: 12,
+    { name: 'A-klasa',        econ: 1.6, rivalBase: 1.46, skillBonus: 1, teams: 14, up: 1, upPO: [2], down: 2, downPO: 12,
       pool: ['Strażak Remizowo', 'Lotnik Kukurydzowo', 'Fala Stawki', 'Start Wólka Dolna', 'Sparta Kurzawa', 'Polonia Bździszewo Wielkie', 'Wisłoka Psie Pole', 'Promień Kozia Górka', 'Zryw Kąkolew', 'Unia Pniewo', 'Błękitni Zabłocie Wielkie', 'Ruch Krowiarki', 'Iskra Stara Wieś', 'Granica Kamionka', 'Kłos Zgniłocha'] },
-    { name: 'Klasa Okręgowa', econ: 2.5, rivalBase: 1.62, skillBonus: 2, teams: 16, up: 1, upPO: [2], down: 3, downPO: 13,
+    { name: 'Klasa Okręgowa', econ: 2.5, rivalBase: 1.68, skillBonus: 2, teams: 16, up: 1, upPO: [2], down: 3, downPO: 13,
       pool: ['Jedność Spółdzielcza', 'Sparta Mleczarnia', 'Płomień Tartaczny', 'Ogniwo Kombinat', 'Rolnik Żytnie Pole', 'Stal Gminne Zakłady', 'Orlęta Rynkowo', 'Tur Wielkopole', 'KS Cukrownia Kąty', 'Włókniarz Przędzalnia', 'Ruch Kolejowo', 'GKS Kopalnia Węglowo', 'Victoria Starościn', 'Pogoń Nadrzecze', 'Warta Brzegowo', 'LZS Piekarnia Chlebowo', 'Czarni Smolno'] },
-    { name: 'IV Liga',        econ: 4,   rivalBase: 1.81, skillBonus: 4, teams: 18, up: 1, upPO: [2], down: 4, downPO: null,
+    { name: 'IV Liga',        econ: 4,   rivalBase: 1.93, skillBonus: 4, teams: 18, up: 1, upPO: [2], down: 4, downPO: null,
       pool: ['Unia Powiatowa', 'Polonia Starostwo', 'Pilica Nadrzeczna', 'Wisła Brzeżna', 'Start Miasteczko', 'Orlęta Garnizonowe', 'Lechia Powiatowa', 'KS Gród Wojewódzki', 'Olimpia Grudziądzkowo', 'Gwardia Koszarowo', 'Chemik Fabryczno', 'Avia Lotniskowo', 'Sokół Wieżyca', 'Mazur Jeziorany', 'Zagłębie Hutnicze', 'Garbarnia Skórzewo', 'Hutnik Piecowo', 'Resovia Rzeczna'],
       // 13.65–13.66: prawdziwe kluby IV ligi we wszystkich 16 województwach (indeks jak w cupRegions), kolejność wg tabeli; pula fikcyjna tylko awaryjnie
       regions: {
@@ -201,23 +201,23 @@ const DATA = {
         14: ['Odra II Opole', 'LZS Starowice Dolne', 'LZS Starościn', 'Ruch Zdzieszowice', 'LZS Domaszkowice', 'Start Namysłów', 'LKS Kadłub', 'Małapanew Ozimek', 'Porawie Większyce', 'Stal Zawadzkie', 'MKS Gogolin', 'Victoria Żyrowa', 'Fortuna Głogówek', 'Śląsk Łubniany'],   // opolskie
         15: ['Victoria Szczaniec', 'Polonia Słubice', 'Korona Kożuchów', 'Czarni Żagań', 'Piast Karnin', 'Pogoń Świebodzin', 'Celuloza Kostrzyn nad Odrą', 'Lechia II Zielona Góra', 'Odra Nietków', 'Ilanka Rzepin', 'KP Piast Iłowa', 'Róża Różanki', 'Promień Żary', 'Pogoń Skwierzyna', 'Dozamet Nowa Sól', 'Sprotavia Szprotawa', 'Stal Sulęcin', 'Łucznik Strzelce Krajeńskie'],   // lubuskie
       } },
-    { name: 'III Liga',       econ: 6.5, rivalBase: 2.00, skillBonus: 5, teams: 18, up: 1, upPO: [2], down: 3, downPO: null,   // 4 grupy regionalne: mistrz awansuje, wicemistrz gra baraż z 14. drużyną II ligi
+    { name: 'III Liga',       econ: 6.5, rivalBase: 2.16, skillBonus: 5, teams: 18, up: 1, upPO: [2], down: 3, downPO: null,   // 4 grupy regionalne: mistrz awansuje, wicemistrz gra baraż z 14. drużyną II ligi
       pool: ['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża', 'Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik', 'Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa', 'Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica'],
       groups: [['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża'],
         ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
         ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
         ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
-    { name: 'II Liga',        econ: 22,  rivalBase: 2.19, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+    { name: 'II Liga',        econ: 22,  rivalBase: 2.40, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
       pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
-    { name: 'I Liga',         econ: 40,  rivalBase: 2.38, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
+    { name: 'I Liga',         econ: 40,  rivalBase: 2.63, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
       pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
-    { name: 'Ekstraklasa',    econ: 100,  rivalBase: 2.57, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
+    { name: 'Ekstraklasa',    econ: 100,  rivalBase: 2.88, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
   // 13.68: V liga – szczebel między Klasą Okręgową a IV ligą, TYLKO w 4 województwach (małopolskie, mazowieckie, śląskie, wielkopolskie).
   // Wewnętrznie poziom 3.5 (wszystkie progi liczbowe gry traktują ją jak „okręgówkę+”); kluby z 90minut.pl w kolejności tabel.
-  vLiga: { name: 'V Liga', econ: 3.2, rivalBase: 1.72, skillBonus: 3, teams: 16, up: 1, upPO: [2], down: 3, downPO: null,
+  vLiga: { name: 'V Liga', econ: 3.2, rivalBase: 1.80, skillBonus: 3, teams: 16, up: 1, upPO: [2], down: 3, downPO: null,
     vgroups: {
       1: [   // mazowieckie
         { name: 'Grupa I', clubs: ['Narew Ostrołęka', 'Ożarowianka Ożarów Mazowiecki', 'Huragan Wołomin', 'Drukarz Warszawa', 'Marcovia Marki', 'PAF Płońsk', 'Bug Wyszków', 'Sokół Serock', 'Znicz II Pruszków', 'Kasztelan Sierpc', 'Wicher Kobyłka', 'Białe Orły Warszawa', 'Naprzód Zielonki', 'Błękitni Gąbin', 'Gladiator Słoszewo', 'Żbik Nasielsk'] },
@@ -4286,7 +4286,7 @@ const Engine = {
     }
 
     // --- Siła i oczekiwane gole ---
-    const ourS = Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost));
+    const ourS = Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost)) * (1 - Selectors.backbone().total);   // 13.94: ściana trudności
     if (!cup) coachState.carpetBoost = 0;
     const oppS = cup ? cup.oppS : gameState.season.strength[rival.name];
     const style = DATA.styles[coach.style];
@@ -4309,9 +4309,11 @@ const Engine = {
     // --- Kartki: temperament zawodników × styl trenera × derby; czerwona osłabia drużynę ---
     const servedBan = gameState.squad.filter((p) => p.suspended > 0);   // ci pauzowali w tym meczu
     const cards = Engine.rollCards(lineup, rival.derby);
-    const ourReds = cards.filter((c) => c.us && c.card === 'R').length, theirReds = cards.filter((c) => !c.us && c.card === 'R').length;
-    if (ourReds) { ourL *= Math.pow(0.82, ourReds); oppL *= Math.pow(1.15, ourReds); }
-    if (theirReds) { ourL *= Math.pow(1.15, theirReds); oppL *= Math.pow(0.85, theirReds); }
+    // 13.94: czerwona kartka boli tym mocniej, im dłużej gramy w osłabieniu
+    const redLeft = (us) => cards.filter((c) => c.us === us && c.card === 'R').reduce((a, c) => a + (90 - c.min) / 90, 0);
+    const ourShort = redLeft(true), theirShort = redLeft(false);
+    if (ourShort) { ourL *= Math.max(0.35, 1 - 0.55 * ourShort); oppL *= 1 + 0.8 * ourShort; }
+    if (theirShort) { ourL *= 1 + 0.6 * theirShort; oppL *= Math.max(0.4, 1 - 0.5 * theirShort); }
     const fixedMatch = cup ? null : gameState.dark.fixed;
     if (fixedMatch === 'buy') { ourL *= 1.6; oppL *= 0.5; }        // „zmotywowany” sędzia i rywal
     if (lineup.some((p) => p.ace)) ourL += 0.7;                       // Kacper Chudy: z nim bramki padają same
@@ -4375,8 +4377,12 @@ const Engine = {
       weather.label.charAt(0).toLowerCase() + weather.label.slice(1) + ').' + extra + (scorers.length ? ' Gole: ' + scorers.join(', ') + '.' : ''), 'match');
 
     // Ekran meczowy: minuty goli (tylko do prezentacji), finanse dopisuje dzień meczowy
-    const goals = goalEvents.map((g) => ({ min: Utils.randInt(1, 90), us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
-    for (let i = 0; i < ga; i++) goals.push({ min: Utils.randInt(1, 90), us: false, name: rival.name });
+    const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
+    const theirRedMin = Math.min(91, ...cards.filter((c) => !c.us && c.card === 'R').map((c) => c.min));
+    const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Utils.randInt(m + 1, 90) : Utils.randInt(1, 90));   // przewaga liczebna = gole po kartce
+    const goals = goalEvents.map((g) => ({ min: minAfter(theirRedMin), us: true, name: Selectors.shortName(g.p), assist: g.a ? g.a.last : null }));
+    for (let i = 0; i < ga; i++) goals.push({ min: minAfter(ourRedMin), us: false, name: rival.name });
+    if (ourRedMin <= 90) Engine.addLog('🟥 Od ' + ourRedMin + '. minuty gramy w osłabieniu – rywal przejmuje inicjatywę.', 'match');
     goals.sort((a, b) => a.min - b.min);
     gameState.lastMatch = {
       week: gameState.calendar.week, key: gameState.calendar.week + (cup ? 'c' : ''), kolejka, home: fixture.home, rival: rival.name, derby: rival.derby,
@@ -5662,7 +5668,7 @@ const Engine = {
   // Jeden mecz barażowy: nasza siła vs rywal, gospodarz z przewagą własnego boiska
   playoffMatch(oppS, home) {
     const lineup = Engine.pickLineup([]);
-    const ourS = Engine.teamStrength(lineup, Engine.chemistry(lineup));
+    const ourS = Engine.teamStrength(lineup, Engine.chemistry(lineup)) * (1 - Selectors.backbone().total);   // 13.94: zaplecze także w barażach
     const ratio = ourS / oppS;
     const adv = home ? 1.12 : 1 / 1.08;
     return { gf: Utils.poisson(Math.max(0.15, 1.2 * Math.pow(ratio, 1.3) * adv)), ga: Utils.poisson(Math.max(0.15, 1.2 * Math.pow(1 / ratio, 1.3) / adv)) };
@@ -5683,8 +5689,8 @@ const Engine = {
     if (chem < 50) oppL *= 1 + (50 - chem) / 120;
     const rawCards = Engine.rollCards(lineup, !!opts.derby);
     const ourReds = rawCards.filter((c) => c.us && c.card === 'R').length, theirReds = rawCards.filter((c) => !c.us && c.card === 'R').length;
-    if (ourReds) { ourL *= Math.pow(0.82, ourReds); oppL *= Math.pow(1.15, ourReds); }
-    if (theirReds) { ourL *= Math.pow(1.15, theirReds); oppL *= Math.pow(0.85, theirReds); }
+    if (ourReds) { ourL *= Math.pow(0.65, ourReds); oppL *= Math.pow(1.35, ourReds); }
+    if (theirReds) { ourL *= Math.pow(1.3, theirReds); oppL *= Math.pow(0.7, theirReds); }
     if (lineup.some((p) => p.ace)) ourL += 0.7;
     const m = { gf: Utils.poisson(Math.max(0.15, ourL)), ga: Utils.poisson(Math.max(0.15, oppL)) };
     lineup.forEach((p) => { p.cupApps = (p.cupApps || 0) + 1; });
@@ -7932,6 +7938,17 @@ const Selectors = {
   academy: () => DATA.academyLevels[Selectors.academyLevel()],
   callPlayer: () => gameState.squad.find((p) => p.id === gameState.calls.playerId) || null,
   starPlayer: () => gameState.squad.find((p) => p.id === gameState.star.playerId) || null,
+  // 13.94: zaplecze klubu – sztab poniżej standardu ligi, skromne obiekty treningowe i świeży awans kosztują siłę meczową
+  backbone: (lvl = gameState.club.leagueLevel) => {
+    const std = lvl >= 2 ? Selectors.staffStandard(lvl) : 0;   // w B-klasie nikt nie wymaga sztabu
+    const staff = ['asystent', 'fizjo', 'kierownik'].reduce((a, k) => a + Math.max(0, std - Selectors.staffRawLevel(k)), 0) * 0.015;
+    const need = { 1: 0, 2: 1, 3: 1, 3.5: 2, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6 }[lvl] || 0;
+    const have = ['roller', 'boiler', 'gym', 'clubhouse', 'irrigation', 'training', 'academyHall'].filter((k) => gameState.stadium.upgrades[k]).length;
+    const fac = Math.max(0, need - have) * 0.02;
+    const rookie = lvl >= 2 && gameState.club.levelSince === gameState.calendar.season ? 0.03 : 0;
+    const total = Math.min(0.15, staff + fac + rookie);
+    return { total, staff, fac, rookie, need, have };
+  },
   carpetTarget: () => {   // 13.93: zbuntowana gwiazda albo trener
     const c = gameState.carpet || {};
     const p = c.pid && gameState.squad.find((x) => x.id === c.pid);
@@ -10468,12 +10485,12 @@ const UI = {
       <p class="text-[11.5px] mb-1.5">📜 Licencja: <b>${DATA.coachLicenses[Selectors.coachLicense()]}</b> · wymagana w lidze: <b>${DATA.coachLicenses[Selectors.coachLicenseReq()]}</b>${Selectors.coachLicenseOk() ? ' <span class="text-grass font-bold">✓</span>' : ' <span class="text-stamp font-bold">brak!</span>'}${gameState.coach.figurehead ? ' · figurant: ' + DATA.coachLicenses[gameState.coach.figurehead.license] : ''}${!Selectors.coachLicenseOk() && gameState.coach.id !== 'mirek' ? ' ' + UI.smallBtn('coach-course', '', '🎓 Kurs ' + DATA.coachLicenses[Selectors.coachLicenseReq()] + ' (' + Utils.formatMoney(Selectors.courseCost(Selectors.coachLicenseReq())) + ')', gameState.finance.budget < Selectors.courseCost(Selectors.coachLicenseReq())) : ''}</p>
       <div class="flex justify-between text-[12px]"><span>Chemia taktyczna: <b>${Selectors.chemLabel(chem)}</b></span><span>${chem}%</span></div>
       ${UI.bar(chem, chemColor)}
-      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Zgranie stylu trenera z profilami zawodników w jego wyjściowej jedenastce (+ wpływ sztabu). Niska chemia = głupie straty i narzekania w raportach.</p>
+      ${(() => { const bb = Selectors.backbone(); return `<p class="text-[11px] mt-1 leading-snug ${bb.total ? 'text-stamp font-semibold' : 'text-grass'}">🏗️ Zaplecze klubu: ${bb.total ? '−' + Math.round(bb.total * 100) + '% siły meczowej · ' + [bb.staff ? 'sztab poniżej standardu ligi' : '', bb.fac ? 'za mało obiektów treningowych (' + bb.have + '/' + bb.need + ')' : '', bb.rookie ? 'beniaminek' : ''].filter(Boolean).join(', ') : 'na poziomie ligi'}</p>`; })()}
       ${c.lastReport ? `<blockquote class="border-l-2 border-grass pl-2 italic text-[12px] my-1.5">„${Utils.escape(c.lastReport)}”</blockquote>` : ''}
       <div class="flex flex-wrap gap-1.5 mt-1.5">
         ${UI.smallBtn('carpet-coach', '', '🟥 Wezwij na dywanik', !carpetReady)}
         ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="severance"', 'Zwolnij z odprawą (' + Utils.formatMoney(Engine.severance()) + ')', gameState.finance.budget < Engine.severance(), 'stamp')}
-        ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="cold"', 'Zwolnij bez odprawy (' + Math.round(Selectors.fireFochChance(false) * 100) + '% foch)', false, 'stamp')}
+        ${isTemp ? '' : UI.smallBtn('fire-coach', 'data-mode="cold"', 'Zwolnij bez odprawy (ryzyko focha)', false, 'stamp')}
       </div>
       <p class="text-[10.5px] text-ink-700 mt-1">${carpetReady ? 'Dywanik: krótka rozmowa ostrzegawcza. Zwykle mobilizuje, czasem obraża.' : 'Na dywanik można wezwać ponownie w Tygodniu ' + (c.lastCarpetWeek + CONFIG.carpetCooldown) + '.'}</p>
     `);
