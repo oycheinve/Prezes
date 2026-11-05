@@ -4194,7 +4194,7 @@ const Engine = {
     s.rounds = firstHalf.concat(secondHalf);
 
     s.table = {};
-    s.pstats = {};   // klasyfikacje indywidualne od nowa
+    delete s.pstats;
     [US].concat(gameState.league.rivals.map((r) => r.name)).forEach((t) => { s.table[t] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }; });
     s.lastResults = [];
     s.preview = null;
@@ -4212,6 +4212,7 @@ const Engine = {
     const favs = gameState.league.rivals.slice().sort((a, b) => s.strength[b.name] - s.strength[a.name]).slice(0, 2);
     s.favorites = favs.map((r) => r.name);
     favs.forEach((r) => { s.strength[r.name] = Utils.clamp(s.strength[r.name] * Utils.randRange(1.1, 1.2), 0.8, 3.4); });
+    Engine.clubSquadsNewSeason();   // kadry rywali: nowy sezon (wiek, rozwój, emerytury), statystyki od zera – po ustaleniu siły klubów
   },
 
   // Statystyki zawodnika w bieżących rozgrywkach (liga / PP / puchary europejskie)
@@ -4220,35 +4221,76 @@ const Engine = {
     if (!p.cs[comp]) p.cs[comp] = { apps: 0, g: 0, a: 0, rs: 0, rc: 0 };
     return p.cs[comp];
   },
-  // Klasyfikacje ligowe: czołowi zawodnicy rywali (strzelcy, asystenci, noty) liczeni z ich wyników
-  rivalRoster(team) {
-    const s = gameState.season;
-    if (!s.pstats) s.pstats = {};
-    if (!s.pstats[team]) {
+  // Kadry rywali: stałe, pełne składy (fikcyjne nazwiska) z siłą zależną od pozycji klubu w lidze.
+  // Zawodnicy starzeją się i rozwijają między sezonami; ich gole, asysty i noty liczą się z wyników meczów.
+  clubSquad(team) {
+    if (!gameState.clubSquads) gameState.clubSquads = {};
+    let c = gameState.clubSquads[team];
+    if (!c) {
       const lvl = gameState.club.leagueLevel;
-      const pro = lvl >= 6 || (lvl >= 5 && Math.random() < 0.5);
-      s.pstats[team] = ['FWD', 'FWD', 'MID', 'MID', 'DEF'].map((pos) => {
-        const n = pro ? Engine.proName() : Engine.uniqueName();
-        return { n: pro ? n.first + ' ' + n.last : n.first[0] + '. „' + n.nick + '” ' + n.last, pos, q: Utils.randRange(0.7, 1.3), apps: 0, g: 0, a: 0, rs: 0, rc: 0 };
-      });
+      const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1];
+      const b = Selectors.levelSkillBonus();
+      const f = ((gameState.season.strength || {})[team] || L.rivalBase) / L.rivalBase;   // ok. 0,85–1,15: czołówka mocniejsza
+      const center = Utils.clamp(5 + b + (f - 1) * 6, 3.5 + b, 7.5 + b);   // jedenastka czołówki ≈ górna granica typowego OVR ligi, outsidera – środek
+      const pro = lvl >= 6 ? true : lvl >= 5 ? Math.random() < 0.6 : false;
+      const pos = ['GK', 'GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
+      const stars = Utils.shuffle(pos.map((_, i) => i).filter((i) => pos[i] !== 'GK')).slice(0, 2);
+      c = gameState.clubSquads[team] = { season: gameState.calendar.season, lvl, squad: pos.map((ps, i) => {
+        const age = Utils.randInt(18, 34);
+        const sk = center + Utils.randRange(-1.6, 1.6) + (stars.includes(i) ? Utils.randRange(1.5, 2.5) : 0) - (age <= 20 ? 1 : 0);
+        return Engine.newClubPlayer(ps, age, Utils.clamp(Math.round(sk), 1, CONFIG.maxSkill), pro || (lvl >= 5 && Math.random() < 0.5));
+      }) };
     }
-    return s.pstats[team];
+    return c.squad;
+  },
+  newClubPlayer(pos, age, skill, pro) {
+    const n = pro ? Engine.proName() : Engine.uniqueName();
+    return { n: pro ? n.first + ' ' + n.last : n.first[0] + '. „' + n.nick + '” ' + n.last, pos, age, skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0, cg: 0, ca: 0, capps: 0 };
+  },
+  // Między sezonami: wiek, rozwój młodych, spadek formy weteranów, emerytury zastępowane juniorami; tylko kluby z bieżącej ligi
+  clubSquadsNewSeason() {
+    const cs = gameState.clubSquads || {};
+    const names = new Set(gameState.league.rivals.map((r) => r.name));
+    Object.keys(cs).forEach((team) => { if (!names.has(team)) delete cs[team]; });
+    Object.entries(cs).forEach(([team, c]) => {
+      if (c.season >= gameState.calendar.season) return;
+      c.season = gameState.calendar.season;
+      c.squad = c.squad.map((x) => {
+        x.capps += x.apps; x.cg += x.g; x.ca += x.a;
+        x.apps = 0; x.g = 0; x.a = 0; x.rs = 0; x.rc = 0;
+        x.age++;
+        if (x.age <= 23 && Math.random() < 0.55) x.skill = Math.min(CONFIG.maxSkill, x.skill + 1);
+        if (x.age >= 32 && Math.random() < 0.4) x.skill = Math.max(1, x.skill - 1);
+        if (x.age >= 36 || (x.age >= 33 && Math.random() < 0.25)) {
+          const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length;
+          return Engine.newClubPlayer(x.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1 + Utils.randRange(-1, 1)), 1, CONFIG.maxSkill), gameState.club.leagueLevel >= 6);
+        }
+        return x;
+      });
+    });
+    gameState.league.rivals.forEach((r) => Engine.clubSquad(r.name));
   },
   rivalPlayerStats(team, gf, ga) {
-    const ro = Engine.rivalRoster(team);
+    const sq = Engine.clubSquad(team);
+    // jedenastka: 1 bramkarz, 4 obrońców, 4 pomocników, 2 napastników – najlepsi z lekką rotacją
+    const pick = (ps, k) => sq.filter((x) => x.pos === ps).map((x) => ({ x, s: x.skill + Utils.randRange(0, 1.8) })).sort((a, b) => b.s - a.s).slice(0, k).map((o) => o.x);
+    const xi = pick('GK', 1).concat(pick('DEF', 4), pick('MID', 4), pick('FWD', 2));
     const res = gf > ga ? 0.5 : gf < ga ? -0.5 : 0;
-    const gw = { FWD: 5, MID: 2.5, DEF: 0.7 }, aw = { FWD: 2.5, MID: 4, DEF: 1.2 };
-    const goals = ro.map(() => 0);
+    const gw = { GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }, aw = { GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 };
+    const goals = new Map();
     for (let i = 0; i < gf; i++) {
-      if (Math.random() < 0.3) continue;   // gol kogoś spoza czołówki zespołu
-      const k = ro.indexOf(Utils.weightedPick(ro, (x) => gw[x.pos] * x.q));
-      ro[k].g++; goals[k]++;
-      if (Math.random() < 0.7) { const mates = ro.filter((_, j) => j !== k); const as = Utils.weightedPick(mates, (x) => aw[x.pos] * x.q); if (as && Math.random() < 0.75) as.a++; }
+      const sc = Utils.weightedPick(xi, (x) => gw[x.pos] * x.skill);
+      sc.g++; goals.set(sc, (goals.get(sc) || 0) + 1);
+      if (Math.random() < 0.75) { const as = Utils.weightedPick(xi.filter((x) => x !== sc), (x) => aw[x.pos] * x.skill); if (as) as.a++; }
     }
-    ro.forEach((x, i) => {
-      let r = 6.2 + res + (x.q - 1) * 1.2 + Utils.randRange(-0.6, 0.6) + (goals[i] ? 1.2 + (goals[i] - 1) * 0.9 : 0);
-      if (x.pos === 'DEF') r += ga === 0 ? 0.8 : -0.25 * Math.max(0, ga - 1);
+    const mean = 5.5 + Selectors.levelSkillBonus();
+    xi.forEach((x) => {
+      const g = goals.get(x) || 0;
+      let r = 6 + res + (x.skill - mean) * 0.15 + Utils.randRange(-0.6, 0.6) + (g ? 1.2 + (g - 1) * 0.9 : 0);
+      if (x.pos === 'GK' || x.pos === 'DEF') r += ga === 0 ? 0.8 : -0.25 * Math.max(0, ga - 1);
+      if (x.pos === 'FWD' && !g) r -= 0.3;
       if (r > 7.5) r = 7.5 + (r - 7.5) * 0.7;
+      if (r > 9) r = 9 + (r - 9) * 0.4;
       r = Math.round(Utils.clamp(r, 1, 10) * 10) / 10;
       x.apps++; x.rs = Math.round((x.rs + r) * 10) / 10; x.rc++;
     });
@@ -10776,8 +10818,8 @@ const UI = {
     if (ctx === 'club') return picker + UI.teamStatsCard();
     const sortKey = ['g', 'a', 'r'].includes(gameState.ui.statsSort) ? gameState.ui.statsSort : 'g';
     let rows = [];
-    gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
-    if (ctx === 'league') Object.entries(gameState.season.pstats || {}).forEach(([team, ro]) => ro.forEach((x) => { if (x.apps) rows.push({ name: x.n, team: Selectors.teamName(team), pos: x.pos, apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }));
+    gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
+    if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Math.round(Utils.clamp(32 + x.skill * 3.6, 1, CONFIG.domesticOvrCap)), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
     const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : 1;
     const val = (x) => (sortKey === 'r' ? (x.apps >= minApps && x.r != null ? x.r : -1) : x[sortKey]);
     rows.sort((x, y) => val(y) - val(x) || y.g - x.g || y.a - x.a || (y.r || 0) - (x.r || 0));
@@ -10789,7 +10831,7 @@ const UI = {
     const body = top.map((x, i) => `
       <tr class="border-b border-paper-300 last:border-0 ${x.us ? 'bg-amber-glow/25' : ''}">
         <td class="py-[3px] pl-1 pr-1 text-ink-700 text-right">${x.rank}.</td>
-        <td class="py-[3px] pr-1 max-w-0 w-full"><div class="truncate ${x.us ? 'font-bold' : ''}">${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.apps} m.</div></td>
+        <td class="py-[3px] pr-1 max-w-0 w-full"><div class="truncate ${x.us ? 'font-bold' : ''}">${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${x.ovr} · ${x.apps} m.</div></td>
         <td class="px-1 text-right ${sortKey === 'g' ? 'font-bold' : ''}">${x.g}</td><td class="px-1 text-right ${sortKey === 'a' ? 'font-bold' : ''}">${x.a}</td>
         <td class="px-1 pr-1.5 text-right ${sortKey === 'r' ? 'font-bold' : ''}">${x.r != null ? x.r.toFixed(2) : '–'}</td>
       </tr>`).join('');
