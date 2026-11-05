@@ -4342,6 +4342,24 @@ const Engine = {
       }
     });
   },
+  // Limit OVR krajowej giełdy wg szczebla: niżej najwyżej „lokalna gwiazdeczka” (+5 ponad przeciętnego zawodnika ligi),
+  // w II/I lidze do +10, w Ekstraklasie do +12; prawdziwe gwiazdy i światowy top tylko na rynku zagranicznym (od I ligi / Ekstraklasy + puchary)
+  marketOvrCap: (lvl = gameState.club.leagueLevel) => Math.round(Selectors.ovrOf(5.5 + (DATA.leagueLevels[lvl] || DATA.leagueLevels[1]).skillBonus)) + (lvl >= 8 ? 12 : lvl >= 6 ? 10 : 5),
+  capMarket() {
+    const t = gameState.transfer;
+    if (!t) return;
+    const capSkill = Math.round((Engine.marketOvrCap() - 16) / 4);   // skok umiejętności = 4 OVR
+    const capList = (list) => (list || []).forEach((p) => {
+      if (p.skill <= capSkill) return;
+      const v0 = Selectors.marketValue(p), fee0 = p.fee;
+      p.skill = capSkill;
+      if (p.potential != null) p.potential = Math.max(p.skill, Math.min(p.potential, capSkill + 2));
+      if (fee0 != null && v0) p.fee = Math.max(20, Math.round(fee0 * Selectors.marketValue(p) / v0 / 10) * 10);
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5);
+    });
+    capList(t.market); capList(t.loanMarket);
+    if (gameState.club.leagueLevel < 6) t.foreign = [];   // zagranica dopiero od II ligi
+  },
   // Zagraniczny rynek transferowy (od II ligi): trzy półki – talenty, solidni ligowcy, gwiazdy (gwiazdy: skaut 2+ albo sezon w pucharach)
   openForeignMarket() {
     const t = gameState.transfer, lvl = gameState.club.leagueLevel;
@@ -6777,6 +6795,7 @@ const Engine = {
     Engine.watchlistToMarket();   // lista życzeń: priorytetowo na górze giełdy
     Engine.rivalsToMarket();      // kluby z ligi wystawiają też swoich zawodników (m.in. alter-ego)
     Engine.openForeignMarket();   // zagraniczna giełda (od II ligi)
+    Engine.capMarket();           // bez „kosmitów” na krajowej giełdzie niższych lig
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -11965,6 +11984,7 @@ const Actions = {
     if (!saved) return;
     gameState = saved;
     gameState.screen = 'game';
+    if (gameState.transfer && gameState.transfer.open) Engine.capMarket();   // otwarte okno ze starszej wersji: przycinamy giełdę
     App.commit();
     window.scrollTo(0, 0);
   },
