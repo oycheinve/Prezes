@@ -4342,6 +4342,56 @@ const Engine = {
       }
     });
   },
+  // Zagraniczny rynek transferowy (od II ligi): trzy półki – talenty, solidni ligowcy, gwiazdy (gwiazdy: skaut 2+ albo sezon w pucharach)
+  openForeignMarket() {
+    const t = gameState.transfer, lvl = gameState.club.leagueLevel;
+    t.foreign = [];
+    if (lvl < 6) return;
+    const b = Selectors.levelSkillBonus(), e = Selectors.econ();
+    const T = DATA.euro.clubs;
+    const make = (tier, pos) => {
+      const cfg = {
+        talent: { age: [17, 20], sk: [b + 3, b + 6], pot: [3, 5], clubs: T[1].concat(T[2]), fee: 1.3, wage: 1.4 },
+        solid:  { age: [23, 29], sk: [b + 6, b + 8], pot: [0, 1], clubs: T[0].concat(T[1]), fee: 1.5, wage: 1.8 },
+        star:   { age: [24, 29], sk: [Math.max(16, b + 9), 18], pot: [0, 1], clubs: T[2].concat(T[3]), fee: 2.4, wage: 2.6 },
+      }[tier];
+      const p = Engine.makePlayer({ ageMin: cfg.age[0], ageMax: cfg.age[1], skillMin: cfg.sk[0], skillMax: cfg.sk[1], pos, pro: true });
+      const P = DATA.proNames[Utils.rand(['iber', 'balk', 'north'])];
+      p.first = Utils.rand(P.first); p.last = Utils.rand(P.last); p.nick = p.last; p.noNick = true;
+      p.potential = Math.min(CONFIG.maxSkill, p.skill + Utils.randInt(cfg.pot[0], cfg.pot[1]));
+      if (tier === 'talent' && Math.random() < 0.35) Engine.markTalent(p);
+      p.foreign = tier;
+      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e * cfg.wage / 5) * 5);
+      p.fee = Math.max(50, Math.round(Selectors.feeFromValue(Selectors.marketValue(p)) * cfg.fee / 100) * 100);
+      Engine.fakeHistory(p, Utils.rand(cfg.clubs));
+      p.fromLevel = null;
+      return p;
+    };
+    ['MID', 'FWD', 'DEF'].forEach((pos) => t.foreign.push(make('talent', pos)));
+    ['DEF', 'MID', 'FWD'].forEach((pos) => t.foreign.push(make('solid', pos)));
+    if (Selectors.foreignStarsOpen()) ['MID', 'FWD'].forEach((pos) => t.foreign.push(make('star', pos)));
+  },
+  buyForeign(id) {
+    if (Selectors.transferBanned()) return false;
+    const t = gameState.transfer;
+    const p = t.open && (t.foreign || []).find((x) => x.id === id);
+    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return false;
+    const acc = Selectors.foreignSignChance(p);
+    if (Math.random() > acc) {
+      t.foreign = t.foreign.filter((x) => x.id !== id);
+      Engine.alert('🙅', 'Odmowa z zagranicy', Selectors.playerName(p) + ' (' + p.fromClub + ') nie chce przenosić się do ' + Selectors.leagueName() + ': „' + Utils.rand(['Szukam klubu grającego w Europie.', 'Mój agent ma ofertę z silniejszej ligi.', 'Polska? Może kiedyś.']) + '”', 'bad');
+      Engine.addLog('🙅 ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' odrzucił naszą ofertę.', 'decision');
+      return false;
+    }
+    Engine.money('Transfer z zagranicy: ' + Selectors.playerName(p), -p.fee);
+    t.foreign = t.foreign.filter((x) => x.id !== id);
+    delete p.fee;
+    gameState.squad.push(p);
+    t.bought++;
+    Engine.addLog('🌍 Transfer z zagranicy: ' + Selectors.playerName(p) + ' (' + p.fromClub + ', ' + DATA.positions[p.pos].label.toLowerCase() + ', ' + Utils.formatMoney(p.wage) + '/tydz.) dołącza do klubu.', 'decision');
+    if (p.foreign === 'star') { Engine.applyEffects({ fans: +4 }); Engine.xPost('portal', 'HIT TRANSFEROWY! ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' zagra w ' + Selectors.clubDisplayName() + '! 🌍🔥'); }
+    return true;
+  },
   // Giełda: zawodnik rywala (np. alter-ego z Ekstraklasy) wystawiony przez swój klub
   marketFromRival(team, src) {
     const p = Engine.makePlayer({ ageMin: src.age, ageMax: src.age, skillMin: src.skill, skillMax: src.skill, pos: src.pos, pro: !!src.pro, trait: src.ae ? Utils.rand(DATA.proTraits.filter((t) => t.tag !== 'party')) : null });
@@ -6675,6 +6725,7 @@ const Engine = {
     Engine.scoutBargains();  // skaut wynajduje okazje cenowe i perełki
     Engine.watchlistToMarket();   // lista życzeń: priorytetowo na górze giełdy
     Engine.rivalsToMarket();      // kluby z ligi wystawiają też swoich zawodników (m.in. alter-ego)
+    Engine.openForeignMarket();   // zagraniczna giełda (od II ligi)
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -8601,6 +8652,13 @@ const Selectors = {
   // Skala europejska: siła klubu z pucharów → OVR (skromny mistrz ok. 68–72, czołówka ok. 80–85, giganci 85–92)
   euroOvr: (s) => Math.round(Utils.clamp(68 + (s - 2.4) * 18.5, 60, 94)),
   giants: () => DATA.euro.lp.UCL.slice(0, 16),
+  foreignStarsOpen: () => gameState.club.leagueLevel >= 7 && (Selectors.staffRawLevel('skaut') >= 2 || Selectors.euroThisSeason()),
+  // Gotowość do przeprowadzki: Europa i liga przyciągają, gwiazdy są wybredne
+  foreignSignChance: (p) => {
+    const lvl = gameState.club.leagueLevel, euro = Selectors.euroThisSeason() ? (gameState.euro.comp === 'UCL' ? 0.35 : gameState.euro.comp === 'UEL' ? 0.25 : 0.15) : 0;
+    const base = { talent: 0.75, solid: 0.6, star: 0.2 }[p.foreign] || 0.6;
+    return Utils.clamp(base + (lvl - 6) * 0.08 + euro + (gameState.morale.fans - 50) / 400, 0.1, 0.95);
+  },
   // Zawodnik na tyle dobry, że może go kupić europejski gigant (tylko z Ekstraklasy / czołówki I ligi)
   // Profil transferowy gigantów: młodzi z wysokim potencjałem (do 23 l.), wyjątkowo 24–26 l. z już wysokim OVR; nigdy starsze gwiazdy
   growthRoom: (age) => (age <= 19 ? 4 : age <= 21 ? 3 : age <= 23 ? 2 : age <= 25 ? 1 : 0),
@@ -9979,7 +10037,7 @@ const UI = {
         <summary class="flex items-center gap-2 py-2 cursor-pointer select-none">
           <div class="min-w-0 flex-1">
             <div class="text-[13.5px] font-bold truncate">${UI.ovrBadge(p)} ${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.talent ? ' 💎' : ''}</div>
-            <div class="text-[11px] text-paper-400 truncate">${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
+            <div class="text-[11px] text-paper-400 truncate">${p.foreign && p.fee != null ? '<b class="text-sky-500">🌍 ' + Utils.escape(p.fromClub || '') + '</b> · ' : ''}${p.wl ? '<b class="text-amber-glow">⭐ z listy życzeń</b> · ' : p.listedBy ? '<b class="text-sky-600">📋 ' + Utils.escape(p.listedBy) + (p.alterEgo ? ' · 🪞' : '') + '</b> · ' : ''}${p.fireSale ? '<b class="text-stamp">🚨 wyprzedaż</b> · ' : ''}${p.bargain ? '<b class="text-grass">🔭 okazja skauta</b> · ' : ''}${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · ${Selectors.skillLabel(p.skill)}${extra ? ' · ' + extra : ''}</div>
           </div>
           <span class="text-[12.5px] font-bold whitespace-nowrap">${right}</span>
           <span class="fold-chevron text-paper-400">⌄</span>
@@ -10023,6 +10081,13 @@ const UI = {
       rows = banNote + (Selectors.beerAllowed() ? `<p class="text-[10.5px] text-paper-400 mt-1.5 leading-snug">🍺 Po prowincjonalnemu: skrzynka piwa i wiejska kiełbasa (${Utils.formatMoney(Selectors.beerCost())}) zamiast odstępnego. Może przejść… albo skończyć się aferą w mediach.</p>` : '')
         + t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', beer(p) + btn('buy-transfer', p.id, 'Kup za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
         || '<p class="text-[12.5px] text-paper-400 py-2">Giełda pusta – wszyscy już kupieni.</p>';
+    } else if (view === 'foreign') {
+      const fl = t.foreign || [];
+      const tierLbl = { talent: '🌱 Talent z zagranicznej akademii', solid: '🧱 Solidny ligowiec z Europy', star: '⭐ Gwiazda z europejskiego klubu' };
+      const lockNote = gameState.club.leagueLevel < 6 ? '<p class="text-[12px] text-paper-300 mt-2 leading-snug">🔒 Zagraniczni zawodnicy rozmawiają z klubami od II ligi. Na razie agentom z Europy nie opłaca się dzwonić.</p>'
+        : `<p class="text-[11px] text-paper-400 mt-1.5 leading-snug">Agenci z całej Europy: wyższe odstępne i pensje niż w kraju. Zgoda zależy od ligi i gry w pucharach${Selectors.euroThisSeason() ? ' (w tym sezonie gramy w Europie – łatwiej)' : ''}.${Selectors.foreignStarsOpen() ? '' : gameState.club.leagueLevel >= 7 ? ' ⭐ Gwiazdy: potrzebny skaut poz. 2+ albo sezon w pucharach.' : ' ⭐ Gwiazdy: od I ligi.'}</p>`;
+      rows = banNote + lockNote + fl.map((p) => card(p, Utils.formatMoney(p.fee), Utils.formatMoney(p.wage) + '/tydz.', `<span class="text-[11px] text-paper-400 self-center">${tierLbl[p.foreign] || ''} · zgoda ok. ${Math.round(Selectors.foreignSignChance(p) * 100)}%</span>` + btn('buy-foreign', p.id, 'Kup za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
+        + (gameState.club.leagueLevel >= 6 && !fl.length ? '<p class="text-[12.5px] text-paper-400 py-2">Wszyscy zagraniczni kandydaci rozpatrzeni.</p>' : '');
     } else if (view === 'loan') {
       rows = banNote + '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji, po sezonie wracają do siebie.</p>'
         + (t.loanMarket.map((p) => card(p, Utils.formatMoney(p.fee), '🔁 ' + Utils.escape(p.loan.from), btn('loan-in', p.id, 'Wypożycz za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
@@ -10051,7 +10116,7 @@ const UI = {
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px]">${gameState.squad.length}/${CONFIG.maxSquad}</b></div>
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Przyszło / odeszło</div><b class="text-[14px]">${t.bought} / ${t.sold}</b></div>
         </div>
-        <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('loan', '🤝 Wypożycz')}${seg('sell', '💸 Sprzedaj')}</div>
+        <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('foreign', '🌍 Świat')}${seg('loan', '🤝 Wyp.')}${seg('sell', '💸 Sprzedaj')}</div>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto px-4 mt-1 text-paper-100">${rows}</div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -11921,10 +11986,11 @@ const Actions = {
     App.commit();
   },
   'transfer-view'(el) {
-    if (['offers', 'buy', 'loan', 'sell'].includes(el.dataset.value)) gameState.ui.transferView = el.dataset.value;
+    if (['offers', 'buy', 'foreign', 'loan', 'sell'].includes(el.dataset.value)) gameState.ui.transferView = el.dataset.value;
     App.commit();
   },
   'buy-transfer'(el) { Engine.buyTransfer(el.dataset.id); App.commit(); },
+  'buy-foreign'(el) { Engine.buyForeign(el.dataset.id); App.commit(); },
   'buy-beer'(el)     { Engine.buyTransferBeer(el.dataset.id); App.commit(); },
   'loan-in'(el)      { Engine.loanIn(el.dataset.id); App.commit(); },
   'player-open'(el)  { gameState.ui.playerSheet = el.dataset.id; App.commit(); },
