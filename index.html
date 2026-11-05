@@ -842,6 +842,25 @@ const DATA = {
     ['Zachodniopomorski', 'Stadion Pogoni Szczecin'], ['Kujawsko-Pomorski', 'Stadion Zawiszy Bydgoszcz'], ['Warmińsko-Mazurski', 'Stadion Stomilu Olsztyn'],
     ['Podlaski', 'Stadion Miejski w Białymstoku'], ['Świętokrzyski', 'Suzuki Arena Kielce'], ['Opolski', 'Stadion Odry Opole'], ['Lubuski', 'Stadion w Zielonej Górze'],
   ],
+  // 13.96: kluby z wyższych lig, od których można wynająć stadion (indeks województwa jak w cupRegions)
+  rentHosts: [
+    [['Chrobry Głogów', 'Stadion Miejski w Głogowie'], ['Miedź Legnica', 'Stadion Orła Białego'], ['Zagłębie Lubin', 'Stadion Zagłębia'], ['Śląsk Wrocław', 'Tarczyński Arena']],
+    [['Znicz Pruszków', 'Stadion Znicza'], ['Polonia Warszawa', 'Stadion Polonii'], ['Radomiak Radom', 'Stadion Miejski w Radomiu'], ['Legia Warszawa', 'Stadion Wojska Polskiego']],
+    [['KKS Kalisz', 'Stadion Miejski w Kaliszu'], ['Warta Poznań', 'Stadion Warty'], ['Lech Poznań', 'Enea Stadion']],
+    [['GKS Tychy', 'Stadion Miejski w Tychach'], ['Ruch Chorzów', 'Stadion Śląski'], ['GKS Katowice', 'Arena Katowice'], ['Górnik Zabrze', 'Arena Zabrze'], ['Raków Częstochowa', 'Stadion Rakowa']],
+    [['Sandecja Nowy Sącz', 'Stadion Sandecji'], ['Bruk-Bet Termalica', 'Stadion w Niecieczy'], ['Wisła Kraków', 'Stadion Wisły'], ['Cracovia', 'Stadion Cracovii']],
+    [['Chojniczanka Chojnice', 'Stadion w Chojnicach'], ['Arka Gdynia', 'Stadion Miejski w Gdyni'], ['Lechia Gdańsk', 'Polsat Plus Arena Gdańsk']],
+    [['GKS Bełchatów', 'Stadion w Bełchatowie'], ['ŁKS Łódź', 'Stadion ŁKS'], ['Widzew Łódź', 'Stadion Widzewa']],
+    [['Avia Świdnik', 'Stadion w Świdniku'], ['Górnik Łęczna', 'Stadion w Łęcznej'], ['Motor Lublin', 'Arena Lublin']],
+    [['Resovia', 'Stadion Resovii'], ['Stal Rzeszów', 'Stadion Miejski w Rzeszowie'], ['Stal Mielec', 'Stadion Stali Mielec']],
+    [['Kotwica Kołobrzeg', 'Stadion w Kołobrzegu'], ['Świt Szczecin', 'Stadion Świtu'], ['Pogoń Szczecin', 'Stadion Pogoni']],
+    [['Elana Toruń', 'Stadion Elany'], ['Olimpia Grudziądz', 'Stadion w Grudziądzu'], ['Zawisza Bydgoszcz', 'Stadion Zawiszy']],
+    [['Olimpia Elbląg', 'Stadion w Elblągu'], ['Stomil Olsztyn', 'Stadion Stomilu']],
+    [['Wigry Suwałki', 'Stadion w Suwałkach'], ['ŁKS Łomża', 'Stadion w Łomży'], ['Jagiellonia Białystok', 'Stadion Miejski w Białymstoku']],
+    [['KSZO Ostrowiec', 'Stadion KSZO'], ['Korona Kielce', 'Suzuki Arena']],
+    [['Ruch Zdzieszowice', 'Stadion w Zdzieszowicach'], ['Odra Opole', 'Stadion Odry']],
+    [['Lechia Zielona Góra', 'Stadion w Zielonej Górze'], ['Stilon Gorzów', 'Stadion Stilonu']],
+  ],
   // Kartki: mnożnik stylu trenera (laga i „oranie boiska” = dużo fauli, bezpieczna gra techniczna = mało)
   cardStyle: { off: 1.2, bal: 0.75, def: 1.5 },
 
@@ -2412,6 +2431,33 @@ const DATA = {
         },
       ],
     },
+    // 13.96: dylemat licencyjny po awansie bez stadionu
+    stadiumRent: {
+      id: 'stadiumRent',
+      cutscene: { icon: '🏟️', place: 'Wydział Licencyjny Związku · po awansie', scripted: true },
+      from: 'Wydział Licencyjny (pismo z pieczątką)',
+      title: () => { const d = gameState.stadiumDilemma; return 'Awans bez stadionu: ' + (d ? DATA.leagueLevels[d.to].name : Selectors.leagueName()); },
+      body: () => {
+        const d = gameState.stadiumDilemma; if (!d) return 'Sprawa nieaktualna.';
+        const need = DATA.stadiumLevels[DATA.licenseCapacity[d.to] || 0].capacity;
+        const host = Selectors.rentHost(d.to);
+        return 'Gratulujemy awansu. Licencja na ' + DATA.leagueLevels[d.to].name + ' wymaga trybun na min. ' + need + ' miejsc, a ' + Selectors.stadiumName() + ' ma ' + DATA.stadiumLevels[gameState.stadium.level || 0].capacity + '. Jedyne wyjście: grać u kogoś innego – ' + host[0] + ' gotów udostępnić „' + host[1] + '”. Za odpowiednią opłatą.';
+      },
+      options: [
+        {
+          label: () => { const d = gameState.stadiumDilemma; return d ? 'Wynajmujemy: ' + Selectors.rentHost(d.to)[1] : 'Wynajmujemy stadion'; },
+          hint: () => { const d = gameState.stadiumDilemma; if (!d) return ''; const t = Selectors.rentTerms(d.to); return 'Na start ' + Utils.signedMoney(-t.entry) + ', potem ' + Utils.formatMoney(t.monthly) + ' czynszu co miesiąc, aż zbudujesz własne trybuny · frekwencja ok. ' + Math.round((1 - t.attendance) * 100) + '% niższa'; },
+          effects: {}, log: 'Prezes podpisuje umowę najmu. Ręka drży nad długopisem.',
+          onChoose: () => Engine.rentStadium(),
+        },
+        {
+          label: 'Rezygnujemy z awansu',
+          hint: () => { const d = gameState.stadiumDilemma; return 'Zostajemy w lidze ' + (d ? DATA.leagueLevels[d.from].name : '') + ' · kibice -12%, szatnia -8%, sponsor niezadowolony'; },
+          effects: {}, log: 'Prezes odkłada pióro: „Najpierw własny stadion”.',
+          onChoose: () => Engine.declinePromotion(),
+        },
+      ],
+    },
     // 13.95: nowe scenki z rozgałęzionymi skutkami (wynik każdej odpowiedzi rozstrzyga ukryty rzut)
     cutDerbyBet: {
       id: 'cutDerbyBet', levels: [1, 4],
@@ -3650,6 +3696,8 @@ function createInitialState() {
     version: CONFIG.saveVersion,
     screen: 'start',            // 'start' | 'game'
     activeTab: 'desk',
+    rental: null,               // 13.96: wynajęty stadion (awans bez własnego obiektu)
+    stadiumDilemma: null,       // 13.96: oczekujący dylemat licencyjny po awansie
     club: {
       name: '',
       leagueLevel: 1,
@@ -4339,6 +4387,7 @@ const Engine = {
     base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
     if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
     if (gameState.stadium.pitch < 25) base *= 0.85;
+    if (gameState.rental) base *= gameState.rental.attendance || 0.62;   // 13.96: kibice muszą dojeżdżać na wynajęty stadion
     let att = base * weather.attendance;
     if (weather.rain && gameState.stadium.upgrades.roof) att += Math.min(30, base - att);
     return Math.max(0, Math.min(Selectors.stadiumCapacity(), Math.round(att)));   // więcej się nie zmieści
@@ -4813,10 +4862,18 @@ const Engine = {
     if (Selectors.euroThisSeason() && gameState.euro.result && gameState.euro.result.startsWith('🏆')) Engine.addTrophy('🌟', 'Puchar ' + DATA.euro.comps[gameState.euro.comp].name);
     if (outcome === 'promo') {
       gameState.stats.promotions++;
+      const prevTop = gameState.stats.topLevel;
       gameState.stats.topLevel = Math.max(gameState.stats.topLevel, newLevel);
       const outdated = Object.keys(DATA.staffSlots).filter((k) => { const r = Selectors.staffRawLevel(k); return r > 0 && r < Selectors.staffStandard(newLevel); });
       if (outdated.length) Engine.addLog('🔻 Sztab odstaje od nowej ligi: ' + outdated.map((k) => DATA.staffSlots[k].label + ' (' + gameState.staff[k].name + ')').join(', ') + '. Ich efekt spada o połowę – czas na lepszych fachowców (Sztab → Sztab).', 'system');
+      // 13.96: za mały stadion – wynajem albo rezygnacja z awansu (decyzja po ogłoszeniu terminarza)
+      const needCap = DATA.licenseCapacity[newLevel] || 0;
+      if ((gameState.stadium.level || 0) < needCap && !Selectors.rentalCovers(newLevel)) {
+        gameState.stadiumDilemma = { from: level, to: newLevel, levelSince: gameState.club.levelSince, topLevel: prevTop, medal: pos !== 1, season: gameState.calendar.season };
+        Engine.addLog('🏟️ Awans wywalczony, ale stadion ma za mało miejsc na ' + DATA.leagueLevels[newLevel].name + ' (wymóg: ' + DATA.stadiumLevels[needCap].capacity + '). Prezes musi zdecydować: wynająć cudzy obiekt albo zrezygnować z awansu.', 'system');
+      }
       Engine.checkLicense(newLevel);
+      if (gameState.stadiumDilemma) Engine.pushDecision('stadiumRent');
       if (!Selectors.coachLicenseOk(newLevel)) { gameState.coach.licenseFor = newLevel; Engine.pushDecision('coachLicense'); }
     } else if (outcome === 'releg' || outcome === 'forced') {
       gameState.stats.relegations++;
@@ -4921,6 +4978,7 @@ const Engine = {
       gameState.club.leagueLevel = newLevel;
       gameState.club.levelSince = gameState.calendar.season + 1;   // marka w nowej lidze buduje się od zera
       Engine.buildLeague(newLevel);
+      if (gameState.rental && (gameState.stadium.level || 0) >= (DATA.licenseCapacity[newLevel] || 0)) Engine.endRental('📦 Po zmianie ligi własny stadion znów wystarcza – klub wraca do domu z wynajętego obiektu.');
     }
     Engine.newSeason();
     if (euroNext) Engine.euroSetup(euroNext);
@@ -7481,7 +7539,7 @@ const Engine = {
     if (!st.tiers) st.tiers = {};
     const next = (DATA.upgradeTiers[id] || [])[Selectors.upgradeTier(id)];
     const cost = next && Selectors.tierCost(next);
-    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < cost || Selectors.buildOf('tier', id) || !Selectors.buildFree()) return;
+    if (!st.upgrades[id] || !next || gameState.club.leagueLevel < next.minLevel || gameState.finance.budget < cost || Selectors.buildOf('tier', id) || !Selectors.canBuild('tier', id)) return;
     Engine.money('Modernizacja: ' + next.label, -cost);
     Engine.startBuild('tier', id, Selectors.tierWeeks(next), next.label);
   },
@@ -7489,12 +7547,57 @@ const Engine = {
   buyUpgrade(id) {
     const u = DATA.upgrades[id];
     const cost = Selectors.upgradeCost(id);
-    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost || Selectors.buildOf('up', id) || !Selectors.buildFree()) return;
+    if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost || Selectors.buildOf('up', id) || !Selectors.canBuild('up', id)) return;
     const label = Selectors.upgradeLabel(id, Selectors.band());
     Engine.money('Inwestycja: ' + label, -cost);
     if (!gameState.stadium.upgradeBand) gameState.stadium.upgradeBand = {};
     gameState.stadium.upgradeBand[id] = Selectors.band();   // obiekt zapamiętuje, w jakich realiach go zbudowano
     Engine.startBuild('up', id, Selectors.upgradeWeeks(id), label);
+  },
+
+  // 13.96: dylemat licencyjny – wynajem cudzego stadionu albo rezygnacja z awansu
+  rentStadium() {
+    const d = gameState.stadiumDilemma; if (!d) return;
+    const host = Selectors.rentHost(d.to);
+    const t = Selectors.rentTerms(d.to);
+    Engine.money('Wynajem stadionu – opłata wstępna (' + host[0] + ')', -t.entry);
+    gameState.rental = { host: host[0], stadium: host[1], cap: t.cap, monthly: t.monthly, attendance: t.attendance, since: gameState.calendar.week, lastPaid: gameState.calendar.week, paid: t.entry };
+    gameState.stadiumDilemma = null;
+    Engine.applyEffects({ fans: -3 });
+    Engine.addLog('🏟️ Umowa podpisana: mecze domowe na obiekcie „' + host[1] + '” (' + host[0] + '). Opłata wstępna ' + Utils.formatMoney(t.entry) + ', czynsz ' + Utils.formatMoney(t.monthly) + ' co miesiąc. Kibice muszą dojeżdżać – frekwencja ok. ' + Math.round((1 - t.attendance) * 100) + '% niższa. [kibice -3%]', 'finance');
+    Engine.xPost('portal', Selectors.clubDisplayName() + ' zagra w ' + Selectors.leagueName() + ' na wynajętym stadionie: ' + host[1] + '. Kibice organizują autokary. 🚌');
+  },
+  declinePromotion() {
+    const d = gameState.stadiumDilemma; if (!d) return;
+    const from = d.from, to = d.to;
+    gameState.stadiumDilemma = null;
+    const ratio = DATA.leagueLevels[from].econ / DATA.leagueLevels[to].econ;
+    gameState.squad.forEach((p) => { if (!p.loan) p.wage = Math.max(5, Math.round(p.wage * Math.pow(ratio, 0.7) / 5) * 5); });
+    gameState.club.leagueLevel = from;
+    gameState.club.levelSince = d.levelSince != null ? d.levelSince : gameState.club.levelSince;
+    gameState.stats.promotions = Math.max(0, gameState.stats.promotions - 1);
+    if (d.topLevel != null) gameState.stats.topLevel = d.topLevel;
+    if (d.medal && gameState.trophies) {
+      const i = gameState.trophies.map((x) => x.kind === 'medal' && x.season === d.season && x.lvl === to).lastIndexOf(true);
+      if (i >= 0) gameState.trophies.splice(i, 1);
+    }
+    gameState.pendingDecisions = gameState.pendingDecisions.filter((id) => id !== 'coachLicense');
+    gameState.coach.licenseFor = null;
+    if (gameState.lastSeason) gameState.lastSeason.outcome = 'declined';
+    Engine.buildLeague(from);
+    Engine.newSeason();
+    Engine.refreshSponsors(true);
+    if (gameState.seasonSummary) { gameState.seasonSummary.newLeague = DATA.leagueLevels[from].name; gameState.seasonSummary.outcome = 'declined'; }
+    Engine.applyEffects({ fans: -12, lockerRoom: -8 });
+    if (Selectors.hasRealSponsor()) gameState.sponsor.strikes = (gameState.sponsor.strikes || 0) + 1;
+    Engine.addLog('🚫 Prezes rezygnuje z awansu do ligi ' + DATA.leagueLevels[to].name + ' – zostajemy w lidze ' + DATA.leagueLevels[from].name + '. Kasa ocalała, ale kibice, szatnia i zarząd czują się oszukani. [kibice -12%, szatnia -8%, sponsor niezadowolony]', 'system');
+    Engine.xPost('ultras', 'WYWALCZYLIŚMY AWANS NA BOISKU, A PREZES GO ODDAŁ?! Brak ambicji, brak jaj, brak stadionu. 🤬');
+    Engine.addLog('📠 Nowy terminarz z faksu Związku. Rywale w lidze ' + Selectors.leagueName() + ': ' + gameState.league.rivals.map((x) => x.name).join(', ') + '.', 'system');
+  },
+  endRental(text) {
+    if (!gameState.rental) return;
+    Engine.addLog(text || '🏠 Koniec wynajmu: wracamy na własny stadion ' + Selectors.stadiumName() + '!', 'finance');
+    gameState.rental = null;
   },
 
   // 13.84: budowa trwa – pieniądze od razu, efekt po oddaniu obiektu
@@ -7518,6 +7621,7 @@ const Engine = {
     } else if (b.kind === 'stadium') {
       st.level = (st.level || 0) + 1;
       Engine.applyEffects({ fans: +4 });
+      if (gameState.rental && st.level >= (DATA.licenseCapacity[gameState.club.leagueLevel] || 0)) { Engine.endRental('🏠 Nowe trybuny spełniają licencję – koniec wynajmu! Mecze wracają na ' + Selectors.stadiumName() + '. Kibice nie muszą już dojeżdżać. [kibice +5%]'); Engine.applyEffects({ fans: +5 }); }
     } else if (b.kind === 'budka') {
       const bd = gameState.budka; bd.level = (bd.level || 1) + 1;
       const L = DATA.budka.levels[bd.level];
@@ -7595,6 +7699,18 @@ const Engine = {
       const r = gameState.lastMatch.result;
       c.relation = Utils.clamp(Selectors.relation() + (r === 'W' ? 1 : r === 'L' ? -1 : 0), 0, 100);
       if (Selectors.relation() < 20) gameState.monthly.lockerRoom = (gameState.monthly.lockerRoom || 0) - 1;   // zła krew schodzi na szatnię
+    },
+    function rentalTick() {
+      // 13.96: czynsz za wynajęty stadion – płatny co miesiąc (4 tygodnie)
+      const r = gameState.rental;
+      if (!r) return;
+      if ((gameState.stadium.level || 0) >= (DATA.licenseCapacity[gameState.club.leagueLevel] || 0)) { Engine.endRental(); return; }
+      if (gameState.calendar.week - (r.lastPaid || 0) >= 4) {
+        r.lastPaid = gameState.calendar.week;
+        r.paid = (r.paid || 0) + r.monthly;
+        Engine.money('Czynsz: stadion ' + r.host, -r.monthly);
+        Engine.addLog('🏟️ Czynsz za ' + r.stadium + ' (' + r.host + '): ' + Utils.formatMoney(r.monthly) + '. Łącznie wydane na wynajem: ' + Utils.formatMoney(r.paid) + '.', 'finance');
+      }
     },
     function constructionTick() {
       const st = gameState.stadium;
@@ -7906,7 +8022,8 @@ const Selectors = {
     });
     if (!skipCoach && !Selectors.coachLicenseOk(level)) miss.push('Trener z licencją ' + DATA.coachLicenses[Selectors.coachLicenseReq(level)]);
     const needCap = DATA.licenseCapacity[level] || 0;
-    if ((gameState.stadium.level || 0) < needCap) miss.push('Trybuny: min. ' + DATA.stadiumLevels[needCap].capacity + ' miejsc');
+    const dl = gameState.stadiumDilemma;
+    if ((gameState.stadium.level || 0) < needCap && !Selectors.rentalCovers(level) && !(dl && dl.to === level)) miss.push('Trybuny: min. ' + DATA.stadiumLevels[needCap].capacity + ' miejsc');
     return miss;
   },
   isMatchWeek: () => gameState.calendar.week > CONFIG.preseasonWeeks,
@@ -8031,7 +8148,11 @@ const Selectors = {
   colors: () => DATA.clubColors[gameState.club.colors] || null,
   colorsNick: () => (Selectors.colors() ? Selectors.colors().nick : ''),
   defaultStadium: (town) => 'Boisko Gminne przy Remizie' + (town ? ' w ' + town : ''),
-  stadiumCapacity: () => DATA.stadiumLevels[gameState.stadium.level || 0].capacity,
+  stadiumCapacity: () => {
+    const own = DATA.stadiumLevels[gameState.stadium.level || 0].capacity;
+    const r = gameState.rental;
+    return r ? Math.max(own, (DATA.stadiumLevels[r.cap] || DATA.stadiumLevels[0]).capacity) : own;
+  },
   // 13.70: ceny ulepszeń rosną z rangą ligi: (współczynnik ligi / współczynnik szczebla bazowego)^0.7, w widełkach 0,5–12×
   costScale: (ref = 1, lvl = gameState.club.leagueLevel) => { const now = (DATA.leagueLevels[lvl] || DATA.leagueLevels[1]).econ, base = (DATA.leagueLevels[ref] || DATA.leagueLevels[1]).econ; return Utils.clamp(Math.pow(now / base, 0.7), 0.5, 12); },
   niceCost: (v) => { const step = v >= 100000 ? 5000 : v >= 20000 ? 1000 : v >= 5000 ? 500 : v >= 1000 ? 100 : 10; return Math.max(step, Math.round(v / step) * step); },
@@ -8046,6 +8167,36 @@ const Selectors = {
   builds: () => (gameState.stadium.builds || []),
   buildOf: (kind, id) => Selectors.builds().find((b) => b.kind === kind && b.id === id) || null,
   buildFree: () => Selectors.builds().length < Selectors.buildSlots,
+  // 13.96: podkategorie obiektów – w każdej naraz tylko jedna budowa/modernizacja
+  buildCat: (kind, id) => (kind === 'up' || kind === 'tier' ? ((DATA.upgrades[id] && DATA.upgrades[id].group) || 'lic') : kind),
+  buildCatLabel: (cat) => ({ lic: 'wymogi licencyjne', fans: 'obiekty dla kibiców', team: 'obiekty dla drużyny', stadium: 'trybuny', budka: 'gastronomia', shop: 'sklep' }[cat] || cat),
+  catBuild: (cat) => Selectors.builds().find((b) => Selectors.buildCat(b.kind, b.id) === cat) || null,
+  canBuild: (kind, id) => Selectors.buildFree() && !Selectors.catBuild(Selectors.buildCat(kind, id)),
+  buildBlockReason: (kind, id) => (!Selectors.buildFree() ? 'ekipy zajęte' : Selectors.catBuild(Selectors.buildCat(kind, id)) ? 'w tej grupie już trwa budowa' : ''),
+  // 13.96: wynajęty stadion
+  rental: () => gameState.rental || null,
+  rentalCovers: (level) => { const r = gameState.rental; return !!(r && r.cap >= (DATA.licenseCapacity[level] || 0)); },
+  rentHost: (needLevel) => {
+    const list = DATA.rentHosts[gameState.club.region != null ? gameState.club.region : 1] || DATA.rentHosts[1];
+    const lv = (c) => { const l = Selectors.levelOfClub(c[0]); return l > 0 ? l : 7; };
+    // najpierw województwo klubu; gdy brak tam odpowiedniego obiektu – najbliższy poziomem klub z innego regionu
+    return list.find((c) => lv(c) > needLevel) || list.find((c) => lv(c) >= needLevel)
+      || DATA.rentHosts.flat().find((c) => lv(c) >= needLevel) || list[list.length - 1];
+  },
+  rentTerms: (toLevel) => {
+    const cap = DATA.licenseCapacity[toLevel] || 0;
+    const own = gameState.stadium.level || 0;
+    // koszt brakujących etapów trybun – czynsz rozliczany względem tego, co klub musiałby zbudować
+    let gap = 0; for (let i = own + 1; i <= cap; i++) gap += Selectors.stadiumCost(i);
+    const econRatio = DATA.leagueLevels[toLevel].econ / Selectors.econ();
+    gap = Math.max(gap, Selectors.stadiumCost(Math.max(1, cap)) * 0.5);
+    return {
+      cap,
+      entry: Selectors.niceCost(Math.max(gap * 0.5, 2500 * DATA.leagueLevels[toLevel].econ)),     // ok. 8 tygodni przychodów klubu
+      monthly: Selectors.niceCost(Math.max(gap * 0.12, 400 * DATA.leagueLevels[toLevel].econ)),   // ok. 1/3 miesięcznych przychodów
+      attendance: 0.62, econRatio,
+    };
+  },
   upgradeWeeks: (id) => ({ roller: 1, boiler: 1, toilets: 1, parking: 2, kiosk: 2, scoreboard: 2, tvcams: 3, gym: 3, shop: 3, irrigation: 3, roof: 3, clubhouse: 4, lights: 4, var: 4, monitoring: 4, vip: 5, stand: 6, training: 6, academyHall: 8 }[id] || 3),
   tierWeeks: (t) => 3 + Math.round((t.minLevel || 1) * 0.9),
   budkaWeeks: (lvl) => [0, 0, 1, 2, 3, 5][lvl] || 3,
@@ -9398,7 +9549,7 @@ const UI = {
     const verdict = {
       title: ['🏆 MISTRZ POLSKI', 'text-amber-glow'], promo: ['⬆️ AWANS', 'text-grass'], podium: ['🥉 Podium', 'text-grass'], mid: ['Utrzymanie', 'text-paper-200'],
       euro: ['🇪🇺 EUROPEJSKIE PUCHARY', 'text-amber-glow'], poLost: ['💔 Przegrany baraż o awans', 'text-paper-200'], poSafe: ['😮‍💨 Utrzymanie w barażach', 'text-grass'],
-      releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], licBlock: ['🚫 Awans zablokowany: brak VAR', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
+      declined: ['🚫 Awans oddany – za mały stadion', 'text-stamp'], releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], licBlock: ['🚫 Awans zablokowany: brak VAR', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
     }[sm.outcome] || ['Koniec sezonu', 'text-paper-200'];
     const list = (title, items, empty) => `
       <div class="rounded-xl bg-desk-800 px-3 py-2">
@@ -11080,9 +11231,9 @@ const UI = {
       const tierName = tier ? (DATA.upgradeTiers[id][tier - 1].label) : '';
       const bU = Selectors.buildOf('up', id), bT = Selectors.buildOf('tier', id);
       const busy = (b) => `<span class="text-[11px] font-bold text-amber-600 text-right leading-tight whitespace-nowrap">🏗️ ${Selectors.buildLeft(b)} tyg.</span>`;
-      const crew = '<span class="text-[10.5px] text-ink-700 text-right leading-tight">ekipy<br>zajęte</span>';
-      const action = bU ? busy(bU) : bT ? busy(bT) : !owned ? (Selectors.buildFree() ? UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup · ' + Selectors.upgradeWeeks(id) + ' tyg.', gameState.finance.budget < Selectors.upgradeCost(id)) : crew)
-        : next ? (gameState.club.leagueLevel >= next.minLevel ? (Selectors.buildFree() ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(Selectors.tierCost(next)) + ' · ' + Selectors.tierWeeks(next) + ' tyg.', gameState.finance.budget < Selectors.tierCost(next)) : crew) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
+      const crew = (kind) => Selectors.buildFree() ? '<span class="text-[10.5px] text-ink-700 text-right leading-tight">grupa<br>zajęta</span>' : '<span class="text-[10.5px] text-ink-700 text-right leading-tight">ekipy<br>zajęte</span>';
+      const action = bU ? busy(bU) : bT ? busy(bT) : !owned ? (Selectors.canBuild('up', id) ? UI.smallBtn('buy-upgrade', `data-id="${id}"`, 'Kup · ' + Selectors.upgradeWeeks(id) + ' tyg.', gameState.finance.budget < Selectors.upgradeCost(id)) : crew('up'))
+        : next ? (gameState.club.leagueLevel >= next.minLevel ? (Selectors.canBuild('tier', id) ? UI.smallBtn('upgrade-facility', `data-id="${id}"`, 'Ulepsz ' + Utils.formatMoney(Selectors.tierCost(next)) + ' · ' + Selectors.tierWeeks(next) + ' tyg.', gameState.finance.budget < Selectors.tierCost(next)) : crew('tier')) : `<span class="text-[10.5px] text-ink-700 text-right leading-tight">ulepszenie od<br>${DATA.leagueLevels[next.minLevel].name}</span>`)
         : '<span class="text-[11px] font-bold text-grass">MAX</span>';
       return UI.row(`${owned ? '✅ ' : ''}${Utils.escape(tier ? tierName : Selectors.upgradeLabel(id))} <span class="font-normal text-ink-700">${owned ? (tier ? '· poz. ' + (tier + 1) : '') : '– ' + Utils.formatMoney(Selectors.upgradeCost(id)) + (Selectors.upgradeCost(id) < Selectors.upgradeCost(id, true) ? ' (rabat Kółka Rolniczego)' : '')}</span>`,
         (next ? 'Dalej: <b>' + Utils.escape(next.label) + '</b>' : Utils.escape(Selectors.upgradeDesc(id))) + lic,
@@ -11091,11 +11242,14 @@ const UI = {
     const group = (key, title, list, note) => {
       const done = list.filter(([id]) => st.upgrades[id]).length;
       const open = !!folds[key];
+      const cb = Selectors.catBuild(key.replace('st-', ''));   // 13.96: jedna budowa na grupę
+      const busyLine = cb ? `<p class="text-[10.5px] text-amber-700 font-semibold mt-1 truncate">🏗️ Trwa: ${Utils.escape(cb.label)} – ${Selectors.buildLeft(cb)} tyg. Kolejna inwestycja z tej grupy dopiero po oddaniu.</p>` : '';
       return `
       <details data-fold="${key}" class="mt-1.5" ${open ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
-          <span>${title}${note ? ' <span class="text-[10.5px] text-stamp font-bold">' + note + '</span>' : ''}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">${done}/${list.length}</span><span class="fold-chevron text-ink-700">⌄</span></span>
+          <span>${title}${note ? ' <span class="text-[10.5px] text-stamp font-bold">' + note + '</span>' : ''}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">${cb ? '🏗️ ' : ''}${done}/${list.length}</span><span class="fold-chevron text-ink-700">⌄</span></span>
         </summary>
+        ${busyLine}
         ${list.map(upgradeRow).join('')}
       </details>`;
     };
@@ -11123,7 +11277,7 @@ const UI = {
     const buildGroup = `
       <details data-fold="st-build" class="mt-1.5" ${folds['st-build'] ? 'open' : ''}>
         <summary class="flex items-center justify-between h-9 px-2 rounded-md bg-paper-200 text-[12.5px] font-semibold cursor-pointer select-none">
-          <span>🏗️ Rozbudowa stadionu${lv < needNext ? ' <span class="text-[10.5px] text-stamp font-bold">za mały na awans</span>' : ''}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">${Selectors.stadiumCapacity()} miejsc</span><span class="fold-chevron text-ink-700">⌄</span></span>
+          <span>🏗️ Rozbudowa stadionu${lv < needNext ? ' <span class="text-[10.5px] text-stamp font-bold">za mały na awans</span>' : ''}</span><span class="flex items-center gap-2"><span class="text-[11px] text-ink-700">${DATA.stadiumLevels[lv].capacity} miejsc</span><span class="fold-chevron text-ink-700">⌄</span></span>
         </summary>
         ${buildRows}
       </details>`;
@@ -11134,7 +11288,8 @@ const UI = {
       ${anyOpen ? '' : `<p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Każdy mecz u siebie niszczy murawę (w deszczu mocno). Zła murawa = loteria wyników i mniej widzów.</p>
       <p class="text-[11px] mt-1 leading-snug">${Selectors.facilityLabels().map((f) => Utils.escape(f)).join(' · ')}</p>`}
       ${Selectors.builds().length || gameState.academy.building ? `<p class="text-[11px] mt-1 text-amber-700 font-semibold truncate">🏗️ Budowy (${Selectors.builds().length}/${Selectors.buildSlots}): ${Selectors.builds().map((b) => Utils.escape(b.label) + ' – ' + Selectors.buildLeft(b) + ' tyg.').join(' · ')}${gameState.academy.building ? (Selectors.builds().length ? ' · ' : '') + 'szkółka – ' + Math.max(0, gameState.academy.building.ready - gameState.calendar.week) + ' tyg.' : ''}</p>` : ''}
-      ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${Selectors.stadiumCapacity()}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
+      ${gameState.rental ? `<p class="text-[11px] mt-1 text-stamp font-semibold truncate">🚌 Wynajem: ${Utils.escape(gameState.rental.stadium)} (${Utils.escape(gameState.rental.host)}) · ${Utils.formatMoney(gameState.rental.monthly)}/mies. · frekwencja −${Math.round((1 - (gameState.rental.attendance || 0.62)) * 100)}%</p>` : ''}
+      ${anyOpen ? '' : `<p class="text-[11px] mt-1">🏟️ Pojemność: <b>${DATA.stadiumLevels[st.level || 0].capacity}</b> miejsc${nextLv ? ' · następny etap: ' + nextLv.capacity + ' (' + Utils.formatMoney(Selectors.stadiumCost(lv + 1)) + ')' : ''}</p>`}
       ${buildGroup}
       ${youthGroup}
       ${group('st-lic', '📋 Wymogi licencyjne', licList, missingSoon ? 'brakuje ' + missingSoon + ' do awansu' : '')}
