@@ -2436,6 +2436,18 @@ const DATA = {
         },
       ],
     },
+    contractRenew: {
+      id: 'contractRenew',
+      cutscene: { icon: '📝', place: 'Gabinet prezesa · końcówka sezonu', scripted: true },
+      player: () => gameState.squad.find((x) => x.id === gameState.calls.renewId) || null,
+      from: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); return p ? Selectors.playerName(p) + ' z menedżerem' : 'Szatnia'; },
+      title: 'Kończy się kontrakt',
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); return p ? 'Umowa ' + Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ', ' + p.age + ' l., ' + Utils.formatMoney(p.wage) + '/tydz.) wygasa po sezonie. Jeśli nie podpiszecie nowej, odejdzie za darmo.' : 'Sprawa nieaktualna.'; },
+      options: [
+        { label: '🤝 Siadamy do negocjacji', hint: 'Mini-negocjacje: kwota i długość umowy', effects: {}, log: 'Prezes zaprasza na kawę i rozmowę o przyszłości.', onChoose: () => Engine.startNegotiation(gameState.calls.renewId, 'renew') },
+        { label: 'Niech odejdzie po sezonie', hint: 'Zero kosztów, ale odejdzie za darmo', effects: {}, log: 'Prezes nie przedłuża umowy.', onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.calls.renewId); if (p) p.wantsOut = 'nowy klub (wolny transfer – koniec kontraktu)'; } },
+      ],
+    },
     // Trener-oszust: sygnały ostrzegawcze po kilku słabych tygodniach
     fraudCoach: {
       id: 'fraudCoach',
@@ -3100,11 +3112,11 @@ const DATA = {
       },
       options: [
         {
-          label: 'Dobra, dajemy podwyżkę',
-          hint: () => '+' + Utils.formatMoney(Selectors.raiseAmount()) + '/tydz., szatnia +2%',
-          effects: { lockerRoom: +2 },
-          log: () => { const p = Selectors.callPlayer(); return p ? Selectors.playerName(p) + ' dostaje +' + Selectors.raiseAmount() + ' zł na paliwo. „Wiedziałem, że Prezes to swój chłop.”' : 'Podwyżka – ale nie ma komu.'; },
-          onChoose: () => { const p = Selectors.callPlayer(); if (p) p.wage += Selectors.raiseAmount(); },
+          label: '🤝 Usiądźmy do negocjacji',
+          hint: 'Mini-negocjacje: zaproponuj kwotę i długość umowy',
+          effects: {},
+          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes umawia się z ' + Selectors.nickQ(p) + ' na rozmowę o pieniądzach.' : 'Rozmowa bez rozmówcy.'; },
+          onChoose: () => { const p = Selectors.callPlayer(); if (p) Engine.startNegotiation(p.id, 'raise'); },
         },
         {
           show: () => Selectors.foodAllowed('piwo'),
@@ -4445,6 +4457,83 @@ const Engine = {
     if (p.fTier === 'star' || p.fTier === 'elite') { Engine.applyEffects({ fans: +4 }); Engine.xPost('portal', 'HIT TRANSFEROWY! ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' zagra w ' + Selectors.clubDisplayName() + '! 🌍🔥'); }
     return true;
   },
+  // ===== MINI-NEGOCJACJE KONTRAKTOWE =====
+  // kind: 'renew' (przedłużenie wygasającej umowy) | 'raise' (żądanie podwyżki)
+  startNegotiation(pid, kind) {
+    Engine.ensureContracts();
+    const p = gameState.squad.find((x) => x.id === pid);
+    if (!p) return;
+    const over = Selectors.ovr({ ...p, formHistory: [] }) - Selectors.teamOvr();
+    const mw = Selectors.marketWage(p);
+    const tough = Utils.clamp(0.35 + over * 0.05 + (p.talent ? 0.1 : 0), 0.2, 0.95);   // lepszy zawodnik = twardsze negocjacje
+    let ask = Math.max(Math.round(p.wage * (kind === 'raise' ? 1.15 : 1.05)), Math.round(mw * (1 + Math.max(0, over) * 0.04)));
+    let mood = 'ok';
+    const unhappy = p.demandOut || p.id === gameState.star.playerId && gameState.star.rebel || p.exiled;
+    if (unhappy) { mood = Math.random() < 0.5 ? 'refuse' : 'wall'; if (mood === 'wall') ask = Math.round(ask * 2); }   // gardzi klubem: zaporowe warunki albo brak rozmów
+    ask = Math.round(ask / 5) * 5;
+    const floor = Math.round(ask * (mood === 'wall' ? 0.95 : 1 - 0.18 * (1 - tough)) / 5) * 5;
+    gameState.negotiation = { pid, kind, ask, floor, offer: Math.round(Math.max(p.wage, ask * 0.85) / 5) * 5, years: 2, rounds: 0, patience: over >= 4 ? 2 : 3, mood, log: [], done: null };
+    const n = gameState.negotiation;
+    if (mood === 'refuse') { n.done = 'refused'; n.log.unshift('„Nie mam o czym rozmawiać. Szukam nowego klubu.”'); if (kind === 'renew') p.wantsOut = p.wantsOut || 'nowy klub (odmówił rozmów o kontrakcie)'; }
+    else n.log.unshift((mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
+    gameState.ui.overlay = { type: 'negotiation' };
+  },
+  negotiateAdjust(dir) {
+    const n = gameState.negotiation; if (!n || n.done) return;
+    n.offer = Math.max(5, Math.round(n.offer * (1 + dir * 0.05) / 5) * 5);
+  },
+  negotiateYears(y) { const n = gameState.negotiation; if (n && !n.done) n.years = Utils.clamp(y, 1, 3); },
+  negotiateSubmit() {
+    const n = gameState.negotiation; if (!n || n.done) return;
+    const p = gameState.squad.find((x) => x.id === n.pid); if (!p) { n.done = 'gone'; return; }
+    // długość umowy: weterani cenią pewność (taniej za dłuższy kontrakt), młodzi wolą krótszy
+    const yearAdj = (n.years - 1) * (p.age >= 30 ? -0.03 : p.age <= 23 ? 0.03 : 0);
+    const need = Math.round(n.floor * (1 + yearAdj) / 5) * 5;
+    n.rounds++;
+    if (n.offer >= need) {
+      p.wage = n.offer;
+      if (n.kind === 'renew' || n.years) p.contractEnd = gameState.calendar.season + n.years;
+      delete p.wantsOut;
+      n.done = 'signed';
+      n.log.unshift('✍️ Zgoda! ' + Utils.formatMoney(n.offer) + '/tydz., umowa do końca sezonu ' + p.contractEnd + '.');
+      Engine.applyEffects({ lockerRoom: +2 });
+      Engine.addLog('✍️ ' + Selectors.playerName(p) + ' podpisuje nową umowę: ' + Utils.formatMoney(n.offer) + '/tydz. do końca sezonu ' + p.contractEnd + '. [szatnia +2%]', 'decision');
+      return;
+    }
+    if (n.rounds >= n.patience) {
+      n.done = 'broken';
+      n.log.unshift('🚪 „Dziękuję, to nie ma sensu.” Zawodnik wychodzi z rozmów.');
+      if (n.kind === 'renew') { p.wantsOut = 'nowy klub (wolny transfer – nie doszli do porozumienia)'; Engine.addLog('🚪 ' + Selectors.playerName(p) + ' zerwał rozmowy o kontrakcie – odejdzie po sezonie za darmo.', 'decision'); }
+      else { Engine.applyEffects({ lockerRoom: -3 }); if (Math.random() < 0.4) p.wantsOut = Utils.rand(gameState.league.rivals).name; Engine.addLog('🚪 ' + Selectors.playerName(p) + ' bez podwyżki: „Zapamiętam to”.' + (p.wantsOut ? ' Po sezonie odchodzi do ' + p.wantsOut + '.' : '') + ' [szatnia -3%]', 'decision'); }
+      return;
+    }
+    // kontroferta: schodzi w stronę naszej oferty, ale nie poniżej swojego progu
+    n.ask = Math.max(need, Math.round(((n.ask + n.offer) / 2) / 5) * 5);
+    n.log.unshift('🤨 „Za mało. Mogę zejść do ' + Utils.formatMoney(n.ask) + '/tydz.”' + (n.patience - n.rounds === 1 ? ' (cierpliwość na wyczerpaniu)' : ''));
+  },
+  negotiateClose() {
+    const n = gameState.negotiation;
+    if (n && !n.done) {   // wyjście z rozmów = zerwanie
+      n.rounds = n.patience; n.offer = 0; Engine.negotiateSubmit();
+    }
+    gameState.negotiation = null;
+    gameState.ui.overlay = null;
+  },
+  // Wygasające umowy: w końcówce sezonu zawodnik z kończącym się kontraktem prosi o rozmowę
+  ensureContracts() {
+    gameState.squad.forEach((p) => { if (p.contractEnd == null && !p.loan) p.contractEnd = gameState.calendar.season + Utils.randInt(1, 3); });
+  },
+  contractTick() {
+    const s = gameState.season;
+    Engine.ensureContracts();
+    if (gameState.calendar.round < 1 || gameState.calendar.round < (s.rounds || []).length - 5 || gameState.pendingDecisions.includes('contractRenew')) return;
+    const p = gameState.squad.find((x) => !x.loan && !x.wantsOut && x.contractEnd != null && x.contractEnd <= gameState.calendar.season && !x.renewAsked);
+    if (!p) return;
+    p.renewAsked = gameState.calendar.season;
+    gameState.calls.renewId = p.id;
+    Engine.pushDecision('contractRenew');
+  },
+
   // ===== LICYTACJE TRANSFEROWE =====
   // Atrakcyjność zawodnika (0–1,6): OVR ponad poziom ligi, wiek, potencjał, talent – im wyższa, tym więcej klubów walczy
   auctionDemand(p) {
@@ -5387,6 +5476,8 @@ const Engine = {
     Engine.settleLoans(summary);
     Engine.endExiles(summary);
     // Zapowiedziane w sezonie odejścia (odmowa podwyżki) – dopiero teraz, między sezonami
+    // Umowy kończące się w tym sezonie (bez przedłużenia) – zawodnik odchodzi za darmo
+    gameState.squad.forEach((p) => { if (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season && !p.wantsOut) p.wantsOut = 'nowy klub (wolny transfer – koniec kontraktu)'; });
     gameState.squad.filter((p) => p.wantsOut).forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
       summary.left.push(Selectors.playerName(p) + ' → ' + p.wantsOut);
@@ -6624,6 +6715,7 @@ const Engine = {
       apps: 0, goals: 0, seasons: 1, seasonApps: 0, seasonGoals: 0,
       lastRating: null, seasonRatingSum: 0, seasonRatingCount: 0, careerRatingSum: 0, careerRatingCount: 0,
       favorite: false, legend: false, talent: false,
+      contractEnd: gameState.calendar.season + Utils.randInt(1, 3),   // ostatni sezon obowiązywania umowy
     };
     p.temper = Engine.rollTemper(p);
     Engine.rollPotential(p);
@@ -8323,6 +8415,7 @@ const Engine = {
       c.relation = Utils.clamp(Selectors.relation() + (r === 'W' ? 1 : r === 'L' ? -1 : 0), 0, 100);
       if (Selectors.relation() < 20) gameState.monthly.lockerRoom = (gameState.monthly.lockerRoom || 0) - 1;   // zła krew schodzi na szatnię
     },
+    function contractsTick() { Engine.contractTick(); },
     function fraudCoachTick() {
       const f = gameState.coach.fraud;
       if (!f) return;
@@ -8919,6 +9012,9 @@ const Selectors = {
       { label: 'Stadion min. ' + DATA.stadiumLevels[elite ? 5 : 4].capacity + ' miejsc' + (elite ? ' i boisko treningowe' : ''), ok: (st.level || 0) >= (elite ? 5 : 4) && (!elite || !!st.upgrades.training) },
     ];
   },
+  contractLeft: (p) => (p.contractEnd == null ? null : Math.max(0, p.contractEnd - gameState.calendar.season)),
+  contractLabel: (p) => (p.loan ? 'wypożyczenie' : p.contractEnd == null ? '—' : p.contractEnd <= gameState.calendar.season ? 'wygasa po tym sezonie' : 'do końca sezonu ' + p.contractEnd + ' (' + (p.contractEnd - gameState.calendar.season + 1) + ' sez.)'),
+  marketWage: (p) => Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5),
   signReqsOk: (p) => Selectors.signReqs(p).every((r) => r.ok),
   // Powód odmowy w słowach zawodnika/agenta – zawsze zgodny z faktyczną sytuacją klubu (Europa, kadra, pensje, finanse, obiekty)
   refusalReason: (p) => {
@@ -9599,6 +9695,7 @@ const Storage = {
       ((state.loans && state.loans.taken) || []).forEach((l) => { if (l.rate) l.rate = Math.round(l.rate * f); });
     }
     state.econ1414 = true;
+    if (saved.screen === 'game') (state.squad || []).forEach((p) => { if (p.contractEnd == null && !p.loan) p.contractEnd = ((state.calendar && state.calendar.season) || 1) + 1 + Math.floor(Math.random() * 2); });   // kontrakty dla trwających karier
     if (saved.academyGate == null && saved.screen === 'game') state.academyGate = false;   // 13.92: trwające kariery mają szkółkę od zawsze
     if (saved.budkaGate == null && saved.screen === 'game' && state.stadium && state.stadium.upgrades) state.stadium.upgrades.kiosk = true;   // 13.85: stare zapisy zachowują budkę
     state.budkaGate = true;
@@ -9920,6 +10017,7 @@ const UI = {
     if (o && o.type === 'transfer' && gameState.transfer.open) return UI.transferOverlay();
     if (o && o.type === 'rivalPlayer') return UI.rivalPlayerOverlay(o);
     if (o && o.type === 'auction' && gameState.transfer.auction) return UI.auctionOverlay(o);
+    if (o && o.type === 'negotiation' && gameState.negotiation) return UI.negotiationOverlay();
     // Cut-scenka czeka na decyzję – zawsze na pierwszym planie
     // Oferty transferowe w otwartym oknie czekają w zakładce „Oferty” giełdy, nie jako osobne scenki
     const cut = gameState.pendingDecisions.map((id) => DATA.decisions[id]).find((d) => d && d.cutscene && !(d.transfer && gameState.transfer.open));
@@ -10614,6 +10712,7 @@ const UI = {
           ${row('Pasuje do stylu', Utils.escape(DATA.profiles[p.profile].label))}
           ${row('Poprzedni sezon', ps.apps != null ? ps.apps + ' m · ' + (ps.goals || 0) + ' g · ' + (ps.assists || 0) + ' as.' + (ps.avg != null ? ' · nota ' + Selectors.ratingText(ps.avg) : '') : '–')}
           ${row('Pensja', Utils.formatMoney(p.wage) + '/tydz.')}
+          ${row('Kontrakt', Selectors.contractLabel(p))}
         </div>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
@@ -11442,6 +11541,32 @@ const UI = {
       </section><p class="text-[10.5px] text-paper-400 leading-snug">${note}</p>`;
   },
 
+  negotiationOverlay() {
+    const n = gameState.negotiation;
+    const p = gameState.squad.find((x) => x.id === n.pid);
+    if (!p) return '';
+    const ended = !!n.done;
+    const yrs = [1, 2, 3].map((y) => `<button data-action="neg-years" data-y="${y}" ${ended ? 'disabled' : ''} class="btn-press flex-1 h-10 rounded-lg text-[13px] font-bold ${n.years === y ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${y} ${y === 1 ? 'sezon' : 'sezony'}</button>`).join('');
+    const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
+        <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
+        <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
+        <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
+        <div class="grid grid-cols-2 gap-2 mt-3 text-center">
+          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Żąda</div><div class="text-[19px] font-extrabold text-stamp">${n.mood === 'refuse' ? '—' : Utils.formatMoney(n.ask)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
+          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Nasza oferta</div><div class="text-[19px] font-extrabold text-grass">${Utils.formatMoney(n.offer)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
+        </div>
+        ${ended ? '' : `<div class="flex gap-2 mt-2"><button data-action="neg-adj" data-dir="-1" class="btn-press flex-1 h-10 rounded-lg bg-desk-800 text-paper-100 text-[14px] font-bold">−5%</button><button data-action="neg-adj" data-dir="1" class="btn-press flex-1 h-10 rounded-lg bg-desk-800 text-paper-100 text-[14px] font-bold">+5%</button></div>
+        <p class="text-[10.5px] uppercase text-paper-400 mt-3 mb-1">Długość umowy</p><div class="flex gap-2">${yrs}</div>
+        <p class="text-[10.5px] text-paper-400 mt-1">Rozmowy: runda ${n.rounds + 1} z ${n.patience}. Weterani cenią dłuższe umowy, młodzi wolą krótsze.</p>`}
+        <ul class="mt-3 space-y-1">${n.log.slice(0, 4).map((l) => `<li class="text-[12.5px] text-paper-200 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
+        ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : 'sezony'}</button>`}
+        <button data-action="neg-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">${ended ? 'Zamknij' : 'Zerwij rozmowy'}</button>
+      </div>`, 'bg-desk-900');
+  },
   auctionOverlay(o) {
     const t = gameState.transfer, a = t.auction;
     const p = (a.list === 'foreign' ? (t.foreign || []) : t.market).find((x) => x.id === a.pid) || gameState.squad.find((x) => x.id === a.pid);
@@ -11658,7 +11783,7 @@ const UI = {
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
     const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
-    const marks = (p) => (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '');
+    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
     const rows = squad.map((p) => {
@@ -12345,6 +12470,10 @@ const Actions = {
   },
   'buy-transfer'(el) { Engine.startAuction(el.dataset.id, 'market'); App.commit(); },
   'buy-foreign'(el) { Engine.startAuction(el.dataset.id, 'foreign'); App.commit(); },
+  'neg-adj'(el) { Engine.negotiateAdjust(+el.dataset.dir); App.commit(); },
+  'neg-years'(el) { Engine.negotiateYears(+el.dataset.y); App.commit(); },
+  'neg-submit'() { Engine.negotiateSubmit(); App.commit(); },
+  'neg-close'() { Engine.negotiateClose(); App.commit(); },
   'auction-bid'(el) { Engine.auctionBid(+el.dataset.pct); App.commit(); },
   'auction-close'() { Engine.auctionClose(); App.commit(); },
   'buy-beer'(el)     { Engine.buyTransferBeer(el.dataset.id); App.commit(); },
@@ -12376,6 +12505,7 @@ const Actions = {
   },
   'start-sponsor'(el) {
     if (el.dataset.id !== 'local') Engine.signSponsor(el.dataset.id);
+    Engine.ensureContracts();   // pierwsze umowy kadry
     gameState.ui.overlay = null;
     App.commit();
   },
