@@ -4368,10 +4368,10 @@ const Engine = {
       p.fromLevel = null;
       return p;
     };
-    ['MID', 'FWD', 'DEF'].forEach((pos) => t.foreign.push(make('talent', pos)));
-    ['DEF', 'MID', 'FWD'].forEach((pos) => t.foreign.push(make('solid', pos)));
-    if (Selectors.foreignStarsOpen()) ['MID', 'FWD'].forEach((pos) => t.foreign.push(make('star', pos)));
-    if (Selectors.foreignElitesOpen()) [Utils.rand(['MID', 'FWD']), Utils.rand(['DEF', 'GK', 'MID'])].forEach((pos) => t.foreign.push(make('elite', pos)));
+    Utils.shuffle(['MID', 'FWD', 'DEF']).slice(0, 2).forEach((pos) => t.foreign.push(make('talent', pos)));
+    Utils.shuffle(['DEF', 'MID', 'FWD']).slice(0, 2).forEach((pos) => t.foreign.push(make('solid', pos)));
+    if (Selectors.foreignStarsOpen()) t.foreign.push(make('star', Utils.rand(['MID', 'FWD'])));
+    if (Selectors.foreignElitesOpen()) t.foreign.push(make('elite', Utils.rand(['MID', 'FWD', 'DEF'])));
   },
   buyForeign(id) {
     if (Selectors.transferBanned()) return false;
@@ -4427,7 +4427,7 @@ const Engine = {
     if (!t || !t.open || gameState.club.leagueLevel < 6) return;
     const cands = Object.entries(gameState.clubSquads || {}).flatMap(([team, c]) => (gameState.season.table[team] ? c.squad.map((x) => ({ team, x })) : []))
       .filter(({ x }) => !t.market.some((p) => p.wlId === x.id) && x.age <= 32);
-    const pick = Utils.shuffle(cands.filter(({ x }) => x.ae)).slice(0, 2).concat(Utils.shuffle(cands.filter(({ x }) => !x.ae)).slice(0, 1)).slice(0, 2);
+    const pick = Utils.shuffle(cands.filter(({ x }) => x.ae)).slice(0, 1).concat(Utils.shuffle(cands.filter(({ x }) => !x.ae)).slice(0, 1)).slice(0, 1);
     pick.forEach(({ team, x }) => { const p = Engine.marketFromRival(team, x); p.listedBy = team; t.market.push(p); });
   },
   // Kupiony zawodnik z listy życzeń znika z kadry rywala i z listy
@@ -6750,7 +6750,7 @@ const Engine = {
   openTransferWindow() {
     const bonus = Selectors.levelSkillBonus();
     const e = Selectors.econ();
-    const market = ['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD'].map((pos) => {
+    const market = Utils.shuffle(['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD']).slice(0, 5).map((pos) => {   // krótsza, bardziej selektywna lista
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 33, skillMin: 3 + bonus, skillMax: 8 + bonus, pos });
       p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
       if (p.age <= 20 && Math.random() < 0.25) Engine.markTalent(p);
@@ -10898,7 +10898,17 @@ const UI = {
     const selCls = 'flex-1 min-w-0 px-1.5 py-0.5 bg-white border border-paper-400 rounded-md text-[11.5px] text-ink-900';
     const test = `<div class="flex items-center gap-2 mb-1 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}</div>
       <div class="flex items-center gap-1.5 mb-1.5"><select data-test-level aria-label="TEST – zmiana poziomu" class="${selCls}"><option value="">🧪 TEST: liga</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select><select data-test-euro aria-label="TEST – europejskie puchary" class="${selCls}"><option value="-">🇪🇺 TEST: ${eu ? Utils.escape(DATA.euro.comps[eu.comp].short + ' · ' + DATA.euro.stages[eu.stage].label) : 'puchary'}</option>${euroOpts.map(([v, l]) => `<option value="${v}">${Utils.escape(l)}</option>`).join('')}</select></div>`;
-    return test + tiles + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
+    // Podgląd wyjściowej jedenastki: linie formacji, stuknięcie otwiera pełne boisko w Kadrze
+    const xiLine = (() => {
+      const lu = Selectors.projectedLineup(), st = DATA.styles[Selectors.coach().style];
+      const line = (pos) => lu.filter((p) => p.pos === pos).map((p) => Utils.escape(p.nick || p.last)).join(', ');
+      return `<button data-action="open-xi" class="btn-press w-full text-left paper px-2.5 py-1.5 mb-1.5">
+        <div class="flex justify-between text-[11px] font-semibold"><span>⚽ Wyjściowa XI · ${st.formation.slice(1).join('-')}</span><span class="text-ink-700">OVR ${Selectors.teamOvr()} · boisko ›</span></div>
+        <div class="text-[11px] text-ink-700 leading-snug truncate">🧤 ${line('GK') || '–'} · 🛡️ ${line('DEF') || '–'}</div>
+        <div class="text-[11px] text-ink-700 leading-snug truncate">⚙️ ${line('MID') || '–'} · 🎯 ${line('FWD') || '–'}</div>
+      </button>`;
+    })();
+    return test + tiles + xiLine + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
   // Ostatnie wydarzenia: jedna linijka na tydzień – wynik meczu i bilans kasy (z wpisów, które zapisuje silnik)
@@ -12043,6 +12053,7 @@ const Actions = {
   },
   'rival-player'(el) { gameState.ui.overlay = { type: 'rivalPlayer', team: el.dataset.team, id: el.dataset.id }; App.commit(); },
   'watch-toggle'(el) { if (Engine.toggleWatch(el.dataset.team, el.dataset.id) && gameState.transfer && gameState.transfer.open) Engine.watchlistToMarket(); App.commit(); },
+  'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
   'crisis-answer'(el) { Engine.crisisAnswer(el.dataset.value); App.commit(); },
   'pick-youth'(el) {
