@@ -4388,7 +4388,10 @@ const Engine = {
     if (!t) return;
     const tierMult = { talent: 1.2, solid: 1.2, star: 1.4, elite: 1.65 };
     const mult = (p, loan) => (loan ? 0.25 : p.fTier ? (p.clubTier != null ? 1 : tierMult[p.fTier] || 1.2) : p.fireSale ? 0.75 : 1);
-    const re = (list, loan) => (list || []).forEach((p) => { if (p.fee != null) p.fee = Math.max(20, Math.round(Selectors.marketValue(p) * mult(p, loan) / 10) * 10); });
+    const re = (list, loan) => (list || []).forEach((p) => {
+      if (p.fee != null) p.fee = Math.max(loan ? Math.round(Selectors.minFee() * 0.3 / 10) * 10 : 20, Math.round(Selectors.marketValue(p) * mult(p, loan) / 10) * 10);
+      if (p.wage != null) p.wage = Math.max(loan ? Math.round(Selectors.minWage() / 2 / 5) * 5 : Selectors.minWage(), p.wage);   // 14.x: bez pensji „za piwo”
+    });
     re(t.market); re(t.foreign); re(t.loanMarket, true);
   },
   capMarket() {
@@ -4401,7 +4404,7 @@ const Engine = {
       p.skill = capSkill;
       if (p.potential != null) p.potential = Math.max(p.skill, Math.min(p.potential, capSkill + 2));
       if (fee0 != null && v0) p.fee = Math.max(20, Math.round(fee0 * Selectors.marketValue(p) / v0 / 10) * 10);
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5);
+      p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5);
     });
     capList(t.market); capList(t.loanMarket);
     if (gameState.club.leagueLevel < 6) t.foreign = [];   // zagranica dopiero od II ligi
@@ -4426,7 +4429,7 @@ const Engine = {
       p.potential = Math.min(CONFIG.maxSkill, p.skill + Utils.randInt(cfg.pot[0], cfg.pot[1]));
       if (tier === 'talent' && Math.random() < 0.35) Engine.markTalent(p);
       p.fTier = tier;   // półka zagranicznego rynku (pole „foreign” zajmuje generator nazwisk)
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e * cfg.wage / 5) * 5);
+      p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e * cfg.wage / 5) * 5);
       const club = Utils.rand(cfg.clubs);
       p.clubTier = T.findIndex((list) => list.includes(club));
       p.fee = Math.max(50, Math.round(Selectors.marketValue(p) / 100) * 100);   // wartość już z premią za markę klubu
@@ -4501,6 +4504,7 @@ const Engine = {
     const mood = st.mood;
     const will = kind === 'sign' ? Math.min(0.95, Engine.signWillingness(p) + Selectors.directorLevel() * 0.04) : 1;   // dyrektor przekonuje zawodnika
     if (kind === 'sign') ask = Math.round(p.wage * Utils.randRange(1.0, 1.08) * (1 + Math.max(0, over) * 0.02) * (1 + (1 - will) * 0.45));   // mniej chętny = wyższe żądanie
+    ask = Math.max(ask, Selectors.minWage());   // 14.x: nikt nie podpisze umowy „za kiełbasę i piwo”
     if (mood === 'wall') ask = Math.round(ask * 2);   // chce odejść: zaporowe warunki
     ask = Math.round(ask / 5) * 5;
     const floor = Math.round(ask * (mood === 'wall' ? 0.95 : 1 - 0.18 * (1 - tough)) * (1 - Selectors.directorLevel() * 0.03) / 5) * 5;   // dyrektor zbija oczekiwania
@@ -4797,7 +4801,7 @@ const Engine = {
     const parsed = String(src.n || '').match(/„(.+)” (.+)$/);
     p.first = src.f || String(src.n || '').split(' ')[0]; p.last = src.l || (parsed ? parsed[2] : String(src.n || '').split(' ').slice(1).join(' '));
     p.nick = src.k || (parsed ? parsed[1] : p.last); p.noNick = !!src.pro;
-    p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
+    p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
     p.fee = Math.max(30, Math.round(Selectors.marketValue(p) / 10) * 10);
     Engine.fakeHistory(p, team);
     if (src.apps) p.prevSeason = { apps: src.apps, goals: src.g, avg: src.rc ? Math.round(src.rs / src.rc * 10) / 10 : p.prevSeason.avg };
@@ -5749,6 +5753,7 @@ const Engine = {
     }
   },
   buyTransferBeer(id) {
+    return;   // 14.x: zlikwidowane – zawodnika nie da się już kupić za skrzynkę piwa i kiełbasę (stare przyciski nic nie robią)
     if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.market.find((x) => x.id === id);
@@ -7158,7 +7163,7 @@ const Engine = {
     const e = Selectors.econ();
     const market = Utils.shuffle(['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD']).slice(0, 5).map((pos) => {   // krótsza, bardziej selektywna lista
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 33, skillMin: 3 + bonus, skillMax: 8 + bonus, pos });
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e / 5) * 5);
       if (p.age <= 20 && Math.random() < 0.25) Engine.markTalent(p);
       // Cena z wartości rynkowej (Transfermarkt): OVR, wiek, talent; gwiazdy żądają też wyższej pensji
       p.fee = Math.max(30, Math.round(Selectors.marketValue(p) / 10) * 10);   // cena wywoławcza = wartość rynkowa
@@ -7170,8 +7175,8 @@ const Engine = {
     const loanMarket = Utils.shuffle(['DEF', 'MID', 'FWD', 'GK']).slice(0, 3).map((pos) => {
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 21, skillMin: 5 + bonus, skillMax: 8 + bonus, pos, pro: gameState.club.leagueLevel >= 5 });
       if (Math.random() < 0.4) Engine.markTalent(p);
-      p.wage = Math.max(5, Math.round((p.skill * 3) * e / 5) * 5);                       // płacimy połowę pensji
-      p.fee = Math.max(20, Math.round(Selectors.marketValue(p) * 0.25 / 10) * 10);         // opłata za wypożyczenie: ok. 25% wartości
+      p.wage = Math.max(Math.round(Selectors.minWage() / 2 / 5) * 5, Math.round((p.skill * 3) * e / 5) * 5);   // płacimy połowę pensji
+      p.fee = Math.max(Math.round(Selectors.minFee() * 0.3 / 10) * 10, Math.round(Selectors.marketValue(p) * 0.25 / 10) * 10);   // opłata za wypożyczenie: ok. 25% wartości (z progiem)
       const club = Engine.otherClubName(Utils.randInt(1, 2));
       p.loan = { from: club, until: gameState.calendar.season };
       return Engine.fakeHistory(p, club);
@@ -8206,7 +8211,7 @@ const Engine = {
       const lift = Math.floor(l / 2);
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 29, skillMin: 5 + bonus + lift, skillMax: 8 + bonus + lift, pos: Utils.rand(['DEF', 'MID', 'FWD', 'MID']) });
       if (p.age <= 21 && Math.random() < l * 0.08) { Engine._scouting = true; Engine.markTalent(p); Engine._scouting = false; }
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e / 5) * 5);
       const discount = Utils.clamp(0.1 + l * 0.025 + Utils.randRange(-0.03, 0.03), 0.08, 0.25);   // okazja: kilkanaście–25% taniej
       p.fee = Math.max(20, Math.round(Selectors.marketValue(p) / 10) * 10);   // okazja skauta: znaleziony wcześniej – mało konkurencji w licytacji
       p.bargain = Math.round(discount * 100);
@@ -8222,7 +8227,7 @@ const Engine = {
     const bonus = Selectors.levelSkillBonus(), e = Selectors.econ();
     for (let i = 0; i < 2; i++) {
       const p = Engine.makePlayer({ ageMin: 20, ageMax: 30, skillMin: 5 + bonus, skillMax: 8 + bonus, pos: Utils.rand(['DEF', 'MID', 'FWD']) });
-      p.wage = Math.max(5, Math.round((p.skill * 6 - 8) * e / 5) * 5);
+      p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e / 5) * 5);
       p.fee = Math.max(20, Math.round(Selectors.marketValue(p) * 0.75 / 10) * 10);   // 25% poniżej wartości – klub musi sprzedać
       p.fireSale = true;
       t.market.push(Engine.fakeHistory(p, name));
@@ -9176,7 +9181,7 @@ const Selectors = {
   clauseText: (c) => (!c ? '' : [c.promo ? 'awans +' + c.promo + '%' : '', c.releg ? 'spadek −' + c.releg + '%' : ''].filter(Boolean).map((x, i) => (i ? ', ' : ' · ') + x).join('')),
   contractLeft: (p) => (p.contractEnd == null ? null : Math.max(0, p.contractEnd - gameState.calendar.season)),
   contractLabel: (p) => (p.loan ? 'wypożyczenie' : p.contractEnd == null ? '—' : (p.contractEnd <= gameState.calendar.season ? 'wygasa po tym sezonie' : 'do końca sezonu ' + p.contractEnd + ' (' + (p.contractEnd - gameState.calendar.season + 1) + ' sez.)') + Selectors.clauseText(p.clause)),
-  marketWage: (p) => Math.max(5, Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5),
+  marketWage: (p) => Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * Selectors.econ() / 5) * 5),
   signReqsOk: (p) => Selectors.signReqs(p).every((r) => r.ok),
   // Powód odmowy w słowach zawodnika/agenta – zawsze zgodny z faktyczną sytuacją klubu (Europa, kadra, pensje, finanse, obiekty)
   refusalReason: (p) => {
@@ -9591,6 +9596,9 @@ const Selectors = {
   // (amatorzy) do ok. 80 (Ekstraklasa) tygodniówek; gwiazdy i talenty odpowiednio więcej. Odstępne = wartość × premia sytuacji.
   // Średnie z baz rynkowych (przeliczone na zł): Ekstraklasa ok. 760 tys. € ≈ 3,2 mln zł, I liga ok. 110 tys. € ≈ 470 tys. zł,
   // II liga ok. 7 tys. € ≈ 30 tys. zł, III liga ok. 1–5 tys. € ≈ 14 tys. zł; niżej szacunki
+  // 14.x: koniec transferów „za kiełbasę i piwo” – minimalna wartość zawodnika i minimalna pensja na każdym szczeblu
+  minFee: (lvl = gameState.club.leagueLevel) => ({ 1: 350, 2: 550, 3: 800, 3.5: 1200, 4: 1800, 5: 3500, 6: 8000, 7: 100000, 8: 600000 }[lvl] || 350),
+  minWage: (lvl = gameState.club.leagueLevel) => Math.max(15, Math.round(15 * ((DATA.leagueLevels[lvl] || DATA.leagueLevels[1]).econ || 1) / 5) * 5),
   valueAvg: (lvl = gameState.club.leagueLevel) => ({ 1: 400, 2: 800, 3: 1500, 3.5: 3000, 4: 6000, 5: 14000, 6: 30000, 7: 470000, 8: 3200000 }[lvl] || 400),
   marketValue: (p, lvl = gameState.club.leagueLevel) => {
     const L = DATA.leagueLevels[lvl] || DATA.leagueLevels[1];
@@ -9602,7 +9610,9 @@ const Selectors = {
     const rel = Math.exp(0.12 * (Selectors.ovr({ ...p, formHistory: [] }) - avgOvr)) * age * pot * (p.prodigy ? 2.5 : p.talent ? 1.4 : 1) * p.tmVar * 0.85;
     const avg = Selectors.valueAvg(lvl);
     const brand = p.fTier && p.clubTier != null ? Selectors.clubPremium(p.clubTier) : 1;   // zawodnik zagranicznego klubu: marka (top 5 lig, giganci) w wartości
-    const c = Utils.clamp(avg * rel, avg * 0.08, avg * 40) * brand;   // od rezerwowego weterana do gwiazdy światowego formatu
+    const raw = Utils.clamp(avg * rel, avg * 0.08, avg * 40);
+    const mf = Selectors.minFee(lvl);
+    const c = Math.max(raw, mf * (0.85 + 0.35 * Math.min(1, raw / avg))) * brand;   // miękki próg: słabszy wciąż tańszy, ale nigdy za grosze   // od rezerwowego weterana do gwiazdy światowego formatu
     const step = c >= 1e7 ? 1e5 : c >= 1e6 ? 1e4 : c >= 1e5 ? 1e3 : c >= 1e4 ? 100 : 10;
     return Math.round(c / step) * step;
   },
@@ -10651,14 +10661,14 @@ const UI = {
         </article>`;
       }).join('') || '<p class="text-[12.5px] text-paper-400 py-2">Wszystkie oferty i żądania rozpatrzone.</p>');
     } else if (view === 'buy') {
-      const beer = (p) => (Selectors.beerAllowed() ? btn('buy-beer', p.id, p.beerTried ? '🍺 już próbowano' : '🍺 Skrzynka i kiełbasa · ' + Math.round(Selectors.beerOdds(p).ok * 100) + '%', p.beerTried || full || budget < Selectors.beerCost(), 'bg-desk-700 text-paper-100 border border-desk-600') : '');
-      rows = banNote + (Selectors.beerAllowed() ? `<p class="text-[10.5px] text-paper-400 mt-1.5 leading-snug">🍺 Po prowincjonalnemu: skrzynka piwa i wiejska kiełbasa (${Utils.formatMoney(Selectors.beerCost())}) zamiast odstępnego. Może przejść… albo skończyć się aferą w mediach.</p>` : '')
+      // 14.x: transfery „za skrzynkę piwa i kiełbasę” zlikwidowane – każdy zawodnik ma realną cenę
+      rows = banNote
         + (() => {
           // Jedna lista: rynek krajowy, potem zagranica; transfery z najwyższej półki (OVR 84+) wymagają rozwoju klubu
           const reqHtml = () => '';   // kryteria zawodnika są ukryte – decyzja zapada przy próbie zakupu
           const head = (txt) => `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-2.5 mb-0.5">${txt}</div>`;
           const tierLbl = { talent: '🌱 talent z akademii', solid: '🧱 solidny ligowiec', star: '⭐ gwiazda', elite: '👑 światowy top' };
-          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + beer(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !Engine.talkStatus(p, 'market').ok, 'bg-amber-glow text-ink-900'))).join('');
+          const dom = t.market.map((p) => card(p, Utils.formatMoney(p.fee), p.wage + ' zł/tydz.', reqHtml(p) + btn('buy-transfer', p.id, '🔨 Licytuj od ' + Utils.formatMoney(p.fee), full || budget < p.fee || !Engine.talkStatus(p, 'market').ok, 'bg-amber-glow text-ink-900'))).join('');
           const fl = t.foreign || [];
           const lvl = gameState.club.leagueLevel;
           const fnote = lvl < 6 ? '🔒 Agenci z Europy dzwonią do klubów od II ligi.'
