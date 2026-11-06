@@ -113,6 +113,7 @@ const CONFIG = {
   roundsPerRunda: 9,        // (stare zapisy) runda = połowa sezonu – teraz liczona z terminarza: Selectors.rundaLen()
   maxLogEntries: 300,
   minSquad: 13,             // poniżej tego trener dobiera chłopaków z łapanki
+  minMatchSquad: 12,        // 14.x: mniej zdolnych do gry (kontuzje, kartki, nieobecni) = walkower 0:3
   carpetCooldown: 4,        // co ile tygodni można wezwać trenera na dywanik
   maxFavorites: 4,          // tylu Ulubieńców Trybun naraz
   maxSquad: 22,             // limit kadry (szatnia ma 22 haczyki)
@@ -4777,8 +4778,9 @@ const Engine = {
     return events;
   },
   recordResult(home, away, hg, ag) {
-    if (home !== US) { const e = Engine.rivalPlayerStats(home, hg, ag); if (away === US) Engine._oppGoals = e; }
-    if (away !== US) { const e = Engine.rivalPlayerStats(away, ag, hg); if (home === US) Engine._oppGoals = e; }
+    if (Engine._walkover && (home === US || away === US)) { home = home; }   // walkower: mecz się nie odbył – rywale nie dostają goli w statystykach
+    else if (home !== US) { const e = Engine.rivalPlayerStats(home, hg, ag); if (away === US) Engine._oppGoals = e; }
+    if (away !== US && !(Engine._walkover && home === US)) { const e = Engine.rivalPlayerStats(away, ag, hg); if (home === US) Engine._oppGoals = e; }
     const t = gameState.season.table;
     const H = t[home], A = t[away];
     H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
@@ -4983,6 +4985,11 @@ const Engine = {
       ((p.tag === 'worker' && Math.random() < 0.25 * disc) || (p.tag === 'party' && Math.random() < 0.15 * disc)));
     absent.forEach((p) => Engine.addLog('🚧 ' + Selectors.playerName(p) + ' nie dojechał na mecz (' + (p.tag === 'worker' ? 'budowa się przeciągnęła' : 'wesele do 6 rano') + ').', 'event'));
 
+    // --- 14.x: walkower – mniej niż 12 zawodników zdolnych do gry (kontuzje, kartki, nieobecni) ---
+    const fitCount = Selectors.matchFitCount(absent.map((p) => p.id));
+    const walkover = fitCount < CONFIG.minMatchSquad;
+    Engine._walkover = walkover;
+
     // --- Skład i chemia (wybiera trener) ---
     const lineup = Engine.pickLineup(absent.map((p) => p.id));
     if (!cup && gameState.dda.youthPromise > 0) {
@@ -5020,7 +5027,7 @@ const Engine = {
     oppL = oppL * (1 - chaos) + avg * chaos;
     // --- Kartki: temperament zawodników × styl trenera × derby; czerwona osłabia drużynę ---
     const servedBan = gameState.squad.filter((p) => p.suspended > 0);   // ci pauzowali w tym meczu
-    const cards = Engine.rollCards(lineup, rival.derby);
+    const cards = walkover ? [] : Engine.rollCards(lineup, rival.derby);
     // 13.94: czerwona kartka boli tym mocniej, im dłużej gramy w osłabieniu
     const redLeft = (us) => cards.filter((c) => c.us === us && c.card === 'R').reduce((a, c) => a + (90 - c.min) / 90, 0);
     const ourShort = redLeft(true), theirShort = redLeft(false);
@@ -5032,6 +5039,7 @@ const Engine = {
     let gf = Utils.poisson(Math.max(0.15, ourL));
     let ga = Utils.poisson(Math.max(0.15, oppL));
     if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
+    if (walkover) { gf = 0; ga = 3; }                                  // walkower 0:3 dla rywala
     const result = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
 
     // --- Tabela: nasz mecz + reszta kolejki (tylko liga) ---
@@ -5044,7 +5052,7 @@ const Engine = {
 
     // --- Kontuzje: dobry fizjoterapeuta = rzadziej i krócej ---
     const fizjo = Selectors.staffLevel('fizjo');
-    lineup.forEach((p) => {
+    (walkover ? [] : lineup).forEach((p) => {
       const pitchRisk = fixture.home && gameState.stadium.pitch < 30 ? 1.3 : 1;   // kretowisko łamie kostki
       if (p.injProne == null) p.injProne = Math.round(Utils.clamp(0.6 + Math.random() * Math.random() * 1.2, 0.6, 1.5) * 100) / 100;
       const ageRisk = (p.age >= 32 ? 1.3 : 1) * (p.fragile ? 1.6 : 1) * (Selectors.coachTrait('hardTraining') ? 1.5 : 1) * p.injProne;
@@ -5058,7 +5066,7 @@ const Engine = {
     });
 
     // --- Strzelcy i doświadczenie ---
-    lineup.forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
+    (walkover ? [] : lineup).forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
     const scorerCount = {};
     const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
     const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
@@ -5085,8 +5093,8 @@ const Engine = {
     });
     // Gole rywala: w lidze konkretni zawodnicy z jego kadry (te same, które trafiają do klasyfikacji);
     // w pucharach – zawodnicy spoza naszej ligi, losowani na ten mecz
-    let oppEv = Engine._oppGoals;
-    if (!oppEv || oppEv.length !== ga) {
+    let oppEv = walkover ? [] : Engine._oppGoals;
+    if (!walkover && (!oppEv || oppEv.length !== ga)) {
       const foreign = cup && cup.euro;
       const pool = [0, 1, 2].map(() => Engine.oppScorerName(foreign));
       oppEv = Array.from({ length: ga }, () => ({ n: Utils.weightedPick(pool.map((n, i) => ({ n, w: [5, 3, 2][i] })), (o) => o.w).n, a: null }));
@@ -5115,13 +5123,21 @@ const Engine = {
       cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral, comp: cup.comp || 'Puchar Polski', venue: cup.venue ? cup.venue.name : null } : null,
       weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra, cards: cards.map((c) => ({ min: c.min, us: c.us, card: c.card, name: c.name })),
-      lineupIds: lineup.map((p) => p.id), scorerCount: { ...scorerCount },
+      lineupIds: walkover ? [] : lineup.map((p) => p.id), scorerCount: { ...scorerCount },
+      walkover: walkover ? { fit: fitCount, injured: gameState.squad.filter((p) => p.injured > 0).length, suspended: gameState.squad.filter((p) => p.suspended > 0).length, absent: absent.length } : null,
     };
+    if (walkover) {
+      const fine = Math.round(150 * Selectors.econ());
+      Engine.money('Kara za walkower', -fine);
+      Engine.applyEffects({ fans: -4, lockerRoom: -3 });
+      Engine.addLog('⚖️ WALKOWER 0:3 z ' + rival.name + ': tylko ' + fitCount + ' zawodników zdolnych do gry (minimum ' + CONFIG.minMatchSquad + '). Kontuzje: ' + gameState.lastMatch.walkover.injured + ', zawieszenia: ' + gameState.lastMatch.walkover.suspended + (absent.length ? ', nieobecni: ' + absent.length : '') + '. Kara ' + Utils.formatMoney(fine) + ', kibice -4%, szatnia -3%.', 'match');
+      Engine.alert('⚖️', 'Walkower 0:3', 'Zabrakło zawodników zdolnych do gry (' + fitCount + '/' + CONFIG.minMatchSquad + '). Mecz z ' + rival.name + ' przegrany walkowerem.', 'bad');
+    }
     servedBan.forEach((p) => { p.suspended = Math.max(0, p.suspended - 1); });
     Engine.applyCardBans(cards);
 
     // --- Noty meczowe (1.0–10.0) dla wyjściowej jedenastki ---
-    Engine.rateLineup(lineup, scorerCount, result, gf, ga);
+    if (!walkover) Engine.rateLineup(lineup, scorerCount, result, gf, ga);
 
     // --- Statystyki ---
     const r = gameState.record;
@@ -5193,6 +5209,8 @@ const Engine = {
       Engine.money('Finał: udział w biletach', share);
       gameState.lastMatch.attendance = att;
       gameState.lastMatch.money.push({ label: 'Udział w biletach (' + v.name + ')', amount: share });
+    } else if (walkover) {   // walkower: mecz się nie odbył – bez biletów i bez wyjazdu; kara już zaksięgowana
+      if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Kara za walkower', amount: -Math.round(150 * Selectors.econ()) });
     } else if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
     else {
       const fuel = -Utils.randInt(50, 90);
@@ -5200,7 +5218,7 @@ const Engine = {
       if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
     }
 
-    const tv = Selectors.tvIncome();
+    const tv = walkover ? 0 : Selectors.tvIncome();   // walkower: nie ma czego transmitować
     if (tv) {   // kamery telewizyjne: prawa do transmisji z każdego meczu
       Engine.money('Prawa TV' + (cup ? ' (puchar)' : ''), tv);
       gameState.lastMatch.money.push({ label: '📺 Prawa do transmisji', amount: tv });
@@ -6847,6 +6865,17 @@ const Engine = {
     return gain;
   },
 
+  // 14.x: awaryjny zawodnik z okolicy, gdy grozi walkower (płatne od ręki, płaca minimalna ligi)
+  emergencySign() {
+    const cost = Selectors.emergencyCost();
+    if (cost == null || gameState.finance.budget < cost) return;
+    const b = Selectors.levelSkillBonus();
+    const p = Engine.generatePlayer({ ageMin: 19, ageMax: 33, skillMin: 2 + b, skillMax: 4 + b });
+    p.wage = Selectors.minWage();
+    p.contractEnd = gameState.calendar.season;
+    Engine.money('Awaryjny zawodnik: ' + Selectors.playerName(p), -cost);
+    Engine.addLog('🙋 Awaryjnie do kadry: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(p) + ', ' + Utils.formatMoney(p.wage) + '/tydz., umowa do końca sezonu) – żeby nie oddać meczu walkowerem.', 'decision');
+  },
   generatePlayer(opts = {}) {
     const p = Engine.makePlayer(opts);
     gameState.squad.push(p);
@@ -9622,6 +9651,9 @@ const Selectors = {
     const label = { bargain: '💰 Okazja – poniżej wartości', fair: '👍 Dobra cena – równo z wartością', over: '😬 Lekkie przepłacenie', way: '🔥 Mocne przepłacenie' }[key];
     return { key, pct, label, tone: raw <= 0 ? 'good' : raw <= 25 ? 'warn' : 'bad', band: raw <= 0 ? 0 : raw <= 25 ? 1 : 2 };
   },
+  // 14.x: zdolni do gry (bez kontuzjowanych, zawieszonych, zesłanych do U19 i nieobecnych) – poniżej minimum = walkower
+  matchFitCount: (absentIds = []) => gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.exiled && !(p.injured > 0) && !(p.suspended > 0)).length,
+  emergencyCost: () => (gameState.squad.length >= CONFIG.maxSquad || Selectors.transferBanned() ? null : Math.round(Selectors.minFee() * 0.6 / 10) * 10),
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10182,7 +10214,7 @@ const UI = {
           ${m.home ? side(theirCrest, m.rival, '') : side(ourCrest, name, '')}
         </div>
         <div class="h-1 rounded-full bg-desk-700 mt-4 overflow-hidden"><div id="mx-bar" class="h-full bg-amber-glow" style="width:${live ? 0 : 100}%"></div></div>
-        <ul class="space-y-1.5 mt-4">${goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
+        <ul class="space-y-1.5 mt-4">${m.walkover ? `<li class="text-center rounded-xl bg-stamp/20 ring-1 ring-stamp px-3 py-2"><div class="text-[18px] font-black text-stamp tracking-wider">⚖️ WALKOWER 0:3</div><div class="text-[12px] text-paper-200 mt-0.5">Mecz się nie odbył: tylko ${m.walkover.fit} zawodników zdolnych do gry (minimum ${CONFIG.minMatchSquad}). Kontuzje: ${m.walkover.injured}, zawieszenia: ${m.walkover.suspended}${m.walkover.absent ? ', nieobecni: ' + m.walkover.absent : ''}.</div></li>` : goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
         <div id="mx-final" class="${live ? 'hidden' : ''} mt-5 space-y-3">
           <div class="text-center text-[22px] font-extrabold tracking-wide ${tone}">${label}${m.sensation ? ' · SENSACJA!' : ''}</div>
           ${m.mvp ? `<div class="mx-auto max-w-[340px] rounded-xl ${m.mvp.rival ? 'bg-stamp/15 border border-stamp/40' : 'bg-amber-glow/15 border border-amber-glow/40'} px-3 py-1.5 flex items-center gap-2">
@@ -11379,6 +11411,13 @@ const UI = {
     const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
       `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>${(() => { const cup = !inPre && Selectors.cupAt(s.calendar.round + 1); return cup && cup.next ? `<p class="text-[11.5px] font-semibold mt-0.5">🏆 W środę Puchar Polski (${Utils.escape(cup.R.label.split(' – ')[0])}): ${cup.next.home || cup.next.final ? 'vs' : '@'} ${Utils.escape(cup.next.opp)}</p>` : ''; })()}`);
 
+    // 14.x: ostrzeżenie przed walkowerem (za mało zdolnych do gry) + awaryjne dobranie zawodnika
+    const fitNow = Selectors.matchFitCount();
+    const woWarn = fitNow <= CONFIG.minMatchSquad ? `<div data-walkover-warn class="rounded-xl ${fitNow < CONFIG.minMatchSquad ? 'bg-stamp/25 ring-1 ring-stamp' : 'bg-amber-500/15 ring-1 ring-amber-400'} px-2.5 py-1.5 mb-1.5 text-[11.5px] text-paper-100 leading-snug">
+        ${fitNow < CONFIG.minMatchSquad ? '⚖️ <b>GROZI WALKOWER 0:3!</b>' : '⚠️ <b>Na granicy walkowera.</b>'} Zdolnych do gry: <b>${fitNow}/${CONFIG.minMatchSquad}</b> (kontuzje ${s.squad.filter((p) => p.injured > 0).length}, zawieszenia ${s.squad.filter((p) => p.suspended > 0).length}).
+        ${Selectors.emergencyCost() != null ? `<button data-action="emergency-sign" class="btn-press mt-1 w-full h-8 rounded-lg bg-amber-glow text-ink-900 text-[12px] font-bold">🙋 Dobierz zawodnika awaryjnie · ${Utils.formatMoney(Selectors.emergencyCost())}</button>` : '<span class="block text-[10.5px] text-paper-300 mt-0.5">Kadra pełna albo ban transferowy – awaryjne dobranie niemożliwe.</span>'}
+      </div>` : '';
+
     // TRYB TESTOWY: nazwa klubu + lista „TEST” do natychmiastowej zmiany szczebla
     const levels = DATA.leagueLevels.map((L, i) => [i, L]).filter(([, L]) => L).concat(DATA.leagueLevels[3.5] ? [[3.5, DATA.leagueLevels[3.5]]] : []).sort((a, b) => a[0] - b[0]);
     const eu = Selectors.euroLive() ? s.euro : null;
@@ -11396,7 +11435,7 @@ const UI = {
         <div class="text-[11px] text-ink-700 leading-snug truncate">⚙️ ${line('MID') || '–'} · 🎯 ${line('FWD') || '–'}</div>
       </button>`;
     })();
-    return test + tiles + xiLine + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
+    return test + tiles + woWarn + xiLine + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
   // Ostatnie wydarzenia: jedna linijka na tydzień – wynik meczu i bilans kasy (z wpisów, które zapisuje silnik)
@@ -12671,6 +12710,7 @@ const Actions = {
   },
   'rival-player'(el) { gameState.ui.overlay = { type: 'rivalPlayer', team: el.dataset.team, id: el.dataset.id }; App.commit(); },
   'watch-toggle'(el) { if (Engine.toggleWatch(el.dataset.team, el.dataset.id) && gameState.transfer && gameState.transfer.open) Engine.watchlistToMarket(); App.commit(); },
+  'emergency-sign'() { Engine.emergencySign(); App.commit(); },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
