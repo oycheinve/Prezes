@@ -63,6 +63,19 @@
     .sheet-in { animation: sheetIn .22s ease-out; }
     @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
     .cut-icon { animation: breathe 3s ease-in-out infinite; }
+    /* 14.x: finał negocjacji – podpis na umowie albo czerwony X */
+    @keyframes finPop { 0% { opacity: 0; transform: scale(.6); } 70% { opacity: 1; transform: scale(1.06); } 100% { transform: scale(1); } }
+    @keyframes finDraw { to { stroke-dashoffset: 0; } }
+    @keyframes finPen { 0% { transform: translate(-6px, 6px) rotate(0); opacity: 0; } 10% { opacity: 1; } 25% { transform: translate(14px, -4px) rotate(-6deg); } 45% { transform: translate(34px, 5px) rotate(4deg); } 65% { transform: translate(52px, -3px) rotate(-5deg); } 85% { transform: translate(70px, 2px) rotate(2deg); opacity: 1; } 100% { transform: translate(78px, -10px) rotate(-12deg); opacity: 0; } }
+    @keyframes finStamp { 0% { opacity: 0; transform: scale(2.2) rotate(-18deg); } 60% { opacity: 1; transform: scale(.92) rotate(-12deg); } 100% { opacity: 1; transform: scale(1) rotate(-12deg); } }
+    .fin-pop { animation: finPop .45s ease-out both; }
+    .fin-draw { stroke-dasharray: 220; stroke-dashoffset: 220; animation: finDraw 1.1s .35s ease-in-out forwards; }
+    .fin-x1 { stroke-dasharray: 120; stroke-dashoffset: 120; animation: finDraw .3s .3s ease-out forwards; }
+    .fin-x2 { stroke-dasharray: 120; stroke-dashoffset: 120; animation: finDraw .3s .6s ease-out forwards; }
+    .fin-pen { animation: finPen 1.4s .25s ease-in-out both; }
+    .fin-stamp { animation: finStamp .4s 1.35s ease-out both; }
+    .fin-shake { animation: finPop .4s ease-out both, shake .25s .9s 2; }
+    @media (prefers-reduced-motion: reduce) { .fin-pop, .fin-draw, .fin-x1, .fin-x2, .fin-pen, .fin-stamp, .fin-shake { animation: none !important; stroke-dashoffset: 0; opacity: 1; } }
     .scroll-thin::-webkit-scrollbar { width: 4px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
   </style>
@@ -4595,6 +4608,7 @@ const Engine = {
   },
   negotiateClose() {
     const n = gameState.negotiation;
+    const wasOpen = !!(n && !n.done);
     if (n && !n.done && n.kind === 'sign') {   // nowy nabytek: zgoda na warunki agenta (transfer zostaje)
       const p = gameState.squad.find((x) => x.id === n.pid);
       if (p) { p.wage = n.ask; p.contractEnd = gameState.calendar.season + 2; p.clause = { promo: 0, releg: 0 }; Engine.addLog('📄 ' + Selectors.playerName(p) + ': przyjęliśmy warunki agenta – ' + Utils.formatMoney(n.ask) + '/tydz. do końca sezonu ' + p.contractEnd + '.', 'decision'); }
@@ -4603,6 +4617,7 @@ const Engine = {
     if (n && !n.done) {   // wyjście z rozmów = zerwanie
       n.rounds = n.patience; n.offer = 0; Engine.negotiateSubmit();
     }
+    if (wasOpen && n.done) { gameState.ui.overlay = { type: 'negotiation' }; return; }   // 14.x: najpierw finał rozmów (podpis / X), potem zamknięcie
     const back = n && n.back && gameState.transfer && gameState.transfer.open;
     gameState.negotiation = null;
     gameState.ui.overlay = back ? { type: 'transfer' } : null;   // po kontrakcie nowego nabytku – z powrotem na giełdę
@@ -11694,6 +11709,33 @@ const UI = {
       </section><p class="text-[10.5px] text-paper-400 leading-snug">${note}</p>`;
   },
 
+  // 14.x: efektowny finał rozmów – zielony podpis na umowie albo czerwony X
+  negotiationFinale(n, p) {
+    const ok = n.done === 'signed' || n.done === 'forced';
+    const title = n.done === 'signed' ? 'UMOWA PODPISANA' : n.done === 'forced' ? 'PODPISANO – NA WARUNKACH AGENTA' : n.done === 'cancelled' ? 'FIASKO – TRANSFER UPADŁ' : n.done === 'refused' ? 'FIASKO – ODMOWA ROZMÓW' : 'FIASKO – ROZMOWY ZERWANE';
+    const sub = ok
+      ? Utils.formatMoney(p.wage) + '/tydz. · do końca sezonu ' + (p.contractEnd || '') + (p.clause && (p.clause.promo || p.clause.releg) ? ' · klauzule ⬆️ +' + (p.clause.promo || 0) + '% / ⬇️ −' + (p.clause.releg || 0) + '%' : '')
+      : n.done === 'cancelled' ? 'Kwota transferu wraca do kasy klubu.' : (n.kind === 'raise' ? 'Zawodnik zostaje bez podwyżki – i bez humoru.' : 'Zawodnik odejdzie po sezonie za darmo.');
+    const art = ok
+      ? `<svg viewBox="0 0 120 84" width="112" height="78" aria-hidden="true" class="shrink-0">
+          <rect x="14" y="6" width="80" height="72" rx="5" fill="#f8fafc" stroke="#16a34a" stroke-width="2.5"/>
+          <path d="M26 20h56M26 29h56M26 38h40" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+          <path d="M26 64h56" stroke="#cbd5e1" stroke-width="1.5"/>
+          <path class="fin-draw" d="M26 60c6-10 10-10 12-2s5 6 9-3 6-6 8 1 4 6 9-2 6-5 9 0 4 3 7 1" fill="none" stroke="#1d4ed8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <g class="fin-pen" style="transform-box: fill-box"><g transform="translate(22 30) rotate(35)"><rect x="0" y="0" width="7" height="30" rx="2" fill="#0f172a"/><path d="M0 30l3.5 8 3.5-8z" fill="#f5c33b"/></g></g>
+          <g class="fin-stamp" style="transform-origin: 98px 58px"><circle cx="98" cy="58" r="17" fill="#16a34a"/><path d="M90 58l6 6 11-12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+        </svg>`
+      : `<svg viewBox="0 0 84 84" width="78" height="78" aria-hidden="true" class="shrink-0">
+          <circle cx="42" cy="42" r="38" fill="#7f1d1d" stroke="#ef4444" stroke-width="4"/>
+          <path class="fin-x1" d="M24 24L60 60" stroke="#fecaca" stroke-width="9" stroke-linecap="round"/>
+          <path class="fin-x2" d="M60 24L24 60" stroke="#fecaca" stroke-width="9" stroke-linecap="round"/>
+        </svg>`;
+    return `<div data-neg-finale="${ok ? 'ok' : 'fail'}" class="${ok ? 'fin-pop' : 'fin-shake'} mt-3 rounded-2xl px-3 py-2.5 flex items-center gap-3 ${ok ? 'bg-emerald-900/70 ring-2 ring-emerald-400' : 'bg-red-950/80 ring-2 ring-red-500'}">
+        ${art}
+        <div class="min-w-0"><div class="text-[15px] font-extrabold leading-tight ${ok ? 'text-emerald-300' : 'text-red-300'}">${ok ? '✍️ ' : '❌ '}${title}</div>
+        <div class="text-[11.5px] text-paper-200 leading-snug mt-0.5">${Utils.escape(sub)}</div></div>
+      </div>`;
+  },
   negotiationOverlay() {
     const n = gameState.negotiation;
     const p = gameState.squad.find((x) => x.id === n.pid) || n.ghost;
@@ -11710,8 +11752,9 @@ const UI = {
         : `<p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}${ended || n.mood === 'refuse' ? '' : (() => { const r = Engine.breakRisk(n, n.offer); return ' · ryzyko zerwania: <b class="' + (r >= 0.35 ? 'text-stamp' : r >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(r * 100) + '%</b>'; })()}</p>`}
         <div class="grid grid-cols-2 gap-2 mt-3 text-center">
           <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Żąda</div><div class="text-[19px] font-extrabold text-stamp">${n.mood === 'refuse' ? '—' : Utils.formatMoney(n.ask)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
-          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Nasza oferta</div><div class="text-[19px] font-extrabold text-grass">${Utils.formatMoney(n.offer)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
+          <div class="rounded-xl bg-desk-800 py-2"><div class="text-[10.5px] uppercase text-paper-400">Nasza oferta</div><div class="text-[19px] font-extrabold text-grass">${n.done && !n.offer ? '—' : Utils.formatMoney(n.offer)}</div><div class="text-[10.5px] text-paper-400">na tydzień</div></div>
         </div>
+        ${ended ? UI.negotiationFinale(n, p) : ''}
         ${ended ? '' : `<div class="flex gap-1.5 mt-2">${[-5, -1, 1, 5].map((d) => `<button data-action="neg-adj" data-dir="${d}" class="btn-press flex-1 h-9 rounded-lg bg-desk-800 text-paper-100 text-[13px] font-bold">${d > 0 ? '+' : '−'}${Math.abs(d)}%</button>`).join('')}</div>
         <div class="flex gap-1.5 mt-1.5 items-center">
           <button data-action="neg-set" data-v="${Math.round((n.ask + n.offer) / 2)}" class="btn-press flex-1 h-9 rounded-lg bg-desk-700 text-paper-100 text-[11.5px] font-bold">↔ środek ${Utils.formatMoney(Math.round((n.ask + n.offer) / 2))}</button>
@@ -11722,8 +11765,8 @@ const UI = {
         <p class="text-[10.5px] uppercase text-paper-400 mt-3 mb-1">Długość umowy</p><div class="flex gap-2">${yrs}</div>
         ${['promo', 'releg'].map((k) => { const ok = Selectors.clauseAllowed(k); return `<div class="flex items-center gap-1.5 mt-1.5"><span class="text-[11px] text-paper-300 w-[92px] shrink-0">${k === 'promo' ? '⬆️ Za awans' : '⬇️ Za spadek'}</span>${[0, 15, 30].map((v) => `<button data-action="neg-clause" data-k="${k}" data-v="${v}" ${ok ? '' : 'disabled'} class="btn-press flex-1 h-8 rounded-md text-[12px] font-bold ${!ok ? 'bg-desk-800 text-paper-400 opacity-40' : n[k] === v ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${v ? (k === 'promo' ? '+' : '−') + v + '%' : 'brak'}</button>`).join('')}</div>`; }).join('')}
         ${n.wantPromo != null ? (() => { const okP = (n.promo || 0) >= n.wantPromo, okR = (n.releg || 0) <= n.wantReleg; const adj = Math.round(Engine.clauseAdj(n) * 100); return `<div class="flex items-center gap-1.5 mt-1.5 text-[11px]"><span class="flex-1 min-w-0 text-paper-300 leading-tight">Oczekuje: <b class="${okP ? 'text-grass' : 'text-stamp'}">${okP ? '✓' : '✗'} awans ${n.wantPromo ? '+' + n.wantPromo + '%' : 'bez klauzuli'}</b> · <b class="${okR ? 'text-grass' : 'text-stamp'}">${okR ? '✓' : '✗'} spadek ${n.wantReleg ? 'max −' + n.wantReleg + '%' : 'bez obniżki'}</b><br><span class="text-paper-400">Klauzule zmieniają wymaganą pensję: <b class="${adj > 0 ? 'text-stamp' : adj < 0 ? 'text-grass' : ''}">${adj > 0 ? '+' : ''}${adj}%</b></span></span>${okP && okR ? '' : `<button data-action="neg-accept-clauses" class="btn-press shrink-0 h-8 px-2 rounded-md bg-desk-700 text-paper-100 text-[11px] font-bold">Przyjmij jego klauzule</button>`}</div>`; })() : ''}
-        <p class="text-[10.5px] text-paper-400 mt-1">Runda ${n.rounds + 1}. Zerwanie grozi tylko przy ordynarnie niskiej ofercie albo przeciąganiu bez postępu. Weterani cenią dłuższe umowy, młodzi krótsze. Wyższy % za awans albo łagodniejsza obniżka przy spadku = niższa pensja podstawowa (i odwrotnie).${Selectors.clauseAllowed('promo') ? '' : ' W Ekstraklasie nie ma awansu wyżej.'}${Selectors.clauseAllowed('releg') ? '' : ' W B-klasie nie ma spadku niżej.'}</p>`}
-        <ul class="mt-3 space-y-1">${n.log.slice(0, 4).map((l) => `<li class="text-[12.5px] text-paper-200 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
+        <p class="text-[10.5px] text-paper-400 mt-1">Runda ${n.rounds + 1}.${n.rounds ? '' : ' Zerwanie grozi tylko przy ordynarnie niskiej ofercie albo przeciąganiu bez postępu. Weterani cenią dłuższe umowy, młodzi krótsze. Wyższy % za awans albo łagodniejsza obniżka przy spadku = niższa pensja podstawowa (i odwrotnie).'}${Selectors.clauseAllowed('promo') ? '' : ' W Ekstraklasie nie ma awansu wyżej.'}${Selectors.clauseAllowed('releg') ? '' : ' W B-klasie nie ma spadku niżej.'}</p>`}
+        <ul class="mt-3 space-y-1">${n.log.slice(0, ended ? 2 : n.minShown ? 3 : 4).map((l) => `<li class="text-[12.5px] text-paper-200 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : 'sezony'}</button>`}
@@ -12555,7 +12598,8 @@ const Actions = {
     const chosen = d && d.options[Number(el.dataset.option)];
     Engine.resolveDecision(el.dataset.decision, Number(el.dataset.option));
     // Każda scenka (także oferta w giełdzie) kończy się planszą konsekwencji z wyraźnymi zmianami
-    if (d && d.cutscene) {
+    const negOpened = gameState.ui.overlay && gameState.ui.overlay.type === 'negotiation' && gameState.negotiation;   // 14.x: „Siadamy do negocjacji” – od razu ekran rozmów
+    if (d && d.cutscene && !negOpened) {
       const lines = gameState.log.filter((e) => e.id > before).reverse().map((e) => e.text.replace(/\s*\[[^\]]*\]\s*$/, ''));
       const inWindow = d.transfer && gameState.transfer.open;
       if (inWindow) gameState.transfer.news = lines.concat(gameState.transfer.news || []).slice(0, 4);
