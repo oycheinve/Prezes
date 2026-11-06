@@ -3923,6 +3923,7 @@ const Engine = {
     if (!amount) return;
     gameState.finance.budget += amount;
     if (gameState.report) gameState.report.lines.push({ label, amount });
+    else if (gameState.screen === 'game') (gameState.pendingLines = gameState.pendingLines || []).push({ label, amount, off: true });   // 14.x: operacje między tygodniami (transfery, decyzje) trafiają do najbliższego bilansu
   },
 
   // Jedyne miejsce, gdzie modyfikujemy statystyki – łatwo rozszerzyć o nowe.
@@ -8383,7 +8384,8 @@ const Engine = {
   weeklyHooks: [
     function openReport() {
       gameState.alerts = [];   // nowy tydzień = czysty ekran (stare powiadomienia znikają)
-      gameState.report = { week: gameState.calendar.week, lines: [], homeMatch: false, result: null };
+      gameState.report = { week: gameState.calendar.week, lines: gameState.pendingLines || [], homeMatch: false, result: null };   // bilans = pełna zmiana kasy od ostatniego rozliczenia
+      gameState.pendingLines = [];
     },
     function rollFlavor() {
       const band = Selectors.band();   // 13.91: ton tygodniowych wydarzeń dojrzewa z ligą
@@ -12224,16 +12226,31 @@ const UI = {
     `);
   },
 
+  // 14.x: jawny budżet płacowy – wszystkie kontrakty i pensje schodzą co tydzień z kasy
+  payrollPanel() {
+    const sq = gameState.squad.filter((p) => !p.loan), loanIn = gameState.squad.filter((p) => p.loan);
+    const pl = Selectors.squadWages(), co = Selectors.coachWeekly(), st = Selectors.staffWages(), sh = Selectors.shopManagerCost();
+    const tot = Selectors.weeklyPayroll();
+    const inc = gameState.finance.incomeAvg || 0;
+    const share = inc > 0 ? Math.round(tot / inc * 100) : null;
+    const row = (l, v, sub) => `<tr class="border-b border-paper-300"><td class="py-0.5 pr-2">${l}${sub ? ' <span class="text-ink-700 text-[10.5px]">' + sub + '</span>' : ''}</td><td class="py-0.5 text-right font-bold whitespace-nowrap">${Utils.formatMoney(v)}</td></tr>`;
+    return UI.panel('💵 Budżet płacowy', 'Kontrakty i pensje schodzą z kasy co tydzień – w całości.', `<table class="w-full text-[12px]">
+        ${row('Zawodnicy', pl, sq.length + ' kontr.' + (loanIn.length ? ' + ' + loanIn.length + ' wypoż.' : ''))}${row('Trener', co, '')}${row('Sztab, dyrektor, U19', st, '')}${sh ? row('Kierownik sklepu', sh, '') : ''}
+        <tr><td class="pt-1 font-semibold">Razem tygodniowo</td><td class="pt-1 text-right font-extrabold text-[13.5px] text-stamp whitespace-nowrap">−${Utils.formatMoney(tot)}</td></tr>
+        <tr><td class="text-ink-700 text-[11px]">Miesięcznie (4 tyg.)</td><td class="text-right text-[11px] text-ink-700 whitespace-nowrap">−${Utils.formatMoney(tot * 4)}</td></tr></table>
+      ${share != null ? `<div class="mt-1">${UI.bar(Math.min(100, share), share > 85 ? 'bg-stamp' : share > 65 ? 'bg-amber-glow' : 'bg-grass')}<p class="text-[10.5px] mt-0.5 ${share > 85 ? 'text-stamp font-bold' : 'text-ink-700'}">Płace = ${share}% regularnych przychodów tygodnia${share > 85 ? ' – klub żyje ponad stan!' : share > 65 ? ' – wysoko, pilnuj kontraktów' : ' – zdrowy poziom'}</p></div>` : ''}`);
+  },
   reportCard() {
     if (Selectors.debtCrisis() && !gameState.ui.showBilans) return UI.crisisCutsCard() + `<button data-action="show-bilans" class="btn-press w-full h-8 rounded-md bg-desk-700 text-paper-200 text-[12px]">📊 Pokaż bilans tygodnia</button>`;
     const rep = gameState.lastReport;
     const body = !rep
       ? '<p class="text-[12px]">Jeszcze nic nie rozliczono. Pani Halinka ostrzy ołówek.</p>'
       : `<table class="w-full text-[12.5px]">
-          ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
+          ${rep.lines.map((l) => `<tr class="border-b border-paper-300"><td class="py-1 pr-2">${l.off ? '<span title="poza rozliczeniem tygodnia">🗂️ </span>' : ''}${Utils.escape(l.label)}</td><td class="py-1 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}
           <tr><td class="pt-1.5 font-semibold">Razem</td><td class="pt-1.5 text-right font-bold text-[14px] whitespace-nowrap ${rep.total < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(rep.total)}</td></tr>
         </table>`;
-    return UI.panel('Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Wszystko, co wpłynęło i wypłynęło z kasetki.', body)
+    return UI.payrollPanel() + UI.panel('Bilans ostatniego tygodnia' + (rep ? ' (Tydzień ' + rep.week + ')' : ''), 'Pełna zmiana kasy od poprzedniego rozliczenia. 🗂️ = operacje między tygodniami (transfery, decyzje).', body)
+      + ((gameState.pendingLines || []).length ? UI.panel('🗂️ Czeka na rozliczenie', 'Już zaksięgowane w kasie – trafią do najbliższego bilansu.', `<table class="w-full text-[12px]">${gameState.pendingLines.slice(-6).map((l) => `<tr class="border-b border-paper-300"><td class="py-0.5 pr-2">${Utils.escape(l.label)}</td><td class="py-0.5 text-right font-bold whitespace-nowrap ${l.amount < 0 ? 'text-stamp' : 'text-grass'}">${Utils.signedMoney(l.amount)}</td></tr>`).join('')}</table>`) : '')
       + (Selectors.debtCrisis() ? `<button data-action="show-bilans" class="btn-press w-full h-8 rounded-md bg-stamp text-white text-[12px] font-bold">🔥 Ratowanie budżetu: cięcia i wyprzedaż</button>` : `<p class="text-[10.5px] text-paper-400 leading-snug">Księgowa pani Halinka przychodzi we wtorki. Do tego czasu wszystko jest „na zeszyt”.</p>`);
   },
 
