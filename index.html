@@ -113,7 +113,9 @@ const CONFIG = {
   roundsPerRunda: 9,        // (stare zapisy) runda = połowa sezonu – teraz liczona z terminarza: Selectors.rundaLen()
   maxLogEntries: 300,
   minSquad: 13,             // poniżej tego trener dobiera chłopaków z łapanki
-  minMatchSquad: 12,        // 14.x: mniej zdolnych do gry (kontuzje, kartki, nieobecni) = walkower 0:3
+  u19Size: 16,              // 14.x: stała kadra akademii (braki łatają zapychacze)
+  u19Intake: 5,             // 14.x: coroczny nabór
+  u19OverAge: 2,            // 14.x: max starszych (19+) zawodników pierwszej drużyny w U19
   carpetCooldown: 4,        // co ile tygodni można wezwać trenera na dywanik
   maxFavorites: 4,          // tylu Ulubieńców Trybun naraz
   maxSquad: 22,             // limit kadry (szatnia ma 22 haczyki)
@@ -4778,9 +4780,8 @@ const Engine = {
     return events;
   },
   recordResult(home, away, hg, ag) {
-    if (Engine._walkover && (home === US || away === US)) { home = home; }   // walkower: mecz się nie odbył – rywale nie dostają goli w statystykach
-    else if (home !== US) { const e = Engine.rivalPlayerStats(home, hg, ag); if (away === US) Engine._oppGoals = e; }
-    if (away !== US && !(Engine._walkover && home === US)) { const e = Engine.rivalPlayerStats(away, ag, hg); if (home === US) Engine._oppGoals = e; }
+    if (home !== US) { const e = Engine.rivalPlayerStats(home, hg, ag); if (away === US) Engine._oppGoals = e; }
+    if (away !== US) { const e = Engine.rivalPlayerStats(away, ag, hg); if (home === US) Engine._oppGoals = e; }
     const t = gameState.season.table;
     const H = t[home], A = t[away];
     H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
@@ -4886,7 +4887,7 @@ const Engine = {
   pickLineup(absentIds = []) {
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
-    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !p.exiled && !(p.injured > 0) && !(p.suspended > 0));
+    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !p.exiled && !p.u19Dev && !(p.injured > 0) && !(p.suspended > 0));
     // Obietnica dla „Naszych w Bawarii”: najmłodszy zawodnik musi grać
     const youngest = gameState.dda.youthPromise > 0 ? avail.slice().sort((a, b) => a.age - b.age)[0] : null;
     const score = (p) => {
@@ -4985,10 +4986,7 @@ const Engine = {
       ((p.tag === 'worker' && Math.random() < 0.25 * disc) || (p.tag === 'party' && Math.random() < 0.15 * disc)));
     absent.forEach((p) => Engine.addLog('🚧 ' + Selectors.playerName(p) + ' nie dojechał na mecz (' + (p.tag === 'worker' ? 'budowa się przeciągnęła' : 'wesele do 6 rano') + ').', 'event'));
 
-    // --- 14.x: walkower – mniej niż 12 zawodników zdolnych do gry (kontuzje, kartki, nieobecni) ---
-    const fitCount = Selectors.matchFitCount(absent.map((p) => p.id));
-    const walkover = fitCount < CONFIG.minMatchSquad;
-    Engine._walkover = walkover;
+    // 14.x: walkowerów nie ma – mecz zawsze się odbywa (braki łata trener zawodnikami z pola)
 
     // --- Skład i chemia (wybiera trener) ---
     const lineup = Engine.pickLineup(absent.map((p) => p.id));
@@ -5027,7 +5025,7 @@ const Engine = {
     oppL = oppL * (1 - chaos) + avg * chaos;
     // --- Kartki: temperament zawodników × styl trenera × derby; czerwona osłabia drużynę ---
     const servedBan = gameState.squad.filter((p) => p.suspended > 0);   // ci pauzowali w tym meczu
-    const cards = walkover ? [] : Engine.rollCards(lineup, rival.derby);
+    const cards = Engine.rollCards(lineup, rival.derby);
     // 13.94: czerwona kartka boli tym mocniej, im dłużej gramy w osłabieniu
     const redLeft = (us) => cards.filter((c) => c.us === us && c.card === 'R').reduce((a, c) => a + (90 - c.min) / 90, 0);
     const ourShort = redLeft(true), theirShort = redLeft(false);
@@ -5039,7 +5037,6 @@ const Engine = {
     let gf = Utils.poisson(Math.max(0.15, ourL));
     let ga = Utils.poisson(Math.max(0.15, oppL));
     if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
-    if (walkover) { gf = 0; ga = 3; }                                  // walkower 0:3 dla rywala
     const result = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
 
     // --- Tabela: nasz mecz + reszta kolejki (tylko liga) ---
@@ -5052,7 +5049,7 @@ const Engine = {
 
     // --- Kontuzje: dobry fizjoterapeuta = rzadziej i krócej ---
     const fizjo = Selectors.staffLevel('fizjo');
-    (walkover ? [] : lineup).forEach((p) => {
+    lineup.forEach((p) => {
       const pitchRisk = fixture.home && gameState.stadium.pitch < 30 ? 1.3 : 1;   // kretowisko łamie kostki
       if (p.injProne == null) p.injProne = Math.round(Utils.clamp(0.6 + Math.random() * Math.random() * 1.2, 0.6, 1.5) * 100) / 100;
       const ageRisk = (p.age >= 32 ? 1.3 : 1) * (p.fragile ? 1.6 : 1) * (Selectors.coachTrait('hardTraining') ? 1.5 : 1) * p.injProne;
@@ -5066,7 +5063,7 @@ const Engine = {
     });
 
     // --- Strzelcy i doświadczenie ---
-    (walkover ? [] : lineup).forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
+    lineup.forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
     const scorerCount = {};
     const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
     const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
@@ -5093,8 +5090,8 @@ const Engine = {
     });
     // Gole rywala: w lidze konkretni zawodnicy z jego kadry (te same, które trafiają do klasyfikacji);
     // w pucharach – zawodnicy spoza naszej ligi, losowani na ten mecz
-    let oppEv = walkover ? [] : Engine._oppGoals;
-    if (!walkover && (!oppEv || oppEv.length !== ga)) {
+    let oppEv = Engine._oppGoals;
+    if (!oppEv || oppEv.length !== ga) {
       const foreign = cup && cup.euro;
       const pool = [0, 1, 2].map(() => Engine.oppScorerName(foreign));
       oppEv = Array.from({ length: ga }, () => ({ n: Utils.weightedPick(pool.map((n, i) => ({ n, w: [5, 3, 2][i] })), (o) => o.w).n, a: null }));
@@ -5123,21 +5120,13 @@ const Engine = {
       cupInfo: cup ? { round: cup.round, oppLeague: cup.oppLeague, neutral: !!cup.neutral, comp: cup.comp || 'Puchar Polski', venue: cup.venue ? cup.venue.name : null } : null,
       weatherIcon: weather.icon, weatherLabel: weather.label, gf, ga, result, goals, money: [], attendance: null,
       sensation: !!extra, cards: cards.map((c) => ({ min: c.min, us: c.us, card: c.card, name: c.name })),
-      lineupIds: walkover ? [] : lineup.map((p) => p.id), scorerCount: { ...scorerCount },
-      walkover: walkover ? { fit: fitCount, injured: gameState.squad.filter((p) => p.injured > 0).length, suspended: gameState.squad.filter((p) => p.suspended > 0).length, absent: absent.length } : null,
+      lineupIds: lineup.map((p) => p.id), scorerCount: { ...scorerCount },
     };
-    if (walkover) {
-      const fine = Math.round(150 * Selectors.econ());
-      Engine.money('Kara za walkower', -fine);
-      Engine.applyEffects({ fans: -4, lockerRoom: -3 });
-      Engine.addLog('⚖️ WALKOWER 0:3 z ' + rival.name + ': tylko ' + fitCount + ' zawodników zdolnych do gry (minimum ' + CONFIG.minMatchSquad + '). Kontuzje: ' + gameState.lastMatch.walkover.injured + ', zawieszenia: ' + gameState.lastMatch.walkover.suspended + (absent.length ? ', nieobecni: ' + absent.length : '') + '. Kara ' + Utils.formatMoney(fine) + ', kibice -4%, szatnia -3%.', 'match');
-      Engine.alert('⚖️', 'Walkower 0:3', 'Zabrakło zawodników zdolnych do gry (' + fitCount + '/' + CONFIG.minMatchSquad + '). Mecz z ' + rival.name + ' przegrany walkowerem.', 'bad');
-    }
     servedBan.forEach((p) => { p.suspended = Math.max(0, p.suspended - 1); });
     Engine.applyCardBans(cards);
 
     // --- Noty meczowe (1.0–10.0) dla wyjściowej jedenastki ---
-    if (!walkover) Engine.rateLineup(lineup, scorerCount, result, gf, ga);
+    Engine.rateLineup(lineup, scorerCount, result, gf, ga);
 
     // --- Statystyki ---
     const r = gameState.record;
@@ -5209,8 +5198,6 @@ const Engine = {
       Engine.money('Finał: udział w biletach', share);
       gameState.lastMatch.attendance = att;
       gameState.lastMatch.money.push({ label: 'Udział w biletach (' + v.name + ')', amount: share });
-    } else if (walkover) {   // walkower: mecz się nie odbył – bez biletów i bez wyjazdu; kara już zaksięgowana
-      if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Kara za walkower', amount: -Math.round(150 * Selectors.econ()) });
     } else if (fixture.home) Engine.homeMatchdayIncome(fixture, rival, weather);
     else {
       const fuel = -Utils.randInt(50, 90);
@@ -5218,7 +5205,7 @@ const Engine = {
       if (gameState.lastMatch) gameState.lastMatch.money.push({ label: 'Paliwo do busa', amount: fuel });
     }
 
-    const tv = walkover ? 0 : Selectors.tvIncome();   // walkower: nie ma czego transmitować
+    const tv = Selectors.tvIncome();
     if (tv) {   // kamery telewizyjne: prawa do transmisji z każdego meczu
       Engine.money('Prawa TV' + (cup ? ' (puchar)' : ''), tv);
       gameState.lastMatch.money.push({ label: '📺 Prawa do transmisji', amount: tv });
@@ -5510,8 +5497,8 @@ const Engine = {
       p.age++; p.seasons++; p.seasonApps = 0; p.seasonGoals = 0; p.seasonAssists = 0; p.seasonRatingSum = 0; p.seasonRatingCount = 0;
       p.yellows = 0; p.seasonYellows = 0; p.seasonReds = 0;   // żółte zerują się z nowym sezonem; pauza za czerwoną przechodzi na kolejny oficjalny mecz
       // młodzi rosną do swojego potencjału – tym szybciej, im więcej grali (Perełki i dobry asystent pomagają)
-      const gain = p.loan ? 0 : Engine.develop(p, p.prevSeason.apps, false);
-      if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + (p.prevSeason.apps >= 12 ? ' (regularna gra)' : p.prevSeason.apps >= 5 ? ' (rezerwowy)' : ' (ławka)'));
+      const gain = p.loan ? 0 : p.u19Dev ? Engine.u19DevGrowth(p) : Engine.develop(p, p.prevSeason.apps, false);
+      if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + (p.u19Dev ? ' (rozwój w U19)' : p.prevSeason.apps >= 12 ? ' (regularna gra)' : p.prevSeason.apps >= 5 ? ' (rezerwowy)' : ' (ławka)'));
       if (p.age >= 33 && Math.random() < 0.4) p.skill = Math.max(1, p.skill - 1);   // starzy słabną
       if (p.favorite && !p.legend && p.seasons >= 5) {
         p.legend = true;
@@ -5685,9 +5672,85 @@ const Engine = {
     p.u19Apps = 0;
     return p;
   },
+  // 14.x: zapychacz – bezimienny chłopak z rocznika bez większego potencjału, tylko do liczebności kadry U19
+  makeFiller() {
+    const A = Selectors.academy();
+    const b = Selectors.levelSkillBonus();
+    const sk = Math.max(1, A.skill[0] + b - 2 + Utils.randInt(0, 1));
+    const p = Engine.makePlayer({ ageMin: 15, ageMax: 18, skillMin: sk, skillMax: sk });
+    const k = (gameState.u19.fillerNo = (gameState.u19.fillerNo || 0) + 1);
+    Object.assign(p, { first: 'Zapychacz', last: '#' + k, nick: 'Zapychacz #' + k, noNick: true, filler: true, wage: 0, potential: p.skill + (Math.random() < 0.3 ? 1 : 0), u19Apps: 0 });
+    delete p.talent; delete p.prodigy;
+    return p;
+  },
+  // Stała kadra U19: 16 juniorów (bez 19-latków czekających na decyzję) – braki łatają zapychacze, nadmiar zapychaczy odchodzi
+  u19Fill() {
+    const u = gameState.u19;
+    if (!u) return;
+    const count = () => u.squad.filter((p) => p.age < 19).length;
+    while (count() > CONFIG.u19Size && u.squad.some((p) => p.filler)) { const f = u.squad.filter((p) => p.filler).sort((a, b) => a.skill - b.skill)[0]; u.squad = u.squad.filter((x) => x !== f); }
+    while (count() < CONFIG.u19Size) u.squad.push(Engine.makeFiller());
+  },
+  // 14.x: coroczny nabór – zawsze 5 chłopaków; jakość i perełki zależą od poziomu szkółki (i rekrutera)
+  u19Intake(summary, forSeason = gameState.calendar.season) {
+    const u = gameState.u19;
+    if (!u) return null;
+    u.squad = u.squad.filter((p) => !p.filler);   // zapychacze robią miejsce nowemu rocznikowi
+    const fresh = [];
+    for (let i = 0; i < CONFIG.u19Intake; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); p.intakeSeason = forSeason; u.squad.push(p); fresh.push(p); }
+    // za dużo juniorów: odchodzą najsłabiej rokujący (bez umowy, nie z tego naboru)
+    const released = [];
+    const value = (p) => Selectors.potential(p) * 2 + p.skill + (p.talent ? 6 : 0);
+    while (u.squad.filter((p) => p.age < 19).length > CONFIG.u19Size) {
+      const out = u.squad.filter((p) => p.age < 19 && !p.secured && !fresh.includes(p)).sort((a, b) => value(a) - value(b))[0];
+      if (!out) break;
+      u.squad = u.squad.filter((x) => x !== out); released.push(out.nick);
+    }
+    Engine.u19Fill();
+    const stars = fresh.map((p) => Selectors.potentialStars(p) + (p.talent ? 1 : 0) + (p.prodigy ? 1 : 0));
+    const avg = stars.reduce((a, b) => a + b, 0) / stars.length;
+    const rating = Utils.clamp(Math.round(1 + (avg - 1) * 4 / 2.8), 1, 5);   // skala: słaba szkółka ~★–★★, najlepsza ~★★★★–★★★★★
+    const gems = fresh.filter((p) => p.talent).length;
+    u.intake = { season: forSeason, ids: fresh.map((p) => p.id), rating, label: ['', 'Słaby', 'Przeciętny', 'Solidny', 'Bardzo dobry', 'Wybitny'][rating], gems, released };
+    Engine.addLog('🎽 Nabór do akademii: ' + fresh.map((p) => p.nick + ' (' + DATA.positions[p.pos].label.toLowerCase() + (p.talent ? ' 💎' : '') + ')').join(', ') + '. Ocena naboru: ' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + ' ' + u.intake.label + (gems ? ' · perełki: ' + gems : '') + (released.length ? '. Z akademii odchodzą: ' + released.join(', ') : '') + '.', 'event');
+    return u.intake;
+  },
+  // 14.x: zawodnik pierwszej drużyny do U19 na rozwój (alternatywa wypożyczenia) – max 2 starszych niż U19
+  u19SendDown(id) {
+    const p = gameState.squad.find((x) => x.id === id);
+    const why = Selectors.u19SendBlock(p);
+    if (why) return;
+    p.u19Dev = { season: gameState.calendar.season, week: gameState.calendar.week };
+    p.u19Apps = p.u19Apps || 0;
+    delete p.benched; delete p.listed;
+    Engine.addLog('⬇️ ' + Selectors.playerName(p) + ' przechodzi do ' + Selectors.u19Name() + ' na rozwój – regularna gra w lidze juniorów (pensja bez zmian).', 'decision');
+  },
+  u19Recall(id) {
+    const p = gameState.squad.find((x) => x.id === id);
+    if (!p || !p.u19Dev) return;
+    delete p.u19Dev;
+    Engine.addLog('⬆️ ' + Selectors.playerName(p) + ' wraca z U19 do pierwszej drużyny.', 'decision');
+  },
+  // 14.x: junior do pierwszej drużyny w dowolnym momencie – po podpisaniu profesjonalnego kontraktu; w jego miejsce zapychacz
+  u19Promote(id) {
+    const u = gameState.u19;
+    const p = u && u.squad.find((x) => x.id === id);
+    if (!p || p.filler || gameState.squad.length >= CONFIG.maxSquad) return;
+    const fee = Selectors.proContractFee(p);
+    if (gameState.finance.budget < fee) return;
+    u.squad = u.squad.filter((x) => x.id !== id);
+    if (fee) Engine.money('Profesjonalny kontrakt: ' + Selectors.playerName(p), -fee);
+    p.wage = Selectors.gradWage(p);
+    p.contractEnd = gameState.calendar.season + 2;
+    delete p.watch; delete p.watchClub;
+    gameState.squad.push(p);
+    Engine.u19Fill();
+    Engine.addLog('✍️ ' + Selectors.playerName(p) + ' (' + p.age + ' l.) podpisał profesjonalny kontrakt (' + Utils.formatMoney(p.wage) + '/tydz.) i dołącza do pierwszej drużyny. W U19 jego miejsce zajmuje chłopak z rocznika.', 'decision');
+  },
   u19Init() {
     gameState.u19 = { squad: [], table: {}, coach: null, recruiter: null, graduates: [], log: [], last: null };
     [15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 16].forEach((age) => gameState.u19.squad.push(Engine.makeJunior(age)));
+    Engine.u19Fill();
     Engine.u19NewSeason();
   },
   u19NewSeason() {
@@ -5703,7 +5766,7 @@ const Engine = {
     if (!u || !u.squad.length) return;
     const me = Selectors.u19Name();
     if (!u.table[me]) Engine.u19NewSeason();
-    const exiles = gameState.squad.filter((p) => p.exiled && !(p.injured > 0));   // zesłani seniorzy grają z juniorami
+    const exiles = gameState.squad.filter((p) => (p.exiled || p.u19Dev) && !(p.injured > 0));   // zesłani i oddelegowani na rozwój seniorzy grają z juniorami
     const eleven = exiles.concat(u.squad.slice().sort((a, b) => b.skill - a.skill)).slice(0, 11);
     const filler = Math.max(1, Selectors.academy().skill[0] + Selectors.levelSkillBonus() - 1);   // braki w składzie łata chłopak z rocznika
     const avg = (eleven.reduce((s, p) => s + p.skill, 0) + Math.max(0, 11 - eleven.length) * filler) / 11;
@@ -5774,9 +5837,10 @@ const Engine = {
       Engine.applyEffects({ fans: -3 * stolen.length });
       gameState.poachReport = { season, stolen };
     }
-    const grads = u.squad.filter((p) => p.age >= 19);
+    const grads = u.squad.filter((p) => p.age >= 19 && !p.filler);
     u.squad = u.squad.filter((p) => p.age < 19);
     u.graduates = u.graduates.concat(grads);
+    Engine.u19Fill();
     if (u.graduates.length) Engine.pushDecision('u19Graduate');
   },
   u19Secure(id) {
@@ -5835,13 +5899,13 @@ const Engine = {
       if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + ' (wypożyczenie juniora: ' + l.club + ')');
       return false;
     });
+    u.squad = u.squad.filter((p) => !(p.filler && p.age >= 19));   // zapychacze nie czekają na decyzję o kontrakcie
     const grads = u.squad.filter((p) => p.age >= 19);   // decyzja o nich zapada po okienku transferowym
-    const young = u.squad.length - grads.length;
-    const A = Selectors.academy();
-    const n = Math.min(Math.max(0, 16 - young), Math.max(A.cands + Selectors.u19Lvl('recruiter'), 12 - young));   // nabór utrzymuje co najmniej 12 juniorów
-    const fresh = [];
-    for (let i = 0; i < n; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); u.squad.push(p); fresh.push(p.nick + (p.talent ? ' 💎' : '')); }
-    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą (decyzja po okienku): ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór: ' + fresh.join(', ') : '') + (back.length ? ' · wracają z wypożyczeń: ' + back.join(', ') : '');
+    const nb = Engine.u19Intake(summary, gameState.calendar.season + 1);   // nabór na nowy sezon (licznik sezonu rośnie chwilę później)
+    // po urodzinach: najwyżej 2 starszych (19+) z pierwszej drużyny w U19 – nadmiar wraca do seniorów
+    gameState.squad.filter((p) => p.u19Dev && p.age >= 19).sort((a, b) => (b.u19Dev.season - a.u19Dev.season) || (b.u19Dev.week - a.u19Dev.week)).slice(Math.max(0, CONFIG.u19OverAge - gameState.squad.filter((p) => p.exiled && p.age >= 19).length)).forEach((p) => { delete p.u19Dev; Engine.addLog('⬆️ ' + Selectors.playerName(p) + ' wraca z U19 – limit ' + CONFIG.u19OverAge + ' starszych zawodników w akademii.', 'event'); });
+    const fresh = nb ? u.squad.filter((p) => nb.ids.includes(p.id)).map((p) => p.nick + (p.talent ? ' 💎' : '')) : [];
+    summary.u19 = '🌱 ' + Selectors.u19Name() + ': ' + (pos ? pos + '. miejsce w lidze juniorów' : 'sezon bez meczów') + (grads.length ? ' · 19 lat kończą (decyzja po okienku): ' + grads.map((p) => p.nick).join(', ') : '') + (fresh.length ? ' · nabór ' + '★'.repeat(nb.rating) + '☆'.repeat(5 - nb.rating) + ' (' + nb.label + '): ' + fresh.join(', ') : '') + (back.length ? ' · wracają z wypożyczeń: ' + back.join(', ') : '');
     Engine.u19NewSeason();
   },
 
@@ -6865,16 +6929,17 @@ const Engine = {
     return gain;
   },
 
-  // 14.x: awaryjny zawodnik z okolicy, gdy grozi walkower (płatne od ręki, płaca minimalna ligi)
-  emergencySign() {
-    const cost = Selectors.emergencyCost();
-    if (cost == null || gameState.finance.budget < cost) return;
-    const b = Selectors.levelSkillBonus();
-    const p = Engine.generatePlayer({ ageMin: 19, ageMax: 33, skillMin: 2 + b, skillMax: 4 + b });
-    p.wage = Selectors.minWage();
-    p.contractEnd = gameState.calendar.season;
-    Engine.money('Awaryjny zawodnik: ' + Selectors.playerName(p), -cost);
-    Engine.addLog('🙋 Awaryjnie do kadry: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(p) + ', ' + Utils.formatMoney(p.wage) + '/tydz., umowa do końca sezonu) – żeby nie oddać meczu walkowerem.', 'decision');
+  // 14.x: rozwój seniora oddelegowanego do U19 – regularna gra z juniorami, ale wolniej niż na wypożyczeniu
+  u19DevGrowth(p) {
+    const cap = p.ace || p.prodigy ? Selectors.potential(p) : Math.min(Selectors.potential(p), Selectors.leagueSkillCap() + (p.talent ? 2 : 1));
+    const apps = p.u19Apps || 0;
+    p.u19Apps = 0;
+    if (p.age > 25 || p.skill >= cap) return 0;
+    const share = Utils.clamp(apps / Math.max(1, gameState.season.rounds.length || 18), 0, 1);
+    const gain = Math.random() < 0.12 + 0.4 * share + (p.talent ? 0.1 : 0) + Selectors.u19Lvl('coach') * 0.03 ? 1 : 0;   // wypożyczenie: ~65%
+    const g = Math.min(gain, cap - p.skill);
+    p.skill += g;
+    return g;
   },
   generatePlayer(opts = {}) {
     const p = Engine.makePlayer(opts);
@@ -7180,6 +7245,7 @@ const Engine = {
     if (!t.open || !p || p.loan || p.id === gameState.star.playerId || gameState.squad.length <= CONFIG.minSquad) return;
     const fee = Selectors.loanOutFee(p);
     gameState.squad = gameState.squad.filter((x) => x.id !== id);
+    delete p.u19Dev;   // wypożyczenie zastępuje grę w U19
     const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : -1);
     gameState.loansOut.push({ player: p, club, until: t.season, ovrStart: Selectors.ovr({ ...p, formHistory: [] }) });
     Engine.money('Wypożyczenie do ' + club + ': ' + Selectors.playerName(p), fee);
@@ -9651,9 +9717,19 @@ const Selectors = {
     const label = { bargain: '💰 Okazja – poniżej wartości', fair: '👍 Dobra cena – równo z wartością', over: '😬 Lekkie przepłacenie', way: '🔥 Mocne przepłacenie' }[key];
     return { key, pct, label, tone: raw <= 0 ? 'good' : raw <= 25 ? 'warn' : 'bad', band: raw <= 0 ? 0 : raw <= 25 ? 1 : 2 };
   },
-  // 14.x: zdolni do gry (bez kontuzjowanych, zawieszonych, zesłanych do U19 i nieobecnych) – poniżej minimum = walkower
-  matchFitCount: (absentIds = []) => gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.exiled && !(p.injured > 0) && !(p.suspended > 0)).length,
-  emergencyCost: () => (gameState.squad.length >= CONFIG.maxSquad || Selectors.transferBanned() ? null : Math.round(Selectors.minFee() * 0.6 / 10) * 10),
+  // 14.x: akademia – seniorzy w U19 (na rozwój albo karnie) i blokady oddelegowania
+  u19Seniors: () => gameState.squad.filter((p) => p.u19Dev || p.exiled),
+  u19OverAge: () => gameState.squad.filter((p) => (p.u19Dev || p.exiled) && p.age >= 19).length,
+  u19SendBlock: (p) => {
+    if (!p) return 'brak zawodnika';
+    if (!Selectors.academyOpen() || !gameState.u19) return 'szkółka zamknięta';
+    if (p.loan) return 'wypożyczony do nas';
+    if (p.u19Dev || p.exiled) return 'już gra w U19';
+    if (p.age >= 19 && Selectors.u19OverAge() >= CONFIG.u19OverAge) return 'limit ' + CONFIG.u19OverAge + ' starszych zawodników w U19';
+    if (gameState.squad.filter((x) => !x.loan && !x.u19Dev && !x.exiled).length <= CONFIG.minSquad) return 'za mała kadra pierwszej drużyny';
+    return '';
+  },
+  proContractFee: (p) => (p.secured ? 0 : Math.round(Selectors.secureCost(p) * 0.5 / 10) * 10),   // umowa juniorska już podpisana = bez opłaty
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10214,7 +10290,7 @@ const UI = {
           ${m.home ? side(theirCrest, m.rival, '') : side(ourCrest, name, '')}
         </div>
         <div class="h-1 rounded-full bg-desk-700 mt-4 overflow-hidden"><div id="mx-bar" class="h-full bg-amber-glow" style="width:${live ? 0 : 100}%"></div></div>
-        <ul class="space-y-1.5 mt-4">${m.walkover ? `<li class="text-center rounded-xl bg-stamp/20 ring-1 ring-stamp px-3 py-2"><div class="text-[18px] font-black text-stamp tracking-wider">⚖️ WALKOWER 0:3</div><div class="text-[12px] text-paper-200 mt-0.5">Mecz się nie odbył: tylko ${m.walkover.fit} zawodników zdolnych do gry (minimum ${CONFIG.minMatchSquad}). Kontuzje: ${m.walkover.injured}, zawieszenia: ${m.walkover.suspended}${m.walkover.absent ? ', nieobecni: ' + m.walkover.absent : ''}.</div></li>` : goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
+        <ul class="space-y-1.5 mt-4">${goals || `<li class="mx-goal ${live ? 'hidden' : ''} text-center text-[13px] text-paper-400" data-min="90">Bez goli. Kibice liczyli wrony.</li>`}</ul>
         <div id="mx-final" class="${live ? 'hidden' : ''} mt-5 space-y-3">
           <div class="text-center text-[22px] font-extrabold tracking-wide ${tone}">${label}${m.sensation ? ' · SENSACJA!' : ''}</div>
           ${m.mvp ? `<div class="mx-auto max-w-[340px] rounded-xl ${m.mvp.rival ? 'bg-stamp/15 border border-stamp/40' : 'bg-amber-glow/15 border border-amber-glow/40'} px-3 py-1.5 flex items-center gap-2">
@@ -10339,6 +10415,8 @@ const UI = {
           <div class="grid grid-cols-4 gap-1.5 mt-2 text-center">
             ${stat('Mecze', p.seasonApps)}${stat('Gole', p.seasonGoals)}${stat('Asysty', p.seasonAssists || 0)}${stat('Klub M/G/A', p.apps + '/' + p.goals + '/' + (p.assists || 0))}
           </div>
+          ${p.loan ? '' : p.u19Dev ? `<button data-action="u19-recall" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold">⬆️ Wróć z U19 do pierwszej drużyny (${p.u19Apps || 0} m. w U19)</button>`
+            : p.exiled ? '' : (() => { const why = Selectors.u19SendBlock(p); return `<button data-action="u19-send" data-id="${p.id}" ${why ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold ${why ? 'bg-paper-300 text-ink-700 opacity-70' : 'bg-ink-900 text-paper-100'}">⬇️ Do U19 na rozwój${why ? ' – ' + why : ' (gra z juniorami, pensja bez zmian)'}</button>`; })()}
           <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${Utils.formatMoney(p.wage)}/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · cena sprzedaży: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
         </div>
 
@@ -10697,6 +10775,7 @@ const UI = {
           (star ? '' : btn('loan-out', p.id, (p.age <= 23 && Selectors.potential(p) > p.skill ? '📈 Wypożycz na rozwój +' : 'Wypożycz +') + Utils.formatMoney(Selectors.loanOutFee(p)), !canGo, 'bg-desk-600 text-paper-100'))
           + btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(price), !canGo, 'bg-stamp text-white')
           + (star ? '' : btn('toggle-list', p.id, p.listed ? '✖ Z listy' : '📋 Na listę (+15%)', false, 'bg-desk-600 text-paper-100'))
+          + (Selectors.academyOpen() && !p.exiled ? (p.u19Dev ? btn('u19-recall', p.id, '⬆️ Wróć z U19', false, 'bg-grass text-white') : btn('u19-send', p.id, '⬇️ Do U19 (zamiast wypożyczenia)', !!Selectors.u19SendBlock(p), 'bg-desk-600 text-paper-100')) : '')
           + btn('release-player', p.id, 'Podziękuj za grę', !canGo, 'bg-desk-700 text-paper-300'));
       }).join('');
     }
@@ -11298,23 +11377,35 @@ const UI = {
         ${staffGroup('coach', '🧑‍🏫 Trener juniorów', 'Szybszy rozwój juniorów i lepsze wyniki U19.')}
         ${staffGroup('recruiter', '🔭 Rekruter talentów', 'Większy nabór i więcej perełek; ostrzega, gdy łowcy z innych klubów obserwują naszych juniorów (bez niego dowiesz się dopiero po fakcie).')}`);
     }
-    const rows = u.squad.slice().sort((a, b) => b.age - a.age || b.skill - a.skill).map((p) => {
+    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const ni = u.intake;
+    const rows = u.squad.slice().sort((a, b) => (a.filler ? 1 : 0) - (b.filler ? 1 : 0) || b.age - a.age || b.skill - a.skill).map((p) => {
+      if (p.filler) return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0 opacity-60">${UI.ovrBadge(p)}<div class="min-w-0 flex-1"><div class="text-[11.5px] truncate leading-tight">${Utils.escape(p.nick)}</div><div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · zapychacz – do najbliższego naboru</div></div></div>`;
       const gem = Selectors.isGem(p);
-      const flags = (p.talent ? ' 💎' : '') + (p.secured ? ' 🔒' : '') + (p.watch && rec ? ' 👀' : '');
-      const action = p.secured ? '<span class="text-[10.5px] text-grass font-bold">UMOWA</span>'
-        : (p.age >= 17 || gem ? `<button data-action="u19-secure" data-id="${p.id}" ${budget < Selectors.secureCost(p) ? 'disabled' : ''} class="btn-press h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap ${budget < Selectors.secureCost(p) ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-ink-900 text-paper-100'}">🔒 ${Utils.formatMoney(Selectors.secureCost(p))}</button>` : '');
-      return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0">
+      const isNew = ni && ni.ids.includes(p.id);
+      const flags = (isNew ? ' 🆕' : '') + (p.talent ? ' 💎' : '') + (p.secured ? ' 🔒' : '') + (p.watch && rec ? ' 👀' : '');
+      const fee = Selectors.proContractFee(p);
+      const promo = `<button data-action="u19-promote" data-id="${p.id}" ${full || budget < fee ? 'disabled' : ''} title="Profesjonalny kontrakt (${Utils.formatMoney(Selectors.gradWage(p))}/tydz.${fee ? ', podpis ' + Utils.formatMoney(fee) : ''}) i do pierwszej drużyny" class="btn-press h-6 px-1.5 rounded-md text-[11px] font-bold whitespace-nowrap ${full || budget < fee ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-grass text-white'}">✍️⬆️${fee ? ' ' + Utils.formatMoney(fee) : ''}</button>`;
+      const secure = p.secured || !(p.age >= 17 || gem) ? '' : `<button data-action="u19-secure" data-id="${p.id}" ${budget < Selectors.secureCost(p) ? 'disabled' : ''} title="Umowa juniorska – chroni przed łowcami talentów" class="btn-press h-6 px-1.5 rounded-md text-[11px] font-bold whitespace-nowrap ${budget < Selectors.secureCost(p) ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-ink-900 text-paper-100'}">🔒 ${Utils.formatMoney(Selectors.secureCost(p))}</button>`;
+      return `<div class="flex items-center gap-1 py-[2px] border-b border-paper-300 last:border-0">
         ${UI.ovrBadge(p)}
         <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">${Utils.escape(Selectors.shortName(p))}${flags}</div>
         <div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
-        ${action}
+        ${secure}${promo}
       </div>`;
     }).join('');
-    return segs + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce w lidze juniorów · ' : '') + u.squad.length + ' juniorów · w wieku 19 lat decyzja: pierwsza drużyna albo do widzenia',
+    const fillers = u.squad.filter((p) => p.filler).length;
+    const seniors = Selectors.u19Seniors();
+    const intakeCard = ni ? `<section data-u19-intake class="paper px-2.5 py-1.5 mb-1.5"><div class="flex items-center justify-between gap-2"><span class="text-[12px] font-bold">🎽 Nabór ${ni.season === gameState.calendar.season ? 'tego sezonu' : 'sezonu ' + ni.season}</span><span class="text-[12px] whitespace-nowrap"><b class="text-amber-600">${'★'.repeat(ni.rating)}</b><span class="text-paper-400">${'☆'.repeat(5 - ni.rating)}</span> <b>${Utils.escape(ni.label)}</b></span></div>
+        <div class="text-[10.5px] text-ink-700 leading-snug truncate">${CONFIG.u19Intake} chłopaków${ni.gems ? ' · 💎 perełki: ' + ni.gems : ' · bez perełek'} · jakość zależy od poziomu szkółki (${Selectors.academyLevel()}/${DATA.academyLevels.length - 1}) i rekrutera</div></section>`
+      : `<p class="text-[10.5px] text-paper-400 mb-1">🎽 Co sezon nabór ${CONFIG.u19Intake} chłopaków (ocena ★–★★★★★) – jakość zależy od poziomu szkółki.</p>`;
+    const seniorBox = `<section class="paper px-2.5 py-1.5 mb-1.5"><div class="text-[11px] font-bold">🎓 Z pierwszej drużyny w U19 · starsi (19+): ${Selectors.u19OverAge()}/${CONFIG.u19OverAge}</div>
+        ${seniors.length ? seniors.map((p) => `<div class="flex items-center gap-1.5 py-[2px] text-[11.5px]">${UI.ovrBadge(p)}<span class="min-w-0 flex-1 truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-ink-700">${p.age} l. · ${p.exiled ? 'karnie do końca sezonu' : 'na rozwój · ' + (p.u19Apps || 0) + ' m. w U19'}</span></span>${p.u19Dev ? UI.smallBtn('u19-recall', `data-id="${p.id}"`, '⬆️ Wróć', false) : ''}</div>`).join('') : '<p class="text-[10.5px] text-ink-700 leading-snug">Alternatywa dla wypożyczenia: odeślij zawodnika do U19 (Kadra → karta zawodnika). Gra regularnie z juniorami, rozwija się nieco wolniej niż na wypożyczeniu.</p>'}</section>`;
+    return segs + intakeCard + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce · ' : '') + (u.squad.length - fillers) + ' juniorów + ' + fillers + ' zapychaczy = ' + u.squad.length + ' · ✍️⬆️ = kontrakt i do 1. drużyny',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
-      + (gameState.squad.some((p) => p.exiled) ? `<p class="text-[10.5px] text-amber-glow leading-snug truncate">⬇️ Zesłani karnie do końca sezonu: ${gameState.squad.filter((p) => p.exiled).map((p) => Utils.escape(Selectors.shortName(p))).join(', ')}</p>` : '')
+      + seniorBox
       + ((gameState.u19Loans || []).length ? `<p class="text-[10.5px] text-paper-300 leading-snug truncate">📤 Na wypożyczeniu: ${gameState.u19Loans.map((l) => Utils.escape(Selectors.shortName(l.player)) + ' → ' + Utils.escape(l.club)).join(', ')}</p>` : '')
-      + (u.squad.length > 14 ? '' : `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Niezabezpieczone perełki mogą zostać podkradzione po okienku transferowym.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`);
+      + `<p class="text-[10.5px] text-paper-400 leading-snug">🔒 Niezabezpieczone perełki mogą zostać podkradzione po okienku transferowym.${rec ? '' : ' Bez rekrutera nie zobaczysz, kto obserwuje naszych juniorów.'}</p>`;
   },
 
   // Gablotka: wszystkie trofea w historii klubu + bieżąca edycja Pucharu Polski
@@ -11413,13 +11504,6 @@ const UI = {
     const match = UI.panel(`${s.weather.icon} ${inPre ? 'Start ligi za ' + (CONFIG.preseasonWeeks + 1 - s.calendar.week) + ' tyg.' : 'Kolejka ' + (s.calendar.round + 1)} · ${fx.home ? 'vs' : '@'} ${Utils.escape(fx.rival)}${rival.derby ? ' <span class="text-stamp">🔥 KOSA</span>' : ''}`, '',
       `<p class="text-[11.5px] text-ink-700">${fx.home ? 'u siebie' : 'wyjazd'}${!inPre && fx.home ? ' · ~' + Engine.estimateAttendance(fx) + ' widzów' : ''} · ${Utils.escape(s.weather.label)}</p>${(() => { const cup = !inPre && Selectors.cupAt(s.calendar.round + 1); return cup && cup.next ? `<p class="text-[11.5px] font-semibold mt-0.5">🏆 W środę Puchar Polski (${Utils.escape(cup.R.label.split(' – ')[0])}): ${cup.next.home || cup.next.final ? 'vs' : '@'} ${Utils.escape(cup.next.opp)}</p>` : ''; })()}`);
 
-    // 14.x: ostrzeżenie przed walkowerem (za mało zdolnych do gry) + awaryjne dobranie zawodnika
-    const fitNow = Selectors.matchFitCount();
-    const woWarn = fitNow <= CONFIG.minMatchSquad ? `<div data-walkover-warn class="rounded-xl ${fitNow < CONFIG.minMatchSquad ? 'bg-stamp/25 ring-1 ring-stamp' : 'bg-amber-500/15 ring-1 ring-amber-400'} px-2.5 py-1.5 mb-1.5 text-[11.5px] text-paper-100 leading-snug">
-        ${fitNow < CONFIG.minMatchSquad ? '⚖️ <b>GROZI WALKOWER 0:3!</b>' : '⚠️ <b>Na granicy walkowera.</b>'} Zdolnych do gry: <b>${fitNow}/${CONFIG.minMatchSquad}</b> (kontuzje ${s.squad.filter((p) => p.injured > 0).length}, zawieszenia ${s.squad.filter((p) => p.suspended > 0).length}).
-        ${Selectors.emergencyCost() != null ? `<button data-action="emergency-sign" class="btn-press mt-1 w-full h-8 rounded-lg bg-amber-glow text-ink-900 text-[12px] font-bold">🙋 Dobierz zawodnika awaryjnie · ${Utils.formatMoney(Selectors.emergencyCost())}</button>` : '<span class="block text-[10.5px] text-paper-300 mt-0.5">Kadra pełna albo ban transferowy – awaryjne dobranie niemożliwe.</span>'}
-      </div>` : '';
-
     // TRYB TESTOWY: nazwa klubu + lista „TEST” do natychmiastowej zmiany szczebla
     const levels = DATA.leagueLevels.map((L, i) => [i, L]).filter(([, L]) => L).concat(DATA.leagueLevels[3.5] ? [[3.5, DATA.leagueLevels[3.5]]] : []).sort((a, b) => a[0] - b[0]);
     const eu = Selectors.euroLive() ? s.euro : null;
@@ -11437,7 +11521,7 @@ const UI = {
         <div class="text-[11px] text-ink-700 leading-snug truncate">⚙️ ${line('MID') || '–'} · 🎯 ${line('FWD') || '–'}</div>
       </button>`;
     })();
-    return test + tiles + woWarn + xiLine + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
+    return test + tiles + xiLine + match + UI.recentEvents() + `<p class="text-[10.5px] text-grass text-center">💾 Autozapis: Tydzień ${s.calendar.week}</p>`;
   },
 
   // Ostatnie wydarzenia: jedna linijka na tydzień – wynik meczu i bilans kasy (z wpisów, które zapisuje silnik)
@@ -12022,7 +12106,7 @@ const UI = {
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
     const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
-    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '');
+    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '') + (p.u19Dev ? ' 🎓U19' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
     const rows = squad.map((p) => {
@@ -12610,6 +12694,7 @@ const Actions = {
     if (!saved) return;
     gameState = saved;
     gameState.screen = 'game';
+    if (gameState.u19) Engine.u19Fill();   // 14.x: starsze zapisy – kadra U19 uzupełniona do 16
     if (gameState.transfer && gameState.transfer.open) { Engine.capMarket(); Engine.repriceMarket(); }   // otwarte okno ze starszej wersji: przycinamy giełdę i liczymy ceny od nowa
     App.commit();
     window.scrollTo(0, 0);
@@ -12701,7 +12786,9 @@ const Actions = {
   },
   'rival-player'(el) { gameState.ui.overlay = { type: 'rivalPlayer', team: el.dataset.team, id: el.dataset.id }; App.commit(); },
   'watch-toggle'(el) { if (Engine.toggleWatch(el.dataset.team, el.dataset.id) && gameState.transfer && gameState.transfer.open) Engine.watchlistToMarket(); App.commit(); },
-  'emergency-sign'() { Engine.emergencySign(); App.commit(); },
+  'u19-send'(el) { Engine.u19SendDown(el.dataset.id); App.commit(); },
+  'u19-recall'(el) { Engine.u19Recall(el.dataset.id); App.commit(); },
+  'u19-promote'(el) { Engine.u19Promote(el.dataset.id); App.commit(); },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
