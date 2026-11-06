@@ -4389,6 +4389,44 @@ const Engine = {
     const harsh = n.wantReleg != null && (n.releg || 0) - n.wantReleg >= 30 ? 0.2 * (1.2 - will) : 0;   // obniżka daleko poza tolerancją = obraza
     return Utils.clamp(lowball + stall + harsh, 0, 0.95);
   },
+  // 14.x: rozmowy w imieniu klubu prowadzi dyrektor sportowy – ten sam mechanizm co prezes (minimum, cierpliwość, ryzyko),
+  // ale kwoty i klauzule dobiera sam; lepszy dyrektor trafniej odgaduje minimum zawodnika i nie przepłaca
+  negotiateDelegate() {
+    const n = gameState.negotiation; if (!n || n.done || n.mood === 'refuse') return;
+    const lvl = Selectors.directorLevel(); if (!lvl) return;
+    const p = gameState.squad.find((x) => x.id === n.pid); if (!p) return;
+    const d = gameState.director.hired;
+    n.delegated = { name: d.name, level: lvl };
+    // długość umowy i klauzule: kompetentny dyrektor dopasowuje je do zawodnika (taniej), słaby – na wyczucie
+    if (lvl >= 2) {
+      n.years = n.kind === 'sign' ? (p.age >= 30 ? 3 : p.age <= 23 ? 2 : 3) : (p.age >= 30 ? 3 : p.age <= 23 ? 1 : 2);
+      if (n.wantPromo != null) { if (Selectors.clauseAllowed('promo')) n.promo = n.wantPromo; if (Selectors.clauseAllowed('releg')) n.releg = n.wantReleg; }
+    } else {
+      n.years = Utils.randInt(1, 3);
+      if (Selectors.clauseAllowed('promo')) n.promo = Utils.rand([0, 15, 30]);
+      if (Selectors.clauseAllowed('releg')) n.releg = Utils.rand([0, 15]);
+    }
+    // ukryte minimum (to samo, co w negotiateSubmit) – dyrektor szacuje je z błędem zależnym od kompetencji
+    const yearAdj = (n.years - 1) * (p.age >= 30 ? -0.03 : p.age <= 23 ? 0.03 : 0);
+    const need = n.floor * (1 + yearAdj + Engine.clauseAdj(n));
+    const err = Math.max(0.02, 0.18 - lvl * 0.04);
+    const guess = need * (1 + Utils.randRange(-err, err));
+    const round5 = (v) => { const st = Engine.negStep(v); return Math.max(st, Math.round(v / st) * st); };
+    const openPct = [0, 0.68, 0.76, 0.8, 0.82][lvl];   // słaby dyrektor otwiera ordynarnie nisko – ryzyko obrazy i zerwania
+    const inc = [0, 0.12, 0.07, 0.04, 0.02][lvl];       // krok podwyżki: słaby przestrzela minimum, mistrz trafia niemal w punkt
+    n.offer = round5(Math.min(n.ask, Math.max(n.ask * openPct, guess * (1 - err))));
+    const start = { ask: n.ask, rounds: n.rounds };
+    for (let k = 0; k < 16 && !n.done; k++) {
+      Engine.negotiateSubmit();
+      if (n.done) break;
+      if (n.minShown) { n.offer = n.ask; continue; }   // „ostatnie słowo” zawodnika – bierzemy
+      n.offer = round5(Math.min(n.ask, n.offer + Math.max(Engine.negStep(n.offer), guess * inc)));
+    }
+    const ok = n.done === 'signed' || n.done === 'forced';
+    const res = ok ? 'umowa ' + Utils.formatMoney(p.wage) + '/tydz. (żądanie na start: ' + Utils.formatMoney(start.ask) + ', ' + (p.wage <= start.ask ? '−' : '+') + Math.abs(Math.round((p.wage / start.ask - 1) * 100)) + '%)' : 'rozmowy zakończone fiaskiem';
+    n.log.unshift('🧑‍💼 Dyrektor ' + d.name + ' (poziom ' + lvl + ') prowadził rozmowy: ' + (n.rounds - start.rounds) + ' rund · ' + res + '.');
+    Engine.addLog('🧑‍💼 Negocjacje przez dyrektora sportowego (' + d.name + '): ' + Selectors.playerName(p) + ' – ' + res + '.', 'decision');
+  },
   // Rozsądne skoki kwot: zaokrąglanie do „ładnych” wielokrotności
   negStep: (v) => (v >= 100000 ? 1000 : v >= 20000 ? 500 : v >= 5000 ? 100 : v >= 1000 ? 50 : 5),
   startNegotiation(pid, kind, fee) {
@@ -11842,7 +11880,7 @@ const UI = {
     return `<div data-neg-finale="${ok ? 'ok' : 'fail'}" class="${ok ? 'fin-pop' : 'fin-shake'} mt-3 rounded-2xl px-3 py-2.5 flex items-center gap-3 ${ok ? 'bg-emerald-900/70 ring-2 ring-emerald-400' : 'bg-red-950/80 ring-2 ring-red-500'}">
         ${art}
         <div class="min-w-0"><div class="text-[15px] font-extrabold leading-tight ${ok ? 'text-emerald-300' : 'text-red-300'}">${ok ? '✍️ ' : '❌ '}${title}</div>
-        <div class="text-[11.5px] text-paper-200 leading-snug mt-0.5">${Utils.escape(sub)}</div></div>
+        <div class="text-[11.5px] text-paper-200 leading-snug mt-0.5">${Utils.escape(sub)}</div>${n.delegated ? `<div class="text-[10.5px] text-sky-300 mt-0.5">🧑‍💼 Negocjował: ${Utils.escape(n.delegated.name)} (poziom ${n.delegated.level})</div>` : ''}</div>
       </div>`;
   },
   negotiationOverlay() {
@@ -11880,6 +11918,7 @@ const UI = {
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : 'sezony'}</button>`}
+        ${ended ? '' : (() => { const dl = Selectors.directorLevel(); return `<button data-action="neg-delegate" ${dl && n.mood !== 'refuse' ? '' : 'disabled'} class="btn-press w-full h-10 rounded-xl text-[13px] font-bold leading-tight ${dl && n.mood !== 'refuse' ? 'bg-sky-700 text-white' : 'bg-desk-800 text-paper-400 opacity-70'}">🧑‍💼 Oddeleguj Dyrektora Sportowego${dl ? ' · poziom ' + dl + ' (' + ['', 'na wyczucie', 'zna rynek', 'twardy negocjator', 'mistrz negocjacji'][dl] + ')' : ' – brak dyrektora (Sztab → Dyrektor)'}</button>`; })()}
         <button data-action="neg-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">${ended ? (n.back ? 'Wróć na giełdę' : 'Zamknij') : n.kind === 'sign' ? 'Zgódź się na warunki agenta' : 'Zerwij rozmowy'}</button>
       </div>`, 'bg-desk-900');
   },
@@ -12821,6 +12860,7 @@ const Actions = {
   'neg-clause'(el) { Engine.negotiateClause(el.dataset.k, +el.dataset.v); App.commit(); },
   'neg-accept-clauses'() { Engine.negotiateAcceptClauses(); App.commit(); },
   'neg-submit'() { Engine.negotiateSubmit(); App.commit(); },
+  'neg-delegate'() { Engine.negotiateDelegate(); App.commit(); },
   'neg-close'() { Engine.negotiateClose(); App.commit(); },
   'auction-bid'(el) { Engine.auctionBid(+el.dataset.pct); App.commit(); },
   'auction-close'() { Engine.auctionClose(); App.commit(); },
