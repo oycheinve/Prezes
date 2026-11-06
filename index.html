@@ -8295,6 +8295,7 @@ const Engine = {
 
   // TRYB TESTOWY: natychmiastowe przeskalowanie całego klubu do wybranego szczebla (weryfikacja balansu)
   debugSetLevel(lvl) {
+    if (!Selectors.testAllowed()) return;   // 14.x: tylko klub o nazwie „test”
     lvl = Number(lvl);
     const L = DATA.leagueLevels[lvl];
     if (!L || gameState.screen !== 'game') return;
@@ -8362,7 +8363,7 @@ const Engine = {
 
   // TRYB TESTOWY: europejskie puchary na żądanie – rozgrywki i etap startowy (eliminacje / faza ligowa / faza pucharowa)
   debugEuro(comp, start) {
-    if (gameState.screen !== 'game') return;
+    if (!Selectors.testAllowed() || gameState.screen !== 'game') return;
     gameState.testMode = true;
     if (!comp) {
       gameState.euro = null;
@@ -8948,6 +8949,8 @@ const Selectors = {
   playerName: (p) => (p.noNick ? p.first + ' ' + p.last : p.first + ' \u201e' + p.nick + '\u201d ' + p.last),
   shortName: (p) => (p.noNick ? p.first + ' ' + p.last : '\u201e' + p.nick + '\u201d ' + p.last),   // Kacper Chudy gra pod własnym nazwiskiem
   nickQ: (p) => (p.noNick ? p.first + ' ' + p.last : '\u201e' + p.nick + '\u201d'),
+  // 14.x: narzędzia testowe działają wyłącznie, gdy klub nazywa się dokładnie „test”
+  testAllowed: () => !!(gameState && gameState.club && String(gameState.club.name || '').trim().toLowerCase() === 'test'),
   clubDisplayName: () => {
     const sp = Selectors.sponsor();
     return sp && sp.clubPrefix ? sp.clubPrefix + ' ' + gameState.club.name : gameState.club.name;
@@ -11382,8 +11385,8 @@ const UI = {
     const eu = Selectors.euroLive() ? s.euro : null;
     const euroOpts = [['', '🚫 Bez europejskich pucharów']].concat(...['UCL', 'UEL', 'UECL'].map((k) => { const C = DATA.euro.comps[k]; return [[k + ':Q', C.icon + ' ' + C.name + ' – eliminacje'], [k + ':LP', C.icon + ' ' + C.name + ' – faza ligowa'], [k + ':KO', C.icon + ' ' + C.name + ' – faza pucharowa']]; }));
     const selCls = 'flex-1 min-w-0 px-1.5 py-0.5 bg-white border border-paper-400 rounded-md text-[11.5px] text-ink-900';
-    const test = `<div class="flex items-center gap-2 mb-1 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}</div>
-      <div class="flex items-center gap-1.5 mb-1.5"><select data-test-level aria-label="TEST – zmiana poziomu" class="${selCls}"><option value="">🧪 TEST: liga</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select><select data-test-euro aria-label="TEST – europejskie puchary" class="${selCls}"><option value="-">🇪🇺 TEST: ${eu ? Utils.escape(DATA.euro.comps[eu.comp].short + ' · ' + DATA.euro.stages[eu.stage].label) : 'puchary'}</option>${euroOpts.map(([v, l]) => `<option value="${v}">${Utils.escape(l)}</option>`).join('')}</select></div>`;
+    const test = `<div class="flex items-center gap-2 mb-1 text-[12px]"><b class="truncate flex-1 min-w-0">${Utils.escape(Selectors.clubDisplayName())}</b>${s.testMode && Selectors.testAllowed() ? '<span class="text-[10px] font-bold text-amber-700">🧪 tryb testowy</span>' : ''}</div>${!Selectors.testAllowed() ? '' : `
+      <div class="flex items-center gap-1.5 mb-1.5"><select data-test-level aria-label="TEST – zmiana poziomu" class="${selCls}"><option value="">🧪 TEST: liga</option>${levels.map(([i, L]) => `<option value="${i}">${Utils.escape(L.name)}${i === s.club.leagueLevel ? ' ✓' : ''}</option>`).join('')}</select><select data-test-euro aria-label="TEST – europejskie puchary" class="${selCls}"><option value="-">🇪🇺 TEST: ${eu ? Utils.escape(DATA.euro.comps[eu.comp].short + ' · ' + DATA.euro.stages[eu.stage].label) : 'puchary'}</option>${euroOpts.map(([v, l]) => `<option value="${v}">${Utils.escape(l)}</option>`).join('')}</select></div>`}`;
     // Podgląd wyjściowej jedenastki: linie formacji, stuknięcie otwiera pełne boisko w Kadrze
     const xiLine = (() => {
       const lu = Selectors.projectedLineup(), st = DATA.styles[Selectors.coach().style];
@@ -12825,12 +12828,14 @@ document.addEventListener('input', (e) => {
   if (e.target.dataset && e.target.dataset.negInput != null) return;   // własna kwota: zatwierdzana po zmianie (change)
   if (e.target.dataset && e.target.dataset.statsCtx != null) { gameState.ui.statsCtx = e.target.value; App.commit(); return; }
   if (e.target.dataset && e.target.dataset.testEuro != null) {   // TRYB TESTOWY: puchary
+    if (!Selectors.testAllowed()) { UI.renderAll(); return; }
     const v = e.target.value; e.target.value = '-';
     if (v !== '-') { const [comp, start] = v.split(':'); if (confirm(comp ? 'TRYB TESTOWY: ' + DATA.euro.comps[comp].name + ' od etapu: ' + ({ Q: 'eliminacje', LP: 'faza ligowa', KO: 'faza pucharowa' }[start]) + '?' : 'TRYB TESTOWY: wycofać klub z europejskich pucharów w tym sezonie?')) { Engine.debugEuro(comp, start); App.commit(); return; } }
     UI.renderAll();
     return;
   }
   if (e.target.dataset && e.target.dataset.testLevel != null) {   // TRYB TESTOWY
+    if (!Selectors.testAllowed()) { UI.renderAll(); return; }
     const v = e.target.value; e.target.value = '';
     if (v !== '' && confirm('TRYB TESTOWY: przeskalować cały klub do ligi ' + DATA.leagueLevels[+v].name + '? Ta kariera nie trafi do Hall of Fame.')) { Engine.debugSetLevel(+v); App.commit(); }
     else UI.renderAll();
