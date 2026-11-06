@@ -10524,6 +10524,40 @@ const UI = {
   },
 
   // Okno transferowe na cały ekran: kupno z giełdy i sprzedaż z kadry
+  // 14.x: podgląd najmocniejszej XI na giełdzie – formacje, OVR linii i najsłabsze ogniwo
+  xiLines() {
+    const lu = Selectors.projectedLineup();
+    const st = DATA.styles[Selectors.coach().style];
+    const need = { GK: 1, DEF: st.formation[1], MID: st.formation[2], FWD: st.formation[3] };
+    const names = { GK: 'Bramka', DEF: 'Obrona', MID: 'Pomoc', FWD: 'Atak' };
+    const lines = ['FWD', 'MID', 'DEF', 'GK'].map((pos) => {
+      const ps = lu.filter((p) => p.pos === pos);
+      const avg = ps.length ? Math.round(ps.reduce((a, p) => a + Selectors.ovr(p), 0) / ps.length) : 0;
+      return { pos, name: names[pos], ps, avg, short: Math.max(0, (need[pos] || 0) - ps.length) };
+    });
+    const weak = lines.slice().sort((a, b) => (b.short - a.short) || (a.avg - b.avg))[0];
+    return { lu, st, lines, weak };
+  },
+  trXiBar() {
+    const x = UI.xiLines();
+    return `<button data-action="tr-xi" class="btn-press w-full mt-1.5 h-9 px-2.5 rounded-lg ${gameState.ui.trXi ? 'bg-grass/30 ring-1 ring-grass' : 'bg-desk-800'} flex items-center gap-2 text-[12px] text-paper-100">
+      <span class="font-bold whitespace-nowrap">⚽ XI ${x.st.formation.slice(1).join('-')} · OVR ${Selectors.teamOvr()}</span>
+      <span class="flex-1 min-w-0 truncate text-left text-amber-300">🔧 ${Utils.escape(x.weak.name)} ${x.weak.short ? '– brakuje ' + x.weak.short : x.weak.avg}</span>
+      <span class="text-paper-400">${gameState.ui.trXi ? '▴' : '▾'}</span></button>`;
+  },
+  trXiPanel() {
+    const x = UI.xiLines();
+    const chip = (p) => `<div class="min-w-0 max-w-[80px] flex-1 rounded-md bg-white/95 px-1 py-0.5 text-center text-ink-900"><div class="text-[10.5px] font-bold truncate">${Utils.escape(p.nick || p.last)}</div><div class="text-[10px] leading-tight">${UI.ovrBadge(p)}</div></div>`;
+    const rows = x.lines.map((l) => `<div class="flex items-center gap-1.5">
+        <div class="w-[52px] shrink-0 text-left leading-tight"><div class="text-[10px] uppercase text-white/80 font-semibold">${l.name}</div><div class="text-[12px] font-extrabold ${l === x.weak ? 'text-amber-300' : 'text-white'}">${l.avg || '–'}${l === x.weak ? ' 🔧' : ''}</div></div>
+        <div class="flex-1 min-w-0 flex justify-center gap-1">${l.ps.map(chip).join('')}${Array.from({ length: l.short }, () => '<div class="flex-1 max-w-[80px] rounded-md border border-dashed border-white/70 text-[10px] text-white/90 text-center py-1.5">brak</div>').join('')}</div>
+      </div>`).join('');
+    const out = gameState.squad.filter((p) => !p.loan && (p.injured > 0 || p.suspended > 0)).sort((a, b) => b.skill - a.skill).slice(0, 3);
+    return `<section data-tr-xi class="rounded-xl bg-grass px-2 py-2 mt-1.5 mb-1 space-y-1.5" style="background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 20px, transparent 20px 40px);">
+        ${rows}
+        <p class="text-[10.5px] text-white/90 leading-snug">Najmocniejszy skład bez kontuzjowanych i zawieszonych. 🔧 = formacja do wzmocnienia (najniższy średni OVR albo braki).${out.length ? ' Poza składem: ' + out.map((p) => Utils.escape(p.nick || p.last) + (p.injured > 0 ? ' 🩹' : ' 🟥')).join(', ') + '.' : ''}</p>
+      </section>`;
+  },
   transferOverlay() {
     const t = gameState.transfer;
     const offers = Selectors.transferOffers();
@@ -10632,8 +10666,9 @@ const UI = {
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Przyszło / odeszło</div><b class="text-[14px]">${t.bought} / ${t.sold}</b></div>
         </div>
         <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('loan', '🤝 Wypożycz')}${seg('sell', '💸 Sprzedaj')}</div>
+        ${UI.trXiBar()}
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto px-4 mt-1 text-paper-100">${rows}</div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 mt-1 text-paper-100">${gameState.ui.trXi ? UI.trXiPanel() : ''}${rows}</div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2">
         <button data-action="overlay-close" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[16px] font-extrabold tracking-wider">ZAMKNIJ GIEŁDĘ</button>
         <p class="text-center text-[10.5px] text-paper-400 mt-1">Otwarte do pierwszego gwizdka · wejście z zakładki Kadra${offers.length ? ' · oferty czekają na decyzję' : ''}</p>
@@ -12605,6 +12640,7 @@ const Actions = {
   },
   'rival-player'(el) { gameState.ui.overlay = { type: 'rivalPlayer', team: el.dataset.team, id: el.dataset.id }; App.commit(); },
   'watch-toggle'(el) { if (Engine.toggleWatch(el.dataset.team, el.dataset.id) && gameState.transfer && gameState.transfer.open) Engine.watchlistToMarket(); App.commit(); },
+  'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
   'crisis-answer'(el) { Engine.crisisAnswer(el.dataset.value); App.commit(); },
