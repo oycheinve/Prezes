@@ -4669,9 +4669,10 @@ const Engine = {
     Engine.watchSigned(p);
     gameState.squad.push(p);
     t.bought++;
-    const diff = Math.round((a.bid / valueAt - 1) * 100);
-    a.result = { name: Selectors.playerName(p), price: a.bid, beaten, value: valueAt, diff, verdict: diff <= -5 ? 'bargain' : diff <= 5 ? 'fair' : diff <= 25 ? 'over' : 'way' };
-    Engine.addLog('🔨 WYGRANA LICYTACJA: ' + Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ' za ' + Utils.formatMoney(a.bid) + ' (' + (diff > 0 ? '+' : '') + diff + '% wartości)' + (beaten ? ' – pokonaliśmy ' + beaten + ' ' + (beaten === 1 ? 'klub' : beaten < 5 ? 'kluby' : 'klubów') : '') + '. Pensja ' + Utils.formatMoney(p.wage) + '/tydz.', 'decision');
+    const dv = Selectors.dealVerdict(a.bid, valueAt);
+    const diff = dv.pct;
+    a.result = { name: Selectors.playerName(p), price: a.bid, beaten, value: valueAt, diff, verdict: dv.key };
+    Engine.addLog('🔨 WYGRANA LICYTACJA: ' + Selectors.playerName(p) + (p.fromClub ? ' (' + p.fromClub + ')' : '') + ' za ' + Utils.formatMoney(a.bid) + ' (' + (diff > 0 ? '+' : '') + diff + '% wartości · ' + dv.label.replace(/^\S+ /, '').toLowerCase() + ')' + (beaten ? ' – pokonaliśmy ' + beaten + ' ' + (beaten === 1 ? 'klub' : beaten < 5 ? 'kluby' : 'klubów') : '') + '. Pensja ' + Utils.formatMoney(p.wage) + '/tydz.', 'decision');
     if (p.fTier === 'star' || p.fTier === 'elite') { Engine.applyEffects({ fans: +4 }); Engine.xPost('portal', 'HIT TRANSFEROWY! ' + Selectors.playerName(p) + ' z ' + p.fromClub + ' zagra w ' + Selectors.clubDisplayName() + '! 🌍🔥'); }
     gameState.ui.overlay = { type: 'auction', back: (gameState.ui.overlay && gameState.ui.overlay.back) || true, done: true };
   },
@@ -5929,10 +5930,11 @@ const Engine = {
       const best = pool.sort((a, b) => score(b) - score(a))[0];
       const n = needs[best.pos];
       if (!n.short && gainOf(best) < (lvl >= 3 ? 2 : -3)) break;   // nie kupuje zapchajdziur – lepszy dyrektor jest bardziej wybredny
-      const fee = best.fee;
+      const value0 = Selectors.marketValue(best);
+      const fee = Math.round(best.fee * (Selectors.directorLevel() ? 1 - Selectors.directorLevel() * 0.04 : 1) / 10) * 10;   // faktycznie zapłacone (dyrektor negocjuje taniej)
       const why = n.short ? 'łata dziurę: brak ' + n.short + ' (' + DATA.positions[best.pos].label.toLowerCase() + ')' : gainOf(best) > 0 ? 'wzmocnienie: +' + gainOf(best) + ' OVR względem najsłabszego w składzie' : 'zmiennik';
       if (!Engine.buyTransfer(best.id)) { if (t.market.includes(best) || ++tries > 6) break; k--; continue; }   // odmowa – dyrektor szuka dalej
-      dir.windowBuys = (dir.windowBuys || []).concat([{ id: best.id, name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, wage: best.wage, why }]);
+      dir.windowBuys = (dir.windowBuys || []).concat([{ id: best.id, name: Selectors.playerName(best), pos: DATA.positions[best.pos].label, ovr: Selectors.ovr(best), fee, value: value0, wage: best.wage, why }]);
       budget -= fee;
       Object.assign(needs, Selectors.squadNeeds());
       bought.push(Selectors.playerName(best) + ' (' + DATA.positions[best.pos].label.toLowerCase() + ', OVR ' + Selectors.ovr(best) + ', ' + Utils.formatMoney(fee) + ')');
@@ -9609,6 +9611,15 @@ const Selectors = {
     if (!started && ps) return { prev: true, label: gameState.calendar.season > 1 ? 'Sezon ' + (gameState.calendar.season - 1) + ' (poprzedni)' : 'Poprzedni sezon', apps: ps.apps || 0, goals: ps.goals || 0, assists: ps.assists || 0, avg: ps.avg != null ? ps.avg : null };
     return { prev: false, label: 'Sezon ' + gameState.calendar.season, apps: p.seasonApps || 0, goals: p.seasonGoals || 0, assists: p.seasonAssists || 0, avg: Selectors.avgRating(p) };
   },
+  // 14.x: progi opłacalności zakupu względem czystej wartości rynkowej
+  //   ≤ 0% – dobra cena / okazja · +1% do +25% – lekkie przepłacenie · powyżej +25% – mocne przepłacenie
+  dealVerdict: (price, value) => {
+    const raw = value > 0 ? (price / value - 1) * 100 : 0;
+    const pct = raw <= 0 ? Math.round(raw) : Math.max(1, Math.round(raw));
+    const key = raw <= 0 ? (raw < -0.5 ? 'bargain' : 'fair') : raw <= 25 ? 'over' : 'way';
+    const label = { bargain: '💰 Okazja – poniżej wartości', fair: '👍 Dobra cena – równo z wartością', over: '😬 Lekkie przepłacenie', way: '🔥 Mocne przepłacenie' }[key];
+    return { key, pct, label, tone: raw <= 0 ? 'good' : raw <= 25 ? 'warn' : 'bad', band: raw <= 0 ? 0 : raw <= 25 ? 1 : 2 };
+  },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10689,7 +10700,7 @@ const UI = {
         <b class="text-[13.5px] ${tone} whitespace-nowrap">${money}</b>${b.id ? '<span class="text-paper-400 text-[14px]">›</span>' : ''}
       </${b.id ? 'button' : 'div'}>`;
     const h = (t) => `<div class="text-[10px] uppercase tracking-wide text-paper-400 font-semibold mt-2 mb-1">${t}</div>`;
-    const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + (b.why ? ' · ' + Utils.escape(b.why) : ' · pensja ' + Utils.formatMoney(b.wage) + '/tydz.'), Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
+    const rows = (r.buys.length ? h('✍️ Kupieni') + r.buys.map((b) => line(b, Utils.escape(b.pos) + (b.value ? ' · ' + Selectors.dealVerdict(b.fee, b.value).label + ' (' + (Selectors.dealVerdict(b.fee, b.value).pct > 0 ? '+' : '') + Selectors.dealVerdict(b.fee, b.value).pct + '%)' : '') + (b.why ? ' · ' + Utils.escape(b.why) : ' · pensja ' + Utils.formatMoney(b.wage) + '/tydz.'), Utils.formatMoney(b.fee), 'text-amber-glow')).join('') : '')
       + (sells.length ? h('💸 Sprzedani') + sells.map((b) => line(b, Utils.escape(b.pos) + ' · ' + Utils.escape(b.why || ''), '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '')
       + (loans.length ? h('📤 Wypożyczeni na rozwój') + loans.map((b) => line(b, Utils.escape(b.pos) + (b.club ? ' → ' + Utils.escape(b.club) : ''), b.junior ? '🌱 rozwój' : '+' + Utils.formatMoney(b.fee), 'text-grass')).join('') : '');
     return UI.overlayFrame(`
@@ -11763,15 +11774,18 @@ const UI = {
         ${UI.seasonStatsLine(p)}
         <div class="rounded-xl bg-desk-800 mt-3 px-3 py-2.5 text-center">
           <div class="text-[10.5px] uppercase text-paper-400">${won ? 'Cena końcowa' : 'Aktualna oferta'}</div>
-          <div class="text-[30px] font-extrabold leading-tight ${won || us ? 'text-grass' : 'text-amber-glow'}">${Utils.formatMoney(a.bid)}</div>
+          <div class="text-[30px] font-extrabold leading-tight ${won ? { good: 'text-grass', warn: 'text-amber-300', bad: 'text-stamp' }[Selectors.dealVerdict(a.result.price, a.result.value).tone] : us ? 'text-grass' : 'text-amber-glow'}">${Utils.formatMoney(a.bid)}</div>
           <div class="text-[12px] text-paper-300">${won ? '✅ Wygraliśmy licytację!' : us ? 'Prowadzimy' : 'Prowadzi: <b>' + Utils.escape(a.leader) + '</b>'} · kasa ${Utils.formatMoney(budget)}</div>
         </div>
         ${a.rivals.length ? `<p class="text-[10.5px] uppercase text-paper-400 mt-3 mb-0.5">Konkurencja</p><ul class="rounded-xl bg-desk-800 px-3 py-1.5">${rivals}</ul>` : ''}
         <ul class="mt-2.5 space-y-0.5">${a.log.slice(0, 5).map((l) => `<li class="text-[11.5px] text-paper-300 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
-        ${won ? `<div class="rounded-xl mt-2 px-3 py-2 ${a.result.verdict === 'bargain' ? 'bg-grass/20' : a.result.verdict === 'fair' ? 'bg-desk-800' : 'bg-stamp/20'}">
-          <div class="text-[14px] font-extrabold">${{ bargain: '💰 Okazja!', fair: '👍 Uczciwa cena', over: '😬 Lekko przepłacone', way: '🔥 Mocno przepłacone' }[a.result.verdict]}</div>
-          <div class="text-[12px] text-paper-200 leading-snug">Zapłaciliśmy ${Utils.formatMoney(a.result.price)} przy wartości rynkowej ${Utils.formatMoney(a.result.value)} (${a.result.diff > 0 ? '+' : ''}${a.result.diff}%).${a.result.beaten ? ' Pokonana konkurencja: ' + a.result.beaten + '.' : ''} Pensja ${Utils.formatMoney(p.wage)}/tydz.</div>
-        </div>` : ''}
+        ${won ? (() => { const dv = Selectors.dealVerdict(a.result.price, a.result.value); const box = { good: 'bg-grass/20 ring-1 ring-grass', warn: 'bg-amber-500/15 ring-1 ring-amber-400', bad: 'bg-stamp/20 ring-1 ring-stamp' }[dv.tone];
+          const segs = [['≤ 0%', 'dobra cena', 'bg-grass'], ['+1–25%', 'lekkie', 'bg-amber-400'], ['> 25%', 'mocne', 'bg-stamp']].map(([v, l, c], i) => `<div class="flex-1 min-w-0 text-center"><div class="h-1.5 rounded-full ${c} ${i === dv.band ? '' : 'opacity-25'}"></div><div class="text-[9.5px] leading-tight mt-0.5 ${i === dv.band ? 'text-paper-100 font-bold' : 'text-paper-400'}">${v} · ${l}</div></div>`).join('');
+          return `<div data-deal-verdict="${dv.key}" class="rounded-xl mt-2 px-3 py-2 ${box}">
+          <div class="flex items-baseline justify-between gap-2"><div class="text-[14px] font-extrabold">${dv.label}</div><div class="text-[15px] font-black ${dv.tone === 'good' ? 'text-grass' : dv.tone === 'warn' ? 'text-amber-300' : 'text-stamp'}">${dv.pct > 0 ? '+' : ''}${dv.pct}%</div></div>
+          <div class="text-[12px] text-paper-200 leading-snug">Zapłaciliśmy ${Utils.formatMoney(a.result.price)} przy wartości rynkowej ${Utils.formatMoney(a.result.value)}.${a.result.beaten ? ' Pokonana konkurencja: ' + a.result.beaten + '.' : ''} Pensja ${Utils.formatMoney(p.wage)}/tydz.</div>
+          <div class="flex gap-1 mt-1.5">${segs}</div>
+        </div>`; })() : ''}
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
         ${won ? '' : `<div class="flex gap-2">${btn(5, b5)}${btn(15, b15)}${btn(25, b25)}</div><p class="text-[10.5px] text-paper-400 text-center">Duży skok (+25%) może skłonić klub sprzedający do natychmiastowego zamknięcia transakcji.</p>`}
