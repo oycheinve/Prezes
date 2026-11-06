@@ -168,7 +168,7 @@ const DATA = {
     },
     suburban: {
       icon: '🏡', label: 'Wioska Podmiejska / Letniskowa', sub: 'Domki z kostką bauma i warszawskie rejestracje',
-      perks: ['+500 zł w budżecie na start', 'Kibice mniej wrażliwi na drogie bilety', 'Zawodnicy częściej dzwonią o podwyżki za paliwo'],
+      perks: ['+500 zł w budżecie na start', 'Kibice mniej wrażliwi na drogie bilety', 'Zawodnicy nieco śmielej upominają się o podwyżki'],
     },
   },
 
@@ -1035,10 +1035,10 @@ const DATA = {
           log: 'Przyjęto 500 zł od Wójta. Na trybunach ktoś krzyknął „SPRZEDAWCZYKI!”. Ale prąd zapłacony.',
         },
         {
-          label: 'Klub nie jest na sprzedaż! Stawiam piwo kibicom',
+          label: 'Klub nie jest na sprzedaż! Spotkanie z kibicami',
           hint: '-200 zł, kibice +10%',
           effects: { budget: -200, fans: +10 },
-          log: 'Prezes odmówił Wójtowi i postawił skrzynkę piwa pod sklepem. Lud jest zachwycony. Wójt zapamięta.',
+          log: 'Prezes odmówił Wójtowi i zwołał otwarte spotkanie z kibicami. Sala pełna, oklaski. Wójt zapamięta.',
         },
       ],
     },
@@ -1430,10 +1430,10 @@ const DATA = {
       body: 'Sędzia główny ledwo trzyma się na nogach – wraca prosto z wesela, gwizdek ma na sznurku od snopowiązałki. Liniowy pyta, czy jest „rosół na wzmocnienie”.',
       options: [
         {
-          label: 'Rosół, kawa i kiełbasa na trzeźwo',
+          label: 'Kawa, posiłek i godzina na dojście do siebie',
           hint: () => Utils.signedMoney(-Math.round(30 * Selectors.econ())) + ', ok. 60% szans na sędziowanie „po naszej myśli”, 20% – zgłoszenie do Związku',
           effects: () => ({ budget: -Math.round(30 * Selectors.econ()) }),
-          log: 'Pani Halinka przyniosła rosół w termosie. Sędzia płakał ze wzruszenia.',
+          log: 'Kierownik przyniósł kawę i ciepły posiłek. Sędzia doszedł do siebie i podziękował.',
           onChoose: () => { const r = Math.random(); if (r < 0.6) gameState.coach.carpetBoost = Math.max(gameState.coach.carpetBoost || 0, 0.05); else Engine.echo('sedzia', 0.5); },
         },
         {
@@ -1497,13 +1497,6 @@ const DATA = {
           onChoose: () => Engine.teamSlump(2),
         },
         {
-          label: 'Zaproponować golonkę i rozmowę w karczmie',
-          hint: () => { const o = Selectors.foodOdds('golonka'); return '-' + Utils.formatMoney(Selectors.foodCost('golonka')) + ', ' + Math.round(o.ok * 100) + '% że sponsor odpuści, inaczej afera'; },
-          effects: {},
-          log: 'Prezes zaprasza sponsora do karczmy „Pod Kogutem”.',
-          onChoose: () => { if (Engine.foodDeal('golonka', 'Sponsor') !== 'ok' && Selectors.hasRealSponsor() && Math.random() < 0.5) Engine.endSponsor('💨 Sponsor obrażony – syn nie gra, golonka nie pomogła.'); },
-        },
-        {
           label: 'Odmówić – o składzie decyduje trener',
           hint: 'Ok. 50% szans, że sponsor zerwie umowę; szatnia +4%',
           effects: { lockerRoom: +4 },
@@ -1515,8 +1508,9 @@ const DATA = {
     cutSaksy: {
       id: 'cutSaksy',
       levels: [1, 4],
-      available: () => gameState.squad.some((p) => !p.loan && p.age >= 20 && p.age <= 32),
-      prepare: () => { const p = Utils.rand(gameState.squad.filter((x) => !x.loan && !x.alterEgo && x.age >= 20 && x.age <= 32)); gameState.cutscenes.targetId = p ? p.id : null; },
+      // 14.x: tylko rażąco niedopłacany zawodnik z czołówki składu (jak przy telefonach o podwyżkę), raz na sezon
+      available: () => gameState.squad.some((p) => !p.alterEgo && p.age >= 20 && p.age <= 32 && p.raiseAsked !== gameState.calendar.season && Selectors.raiseReason(p) === 'underpaid'),
+      prepare: () => { const p = Utils.rand(gameState.squad.filter((x) => !x.alterEgo && x.age >= 20 && x.age <= 32 && x.raiseAsked !== gameState.calendar.season && Selectors.raiseReason(x) === 'underpaid')); gameState.cutscenes.targetId = p ? p.id : null; if (p) p.raiseAsked = gameState.calendar.season; },
       cutscene: { icon: '🧳', place: 'Przystanek autobusowy · świt' },
       from: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return p ? Selectors.playerName(p) : 'Zawodnik'; },
       title: 'Wyjazd na saksy do Niemiec',
@@ -1528,13 +1522,6 @@ const DATA = {
           effects: {},
           log: 'Prezes odprowadził zawodnika z przystanku do domu. Z umową w kieszeni.',
           onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (p) p.wage += Selectors.raiseAmount(); },
-        },
-        {
-          label: 'Salceson i bimber na pożegnanie… i zatrzymanie',
-          hint: () => { const o = Selectors.foodOdds('salceson'); return Math.round(o.ok * 100) + '% że zostanie, inaczej afera'; },
-          effects: {},
-          log: 'Prezes rozłożył na ławce przystanku salceson i butelkę od szwagra.',
-          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (Engine.foodDeal('salceson', p ? Selectors.nickQ(p) : 'Zawodnik', p, true) !== 'ok' && p) { p.injured = Math.max(p.injured || 0, 6); Engine.addLog('🧳 ' + Selectors.nickQ(p) + ' i tak wsiadł do autobusu. Wróci za 6 tygodni.', 'event'); } },
         },
         {
           label: 'Puścić go – wróci, jak wróci',
@@ -1587,13 +1574,6 @@ const DATA = {
           onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (p) { Engine.money('Ekwiwalent za wyszkolenie', Math.round(Selectors.sellPrice(p) * 1.5)); gameState.squad = gameState.squad.filter((x) => x.id !== p.id); } },
         },
         {
-          label: 'Rozmowa z rodzicami przy kaszance i kompocie',
-          hint: () => { const o = Selectors.foodOdds('salceson'); return '-' + Utils.formatMoney(Selectors.foodCost('salceson')) + ', ok. ' + Math.round(o.ok * 100) + '% że zostanie'; },
-          effects: {},
-          log: 'Prezes przyjechał do rodziców z kaszanką i kompotem z wiśni.',
-          onChoose: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); if (Engine.foodDeal('salceson', 'Rodzice juniora', p) !== 'ok' && p) { gameState.squad = gameState.squad.filter((x) => x.id !== p.id); Engine.addLog('🕵️ ' + Selectors.playerName(p) + ' i tak odchodzi – bez ekwiwalentu.', 'event'); } },
-        },
-        {
           label: 'Nowy kontrakt i obietnica gry w pierwszym składzie',
           hint: 'Pensja juniora x2, zostaje lojalny na sezon',
           effects: {},
@@ -1610,13 +1590,6 @@ const DATA = {
       title: 'Kulisy szatni na Instagramie',
       body: 'Żona kapitana wrzuca relację: „Mój mąż znowu na ławce, bo trener ma swoich pupilków 🙄 #prawdaoklubie”. Portal już cytuje. Trener pyta, co Prezes zamierza.',
       options: [
-        {
-          label: 'Rozmowa z kapitanem przy golonce',
-          hint: () => { const o = Selectors.foodOdds('golonka'); return '-' + Utils.formatMoney(Selectors.foodCost('golonka')) + ', ' + Math.round(o.ok * 100) + '% zgody, inaczej afera'; },
-          effects: {},
-          log: 'Prezes zabiera kapitana do karczmy.',
-          onChoose: () => { if (Engine.foodDeal('golonka', 'Kapitan') === 'ok') Engine.applyEffects({ lockerRoom: +5 }); },
-        },
         {
           label: 'Zakaz social mediów dla rodzin w regulaminie',
           hint: 'Szatnia -5%, DNA w stronę profesjonalizmu',
@@ -1733,17 +1706,6 @@ const DATA = {
       title: 'Działacz od terminarza',
       body: () => 'Działacz od obsady sędziów i terminarza rozpina marynarkę: „Panie Prezesie, terminy derbów, obsada na ważne mecze… wszystko da się ułożyć. Ale wie Pan, ludzie oczekują docenienia.” Patrzy znacząco na bagażnik Prezesa.',
       options: [
-        {
-          label: 'Skrzynka piwa i wiejska kiełbasa',
-          hint: () => { const o = Selectors.beerOdds(); return '-' + Utils.formatMoney(Selectors.beerCost()) + ', ok. ' + Math.round(o.ok * 100) + '% sukcesu (lepsza gra w najbliższym meczu), ' + Math.round(o.scandal * 100) + '% ryzyko afery'; },
-          effects: {},
-          log: 'Prezes otworzył bagażnik: skrzynka „Żubra” i pęto kiełbasy od pana Zenka.',
-          onChoose: () => {
-            const res = Engine.beerDeal('Działacz Związku');
-            if (res === 'ok') { gameState.coach.carpetBoost = Math.max(gameState.coach.carpetBoost || 0, 0.05); Engine.addLog('🌭 Działacz zadowolony: „Coś się poukłada”. Najbliższy mecz pod dobrą gwiazdą.', 'event'); }
-            else if (res === 'refuse') Engine.addLog('🌭 Działacz prychnął: „Panie, ja nie z tych”. Teczka zamknięta.', 'event');
-          },
-        },
         {
           label: 'Koperta „na koszty administracyjne”',
           hint: () => Utils.signedMoney(-Math.round(250 * Selectors.econ())) + ', ok. 30% ryzyko poważnego skandalu',
@@ -2256,10 +2218,10 @@ const DATA = {
       body: 'Pod blaszakiem stoi kilkunastu chłopa w kominiarkach z Biedronki. Ktoś odpalił racę od wesela. „Prezes, wyłaź! Albo chłopaki zaczną biegać, albo my zaczniemy!” – krzyczy wódz Ultrasów Wieś, Waldek „Kibol”. Drużyna siedzi w szatni po ciemku.',
       options: [
         {
-          label: 'Wyjść do nich z piwem i pogadać',
+          label: 'Wyjść do nich i porozmawiać',
           hint: () => Utils.signedMoney(-Math.round(150 * Selectors.econ())) + ', kibice +6%, szatnia -2%',
           effects: () => ({ budget: -Math.round(150 * Selectors.econ()), fans: +6, lockerRoom: -2 }),
-          log: 'Prezes wyszedł ze zgrzewką. Po godzinie Waldek „Kibol” płakał mu w rękaw i śpiewał hymn klubu.',
+          log: 'Prezes wyszedł do trybuny i wysłuchał zarzutów. Po godzinie Waldek „Kibol” uścisnął mu dłoń i zaintonował hymn klubu.',
         },
         {
           label: 'Wezwać dzielnicowego',
@@ -2429,10 +2391,10 @@ const DATA = {
           onChoose: () => Engine.shiftDNA(+3),
         },
         {
-          label: 'Ugościć kontrolerkę kiełbasą i nalewką',
+          label: 'Zaprosić kontrolerkę na „kurtuazyjny” obiad',
           hint: 'DNA w dół, ok. 35% szans na wysoką karę i skandal',
           effects: {},
-          log: 'Pan Zenek wyciągnął z budki najlepszą gięta, a pan Rysiek wiśniówkę.',
+          log: 'Prezes rezerwuje stolik i liczy, że rozmowa o zeszycie zejdzie na dalszy plan.',
           onChoose: () => {
             Engine.shiftDNA(-4);
             Engine.echo('e16', 0.35);
@@ -2598,10 +2560,10 @@ const DATA = {
           onChoose: () => { gameState.matchday.ticket = 'colaska'; gameState.matchday.ticketNext = null; gameState.boycott.active = false; },
         },
         {
-          label: 'Darmowe żarcie i piwo na następnym meczu',
+          label: 'Darmowy catering dla kibiców na następnym meczu',
           hint: () => Utils.signedMoney(-Math.round(400 * Selectors.econ())) + ' · kibice +18% · bojkot odwołany',
           effects: () => ({ budget: -Math.round(400 * Selectors.econ()), fans: +18 }),
-          log: 'Kiełbasa i piwo na koszt klubu. Kibice jedzą, piją i powoli zapominają, za co się obrazili.',
+          log: 'Catering na koszt klubu. Kibice powoli zapominają, za co się obrazili.',
           onChoose: () => { gameState.boycott.active = false; },
         },
       ],
@@ -3110,9 +3072,12 @@ const DATA = {
       body: () => {
         const p = Selectors.callPlayer(), c = gameState.calls;
         if (!p) return 'Rozmówca się rozłączył.';
+        const why = c.reason === 'form'
+          ? 'Gram najlepszą piłkę w karierze – średnia ' + (Selectors.avgRating(p) != null ? Selectors.avgRating(p).toFixed(1) : '8+') + ' – i ' + c.rival + ' już to zauważył.'
+          : 'Jestem w czołówce składu, a zarabiam ' + Utils.formatMoney(p.wage) + '/tydz. – dużo mniej niż połowa szatni.';
         return c.caller === 'partner'
-          ? '„Dzień dobry, czy to ' + Selectors.presName() + '? Tu ' + c.callerName.split(',')[0] + '. Mój ' + p.first + ' za darmo nie będzie biegał po tym kartoflisku. Dzieci trzeba wykarmić, a z ' + c.rival + ' dzwonili już dwa razy. Plus ' + Selectors.raiseAmount() + ' złotych na paliwo albo w sobotę go nie puszczę!”'
-          : '„Halo, ' + Selectors.presName() + '? Ropa podrożała, a z ' + c.rival + ' dają więcej. Albo plus ' + Selectors.raiseAmount() + ' zł na paliwo, albo zaczynam się rozglądać. Nie chcę, ale muszę. Pan rozumie.”';
+          ? '„Dzień dobry, czy to ' + Selectors.presName() + '? Tu ' + c.callerName.split(',')[0] + '. Dzwonię w sprawie ' + p.first + '. ' + why.replace(/^Gram/, 'Gra').replace(/^Jestem/, 'Jest').replace('zarabiam', 'zarabia') + ' Oczekujemy rozmowy o nowych warunkach.”'
+          : '„' + Selectors.presName() + ', mam sprawę. ' + why + ' Chcę rozmawiać o nowej umowie, zanim zacznę słuchać innych.”';
       },
       options: [
         {
@@ -3121,76 +3086,6 @@ const DATA = {
           effects: {},
           log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes umawia się z ' + Selectors.nickQ(p) + ' na rozmowę o pieniądzach.' : 'Rozmowa bez rozmówcy.'; },
           onChoose: () => { const p = Selectors.callPlayer(); if (p) Engine.startNegotiation(p.id, 'raise'); },
-        },
-        {
-          show: () => Selectors.foodAllowed('piwo'),
-          label: () => DATA.foods.piwo.icon + ' ' + DATA.foods.piwo.label,
-          hint: () => { const o = Selectors.foodOdds('piwo', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('piwo')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +4%), czasem afera'; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.piwo.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
-          onChoose: () => {
-            const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('piwo', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +4 }); Engine.addLog(DATA.foods.piwo.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
-          },
-        },
-        {
-          show: () => Selectors.foodAllowed('salceson'),
-          label: () => DATA.foods.salceson.icon + ' ' + DATA.foods.salceson.label,
-          hint: () => { const o = Selectors.foodOdds('salceson', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('salceson')) + ' · ' + Math.round(o.ok * 100) + '% sukces (forma w górę), czasem afera'; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.salceson.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
-          onChoose: () => {
-            const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('salceson', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); p.formHistory = (p.formHistory || []).concat([7.5]).slice(-5); Engine.addLog(DATA.foods.salceson.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
-          },
-        },
-        {
-          show: () => Selectors.foodAllowed('golonka'),
-          label: () => DATA.foods.golonka.icon + ' ' + DATA.foods.golonka.label,
-          hint: () => { const o = Selectors.foodOdds('golonka', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('golonka')) + ' · ' + Math.round(o.ok * 100) + '% sukces (lojalny na sezon), czasem afera'; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.golonka.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
-          onChoose: () => {
-            const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('golonka', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +6 }); p.loyalUntil = gameState.calendar.season; Engine.addLog(DATA.foods.golonka.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
-          },
-        },
-        {
-          show: () => Selectors.foodAllowed('smalec'),
-          label: () => DATA.foods.smalec.icon + ' ' + DATA.foods.smalec.label,
-          hint: () => { const o = Selectors.foodOdds('smalec', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('smalec')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +2%), czasem afera'; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes proponuje ' + Selectors.nickQ(p) + ' zamiast podwyżki: ' + DATA.foods.smalec.label.toLowerCase() + '.' : 'Poczęstunek bez gościa.'; },
-          onChoose: () => {
-            const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('smalec', Selectors.nickQ(p), p, true);   // przy podwyżce: sukces albo afera
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +2 }); Engine.addLog(DATA.foods.smalec.icon + ' ' + Selectors.nickQ(p) + ' machnął ręką na podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' wzruszył ramionami: „No… dzięki. Ale o podwyżce jeszcze pogadamy”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ' opowiedział wszystko mediom. Afera, szatnia wściekła. [szatnia -8%]', 'event'); }
-          },
-        },
-        {
-          show: () => Selectors.foodAllowed('whisky'),
-          label: () => DATA.foods.whisky.icon + ' ' + DATA.foods.whisky.label,
-          hint: () => { const o = Selectors.foodOdds('whisky', Selectors.callPlayer(), true); return '-' + Utils.formatMoney(Selectors.foodCost('whisky')) + ' · ' + Math.round(o.ok * 100) + '% sukces (szatnia +3%), czasem afera'; },
-          effects: {},
-          log: () => { const p = Selectors.callPlayer(); return p ? 'Prezes wręcza ' + Selectors.nickQ(p) + ' butelkę whisky w drewnianym pudełku.' : 'Whisky bez adresata.'; },
-          onChoose: () => {
-            const p = Selectors.callPlayer(); if (!p) return;
-            const res = Engine.foodDeal('whisky', Selectors.nickQ(p), p, true);
-            if (res === 'ok') { Engine.applyEffects({ lockerRoom: +3 }); Engine.addLog('🥃 ' + Selectors.nickQ(p) + ' przyjął whisky i odpuścił podwyżkę.', 'event'); }
-            else if (res === 'refuse') { Engine.applyEffects({ lockerRoom: -2 }); Engine.addLog('😐 ' + Selectors.nickQ(p) + ' odstawił butelkę: „Wolałbym przelew”. [szatnia -2%]', 'event'); }
-            else { Engine.applyEffects({ lockerRoom: -8 }); Engine.addLog('📰 ' + Selectors.nickQ(p) + ': „Butelką mnie nie kupicie”. Wywiad dla mediów, szatnia wściekła. [szatnia -8%]', 'event'); }
-          },
         },
         {
           label: () => (gameState.club.leagueLevel >= 7 ? 'Szczerze: klubu na to nie stać' : 'Nie ma kasy. Klub to rodzina.'),
@@ -3307,10 +3202,10 @@ const DATA = {
           onChoose: () => { gameState.bonuses.fetaMatches = 3; Engine.xPost('ultras', 'Najlepsza feta w historii gminy!!! Dzik, disco-polo i puchar z Biedronki 🏆🐗🎶'); },
         },
         {
-          label: () => ['Skromny grill za blaszakiem i po dwa piwa', 'Kolacja dla drużyny w restauracji', 'Zamknięty bankiet w hotelu dla drużyny i sponsorów'][Selectors.fetaTier()],
+          label: () => ['Skromny grill dla drużyny przy stadionie', 'Kolacja dla drużyny w restauracji', 'Zamknięty bankiet w hotelu dla drużyny i sponsorów'][Selectors.fetaTier()],
           hint: () => Utils.signedMoney(-Selectors.fetaCost(150)) + ', kibice +4%, szatnia +4%',
           effects: () => ({ budget: -Selectors.fetaCost(150), fans: +4, lockerRoom: +4 }),
-          log: 'Grill za blaszakiem, po dwa piwa na głowę. Skromnie, ale od serca. Pan Heniek przyniósł ogórki.',
+          log: 'Grill dla drużyny przy stadionie. Skromnie, ale od serca.',
         },
         {
           label: 'Żadnej fety – zbieramy na nawożenie murawy',
@@ -4521,7 +4416,7 @@ const Engine = {
     else gameState.negotiation.patience = mood === 'wall' ? 4 : 6;
     const n = gameState.negotiation;
     if (mood === 'refuse') { n.done = 'refused'; n.log.unshift('„Nie mam o czym rozmawiać. Szukam nowego klubu.”'); if (kind === 'renew') p.wantsOut = p.wantsOut || 'nowy klub (odmówił rozmów o kontrakcie)'; }
-    else n.log.unshift(kind === 'sign' ? (will >= 0.7 ? '„Cieszę się, że tu jestem. Mój agent oczekuje ' : will >= 0.45 ? '„Kluby się dogadały, ale ja jeszcze się zastanawiam. Oczekuję ' : '„Szczerze? Miałem lepsze opcje. Przekonajcie mnie: ') + Utils.formatMoney(ask) + '/tydz.”' : (mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : '. Inaczej zacznę się rozglądać.”'));
+    else n.log.unshift(kind === 'sign' ? (will >= 0.7 ? '„Cieszę się, że tu jestem. Mój agent oczekuje ' : will >= 0.45 ? '„Kluby się dogadały, ale ja jeszcze się zastanawiam. Oczekuję ' : '„Szczerze? Miałem lepsze opcje. Przekonajcie mnie: ') + Utils.formatMoney(ask) + '/tydz.”' : (mood === 'wall' ? '„Mogę zostać… ale za ' : '„Chcę ') + Utils.formatMoney(ask) + '/tydz.' + (kind === 'renew' ? ' i nową umowę.”' : ' Inaczej zacznę się rozglądać.”'));
     gameState.ui.overlay = { type: 'negotiation' };
   },
   negotiateAdjust(pct) {
@@ -5752,28 +5647,8 @@ const Engine = {
       Engine.xPost('portal', 'SKANDAL: prezes ' + Selectors.clubDisplayName() + ' ' + F.scandal + '! ' + F.icon + '📸');
     }
   },
-  buyTransferBeer(id) {
-    return;   // 14.x: zlikwidowane – zawodnika nie da się już kupić za skrzynkę piwa i kiełbasę (stare przyciski nic nie robią)
-    if (Selectors.transferBanned()) return;   // ban transferowy Związku
-    const t = gameState.transfer;
-    const p = t.open && t.market.find((x) => x.id === id);
-    if (!p || p.beerTried || !Selectors.beerAllowed() || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.beerCost()) return;
-    if (!Selectors.signReqsOk(p)) { Engine.ambitionRefusal(p, 'market'); return; }
-    p.beerTried = true;
-    const res = Engine.beerDeal(Selectors.playerName(p), p);
-    if (res === 'ok') {
-      t.market = t.market.filter((x) => x.id !== id);
-      delete p.fee; delete p.beerTried;
-      Engine.watchSigned(p);
-      gameState.squad.push(p);
-      t.bought++;
-      Engine.addLog('🍺 Transfer za skrzynkę piwa i kiełbasę: ' + Selectors.playerName(p) + ' dołącza do klubu (' + Utils.formatMoney(p.wage) + '/tydz.).', 'decision');
-    } else if (res === 'scandal') {
-      t.market = t.market.filter((x) => x.id !== id);   // obrażony – nie chce słyszeć o klubie
-    } else {
-      p.fee = Math.round(p.fee * 1.1 / 10) * 10;          // poczuł się niedoceniony – cena w górę
-    }
-  },
+  buyTransferBeer() {},   // 14.x: zlikwidowane – stare przyciski z zapisu nic nie robią
+
 
   /* ----- Akademia U19 ----- */
   makeJunior(age) {
@@ -7146,7 +7021,8 @@ const Engine = {
   fakeHistory(p, club) {
     const apps = Utils.randInt(6, 18);
     const perGame = { GK: 0, DEF: 0.04, MID: 0.12, FWD: 0.3 }[p.pos] * (0.6 + p.skill / 10);
-    p.prevSeason = { apps, goals: Math.round(apps * perGame * Utils.randRange(0.6, 1.4)), avg: Math.round(Utils.clamp(4.8 + p.skill * 0.22 + Utils.randRange(-0.6, 0.6), 3, 9.5) * 10) / 10 };
+    const perAst = { GK: 0.01, DEF: 0.06, MID: 0.15, FWD: 0.12 }[p.pos] * (0.6 + p.skill / 10);
+    p.prevSeason = { apps, goals: Math.round(apps * perGame * Utils.randRange(0.6, 1.4)), assists: Math.round(apps * perAst * Utils.randRange(0.6, 1.4)), avg: Math.round(Utils.clamp(4.8 + p.skill * 0.22 + Utils.randRange(-0.6, 0.6), 3, 9.5) * 10) / 10 };
     p.fromClub = club;
     const lv = Selectors.levelOfClub(club);
     p.fromLevel = lv > 0 ? lv : gameState.club.leagueLevel;   // poziom rozgrywkowy poprzedniego klubu
@@ -7773,27 +7649,20 @@ const Engine = {
   },
 
   /* ----- Telefony z szatni ----- */
-  // Po podwyżkę dzwonią tylko ci, którzy wyraźnie przerastają drużynę albo błyszczą formą – albo gdy klubowi wyraźnie się powodzi.
+  // 14.x: o podwyżkę proszą tylko (1) rażąco niedopłacani na tle mediany klubu przy mocnej pozycji w składzie
+  //       albo (2) zawodnicy w wybitnej formie; (3) koniec kontraktu obsługuje osobna scena (contractRenew)
   maybeLockerCall() {
     const c = gameState.calls;
-    const suburban = gameState.club.character === 'suburban';   // letnicy płacą więcej, to i chłopaki wołają częściej
-    if (gameState.pendingDecisions.includes('wageDemand') || gameState.calendar.week - c.lastWeek < (suburban ? 11 : 14)) return;   // rzadziej niż kiedyś
+    if (gameState.pendingDecisions.includes('wageDemand') || gameState.pendingDecisions.includes('contractRenew') || gameState.calendar.week - c.lastWeek < 20) return;
     const lineup = Engine.pickLineup([]);
     if (!lineup.length) return;
-    const avgSkill = lineup.reduce((s, p) => s + p.skill, 0) / lineup.length;
-    const e = Selectors.econ();
-    const rep = gameState.lastReport;
-    const clubBoom = gameState.record.winStreak >= 3 || (rep && rep.total >= 500 * e) || gameState.finance.budget >= 5000 * e
-      || (gameState.calendar.round <= 2 && ['promo', 'title'].includes(gameState.lastSeason.outcome));
-    const shining = (p) => p.skill >= avgSkill + 1.5 || (p.lastRating != null && p.lastRating >= 7.8) || (Selectors.avgRating(p) != null && p.seasonRatingCount >= 3 && Selectors.avgRating(p) >= 7);
-    let pool = gameState.squad.filter((p) => lineup.includes(p) && shining(p));
-    if (!pool.length && clubBoom) pool = gameState.squad.filter((p) => p.favorite || (lineup.includes(p) && p.skill >= avgSkill + 0.5));
-    if (!pool.length || Math.random() > (suburban ? 0.3 : 0.22)) return;
-    if (gameState.morale.lockerRoom >= 70 && Math.random() < 0.4) return;   // przy dobrej atmosferze mniej się marudzi
+    const pool = gameState.squad.filter((p) => lineup.includes(p) && p.raiseAsked !== gameState.calendar.season && Selectors.raiseReason(p, lineup));
+    if (!pool.length || Math.random() > 0.35) return;
     const p = Utils.rand(pool);
     const partner = Math.random() < 0.4;
+    p.raiseAsked = gameState.calendar.season;   // najwyżej raz w sezonie
     Object.assign(c, {
-      lastWeek: gameState.calendar.week, playerId: p.id,
+      lastWeek: gameState.calendar.week, playerId: p.id, reason: Selectors.raiseReason(p, lineup),
       caller: partner ? 'partner' : 'self', callerName: partner ? Utils.rand(DATA.partners) : '',
       rival: Utils.rand(gameState.league.rivals).name,
     });
@@ -8716,7 +8585,7 @@ const Engine = {
       const players = Selectors.squadWages();
       const coach = Selectors.coachWeekly();
       const staff = Selectors.staffWages();
-      Engine.money('Zawodnicy (paliwo, skrzynki, stypendia)', -players);
+      Engine.money('Pensje zawodników', -players);
       Engine.money('Pensja trenera', -coach);
       Engine.money('Sztab pomocniczy', -staff);
       Engine.addLog('💵 Wypłaty: zawodnicy ' + Utils.formatMoney(players) + (coach ? ', trener ' + Utils.formatMoney(coach) : '') + (staff ? ', sztab ' + Utils.formatMoney(staff) : '') + '. Koperty rozdawał pan Rysiek w szatni.', 'finance');
@@ -9711,7 +9580,27 @@ const Selectors = {
   freeStaffSlot: () => Object.keys(DATA.staffSlots).find((k) => !gameState.staff[k]) || null,
   currentRetiree: () => gameState.retirees[0] || null,
   projectedLineup: () => Engine.pickLineup([]),
-  wageLabel: (w) => (w <= 5 ? 'zwrot za paliwo' : w <= 15 ? 'paliwo + skrzynka po meczu' : 'stypendium'),
+  wageLabel: (w) => (w <= 15 ? 'zwrot kosztów' : 'stypendium'),
+  // 14.x: powód prośby o podwyżkę: 'underpaid' (≤ 55% mediany pensji klubu, a gra w czołówce składu) | 'form' (wybitna forma) | null
+  raiseReason: (p, lineup) => {
+    if (!p || p.loan) return null;
+    const ws = gameState.squad.filter((x) => !x.loan).map((x) => x.wage || 0).sort((a, b) => a - b);
+    const med = ws.length ? ws[Math.floor(ws.length / 2)] : 0;
+    const lu = lineup || Engine.pickLineup([]);
+    const rank = lu.slice().sort((a, b) => b.skill - a.skill).indexOf(p);
+    if (med > 0 && rank >= 0 && rank < Math.ceil(lu.length / 3) && (p.wage || 0) <= med * 0.55) return 'underpaid';
+    const avg = Selectors.avgRating(p), last = (p.formHistory || []).slice(-3);
+    if ((avg != null && (p.seasonRatingCount || 0) >= 5 && avg >= 7.6) || (last.length === 3 && last.every((x) => x >= 8))) return 'form';
+    return null;
+  },
+  // 14.x: statystyki do okienek zawodnika – bieżący sezon; zanim klub rozegra pierwszy oficjalny mecz – poprzedni sezon
+  statsView: (p) => {
+    const ps = p.prevSeason;
+    const ours = gameState.squad.includes(p);
+    const started = ours ? ((gameState.calendar.round || 0) > 0 || (p.seasonApps || 0) > 0) : !ps;   // zawodnik z innego klubu: znamy jego zakończony sezon
+    if (!started && ps) return { prev: true, label: gameState.calendar.season > 1 ? 'Sezon ' + (gameState.calendar.season - 1) + ' (poprzedni)' : 'Poprzedni sezon', apps: ps.apps || 0, goals: ps.goals || 0, assists: ps.assists || 0, avg: ps.avg != null ? ps.avg : null };
+    return { prev: false, label: 'Sezon ' + gameState.calendar.season, apps: p.seasonApps || 0, goals: p.seasonGoals || 0, assists: p.seasonAssists || 0, avg: Selectors.avgRating(p) };
+  },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10428,14 +10317,18 @@ const UI = {
       </div>`;
   },
 
+  // 14.x: jedna linijka statystyk sezonu (negocjacje, licytacja) – mieści się bez przewijania
+  seasonStatsLine(p) {
+    const v = Selectors.statsView(p);
+    return `<p data-season-stats class="text-center text-[11.5px] text-paper-200 mt-0.5">📊 <b class="text-amber-glow">${Utils.escape(v.label)}:</b> ${v.apps} m · ${v.goals} g · ${v.assists} as · śr. ${v.avg != null ? Selectors.ratingText(v.avg) : '–'}</p>`;
+  },
   playerCard(p, dark = false) {
     if (!p) return '';
     const box = dark ? 'bg-desk-800 border-desk-600 text-paper-100' : 'bg-paper-200 border-paper-300 text-ink-900';
     const sub = dark ? 'text-paper-400' : 'text-ink-700';
     const stat = (label, value) => `<div class="min-w-0"><div class="text-[9.5px] uppercase tracking-wide ${sub}">${label}</div><div class="text-[15px] font-bold leading-tight">${value}</div></div>`;
     // Na przełomie sezonów (przed 1. meczem) liczy się sezon zakończony
-    const ps = p.prevSeason;
-    const last = !!(ps && p.seasonApps === 0 && gameState.calendar.round === 0);
+    const sv = Selectors.statsView(p);
     return `
       <div class="rounded-xl border ${box} px-3 py-2 mt-3">
         <div class="flex items-center justify-between gap-2">
@@ -10446,9 +10339,9 @@ const UI = {
           ${UI.profileBadge(p.profile)}
         </div>
         <div class="grid grid-cols-4 gap-2 mt-2 text-center">
-          ${stat('Mecze', last ? ps.apps : p.seasonApps)}${stat('Gole / As.', (last ? ps.goals : p.seasonGoals) + ' / ' + ((last ? ps.assists : p.seasonAssists) || 0))}${stat('Śr. nota', UI.ratingBadge(last ? ps.avg : Selectors.avgRating(p)))}${stat('Ost. mecz', UI.ratingBadge(p.lastRating))}
+          ${stat('Mecze', sv.apps)}${stat('Gole / As.', sv.goals + ' / ' + sv.assists)}${stat('Śr. nota', UI.ratingBadge(sv.avg))}${stat('Ost. mecz', UI.ratingBadge(p.lastRating))}
         </div>
-        <div class="text-[10.5px] ${sub} mt-1.5">Sezon ${last ? gameState.calendar.season - 1 + ' (zakończony)' : gameState.calendar.season} · w klubie: ${p.apps} m, ${p.goals} g${Selectors.careerRating(p) != null ? ', śr. ' + Selectors.ratingText(Selectors.careerRating(p)) : ''} · ${Utils.formatMoney(p.wage)}/tydz.</div>
+        <div class="text-[10.5px] ${sub} mt-1.5">${Utils.escape(sv.label)} · w klubie: ${p.apps} m, ${p.goals} g${Selectors.careerRating(p) != null ? ', śr. ' + Selectors.ratingText(Selectors.careerRating(p)) : ''} · ${Utils.formatMoney(p.wage)}/tydz.</div>
       </div>`;
   },
 
@@ -10629,7 +10522,7 @@ const UI = {
         <div class="pb-2.5">
           <p class="text-[12px] italic text-paper-300 leading-snug">„${Utils.escape(p.trait)}”</p>
           <div class="grid grid-cols-4 gap-1 mt-1.5 text-center">
-            ${stat('Mecze', ps ? ps.apps : p.seasonApps)}${stat('G / A', (ps ? ps.goals : p.seasonGoals) + ' / ' + ((ps ? ps.assists : p.seasonAssists) || 0))}${stat('Nota', ps ? Selectors.ratingText(ps.avg) : Selectors.ratingText(Selectors.avgRating(p)))}${stat('Pensja', p.wage + ' zł')}
+            ${(() => { const sv = Selectors.statsView(p); return stat('Mecze', sv.apps) + stat('G / A', sv.goals + ' / ' + sv.assists) + stat('Nota', sv.avg != null ? Selectors.ratingText(sv.avg) : '–') + stat('Pensja', p.wage + ' zł'); })()}
           </div>
           <div class="flex justify-between gap-2 text-[11.5px] mt-1.5"><span class="text-paper-200">💰 ${p.loan && p.fee != null ? 'Opłata za wypożyczenie' : p.fee != null ? 'Cena wywoławcza (wartość)' : 'Wartość rynkowa'}: <b class="text-paper-100">${Utils.formatMoney(p.fee != null ? p.fee : (p.id === gameState.star.playerId ? Selectors.starFee(p) : Selectors.sellPrice(p)))}</b></span><span class="text-paper-400 whitespace-nowrap">📈 ${Utils.formatValue(Selectors.marketValue(p))} · OVR ${Selectors.ovr(p)}</span></div>
           ${(() => { const pc = Selectors.prosCons(p); return pc.pros.length || pc.cons.length ? `<div class="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -11758,6 +11651,7 @@ const UI = {
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
         <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
         <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
+        ${UI.seasonStatsLine(p)}
         ${n.kind === 'sign' ? (() => { const risk = ended ? 0 : Engine.breakRisk(n, n.offer); const w = n.will; const lab = n.done === 'cancelled' ? '💥 Transfer zerwany' : w >= 0.7 ? '🟢 Chętny do podpisu' : w >= 0.45 ? '🟡 Waha się' : '🟠 Mało przekonany'; return `<p class="text-center text-[12px] font-semibold mt-1 ${n.done === 'cancelled' ? 'text-stamp' : w >= 0.7 ? 'text-grass' : w >= 0.45 ? 'text-amber-300' : 'text-amber-500'}">${lab} · chęć ${Math.round(w * 100)}%${ended ? '' : ' · ryzyko zerwania przy tej ofercie: <b class="' + (risk >= 0.35 ? 'text-stamp' : risk >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(risk * 100) + '%</b>'}</p>`; })()
         : `<p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}${ended || n.mood === 'refuse' ? '' : (() => { const r = Engine.breakRisk(n, n.offer); return ' · ryzyko zerwania: <b class="' + (r >= 0.35 ? 'text-stamp' : r >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(r * 100) + '%</b>'; })()}</p>`}
         <div class="grid grid-cols-2 gap-2 mt-3 text-center">
@@ -11798,6 +11692,7 @@ const UI = {
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">🔨 Licytacja transferowa</p>
         <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
         <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l.${p.fromClub ? ' · ' + Utils.escape(p.fromClub) : ''} · wartość ${Utils.formatMoney(Selectors.marketValue(p))}</p>
+        ${UI.seasonStatsLine(p)}
         <div class="rounded-xl bg-desk-800 mt-3 px-3 py-2.5 text-center">
           <div class="text-[10.5px] uppercase text-paper-400">${won ? 'Cena końcowa' : 'Aktualna oferta'}</div>
           <div class="text-[30px] font-extrabold leading-tight ${won || us ? 'text-grass' : 'text-amber-glow'}">${Utils.formatMoney(a.bid)}</div>
