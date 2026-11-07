@@ -10160,7 +10160,7 @@ const UI = {
     return `<section class="paper p-3 mb-4"><h2 class="text-base font-bold mb-1">🏛️ Hall of Fame</h2><ol class="text-[12.5px] space-y-0.5">${l.slice(0, 5).map((e, i) => `<li class="flex justify-between gap-2"><span class="min-w-0 truncate">${i + 1}. <b>${Utils.escape(e.club)}</b> · ${Utils.escape(e.pres)} · ${e.seasons} sez. · ${Utils.escape(e.top)}</span><b class="whitespace-nowrap">${e.score} pkt</b></li>`).join('')}</ol></section>`;
   },
 
-  // 14.x: logo gry – drabina lig od błotnej B-klasy po złoty szczyt (to samo co ikona aplikacji)
+  // 14.x: logo gry – teczka prezesa z piłką zamiast zamka (to samo co ikona aplikacji)
   logo(size = 96) {
     return `<img src="icons/icon.svg" width="${size}" height="${size}" alt="Prezes" class="rounded-[28%] shadow-2xl ring-1 ring-white/10" style="width:${size}px;height:${size}px" />`;
   },
