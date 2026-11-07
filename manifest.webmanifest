@@ -8,15 +8,65 @@
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#141a24",
   "theme_color": "#141a24",
-  "categories": ["games", "sports"],
+  "categories": [
+    "games",
+    "sports"
+  ],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/icons/screens/desk.jpg",
+      "sizes": "770x1666",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Biurko prezesa – klub, finanse i najbliższy mecz"
+    },
+    {
+      "src": "/icons/screens/match.jpg",
+      "sizes": "770x1666",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Mecz na żywo – gole, kartki i MVP"
+    },
+    {
+      "src": "/icons/screens/transfer.jpg",
+      "sizes": "770x1666",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Giełda transferowa z podglądem jedenastki"
+    }
   ]
 }

@@ -9780,6 +9780,50 @@ const Selectors = {
     return '';
   },
   proContractFee: (p) => (p.secured ? 0 : Math.round(Selectors.secureCost(p) * 0.5 / 10) * 10),   // umowa juniorska już podpisana = bez opłaty
+  // 14.x: role w kadrze – przydzielane automatycznie z OVR, formy, występów i statusu
+  roleDefs: {
+    star:    { label: 'Gwiazda',      short: 'Gwiazda',  icon: '👑', cls: 'bg-amber-400 text-ink-900', desc: 'Lider i kluczowy zawodnik – największy wpływ na wyniki i największe oczekiwania.' },
+    key:     { label: 'Ważny zawodnik', short: 'Ważny',   icon: '🔑', cls: 'bg-grass text-white', desc: 'Filar kadry, regularnie w rotacji.' },
+    starter: { label: 'Pierwszy skład', short: '1. skład', icon: '🟢', cls: 'bg-ink-900 text-paper-100', desc: 'Podstawowy zawodnik na ten moment.' },
+    sub:     { label: 'Rezerwowy',    short: 'Rezerwa',  icon: '🪑', cls: 'bg-paper-300 text-ink-900', desc: 'Zmiennik z ławki – gra, gdy trener rotuje albo ktoś wypada.' },
+    junior:  { label: 'Junior',       short: 'Junior',   icon: '🌱', cls: 'bg-sky-600 text-white', desc: 'Młodzież – akademia i U19, dopiero buduje pozycję.' },
+  },
+  squadRoles: () => {
+    const key = gameState.calendar.season + ':' + gameState.calendar.week + ':' + gameState.squad.map((p) => p.id + '/' + p.skill + '/' + (p.seasonApps || 0) + '/' + (p.u19Dev ? 1 : 0)).join(',') + ':' + gameState.coach.id + ':' + gameState.star.playerId;
+    if (Selectors._rolesKey === key) return Selectors._roles;
+    const pool = gameState.squad.filter((p) => !p.exiled && !p.u19Dev);
+    const v = (p) => { const a = Selectors.avgRating(p); return Selectors.ovr({ ...p, formHistory: [] }) + (a != null && (p.seasonRatingCount || 0) >= 3 ? (a - 6.5) * 2 : 0); };
+    // najmocniejsza XI w ustawieniu trenera – bez względu na chwilowe kontuzje i kartki (rola nie znika przez uraz)
+    const f = DATA.styles[Selectors.coach().style].formation;
+    const xi = [];
+    ['GK', 'DEF', 'MID', 'FWD'].forEach((pos, i) => pool.filter((p) => p.pos === pos).sort((a, b) => v(b) - v(a)).slice(0, f[i]).forEach((p) => xi.push(p)));
+    pool.filter((p) => !xi.includes(p)).sort((a, b) => v(b) - v(a)).slice(0, Math.max(0, 11 - xi.length)).forEach((p) => xi.push(p));
+    const avg = xi.length ? xi.reduce((s, p) => s + v(p), 0) / xi.length : 0;
+    const maxApps = Math.max(1, ...gameState.squad.map((p) => p.seasonApps || 0));
+    const ranked = xi.slice().sort((a, b) => v(b) - v(a));
+    const roles = {};
+    // gwiazda: wyraźnie najlepszy w XI (albo gwiazda, która chce odejść wyżej); drugi tylko przy dużej przewadze
+    ranked.forEach((p, i) => { if ((i === 0 && v(p) >= avg + 4) || (i === 1 && v(p) >= avg + 7) || p.id === gameState.star.playerId) roles[p.id] = 'star'; });
+    ranked.filter((p) => !roles[p.id] && (v(p) >= avg + 1.5 || ((p.seasonApps || 0) >= 5 && (p.seasonApps || 0) / maxApps >= 0.75))).slice(0, 4).forEach((p) => { roles[p.id] = 'key'; });
+    gameState.squad.forEach((p) => {
+      if (roles[p.id]) return;
+      if (p.u19Dev || (p.age <= 19 && !xi.includes(p))) roles[p.id] = 'junior';
+      else roles[p.id] = xi.includes(p) ? 'starter' : 'sub';
+    });
+    Selectors._rolesKey = key; Selectors._roles = roles;
+    return roles;
+  },
+  playerRole: (p) => Selectors.roleDefs[Selectors.squadRoles()[p.id] || 'sub'],
+  // 14.x: środowisko instalacji PWA
+  installEnv: () => {
+    const ua = navigator.userAgent || '';
+    const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    if (standalone || window.__installed) return 'installed';
+    if (/FBAN|FBAV|FB_IAB|Messenger|Instagram|Twitter|TwitterAndroid|Line\/|TikTok|musical_ly|Snapchat|; wv\)/i.test(ua)) return 'inapp';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    if (window.__installPrompt) return 'prompt';
+    return /Android/i.test(ua) ? 'android' : 'other';
+  },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10153,6 +10197,7 @@ const UI = {
             <button data-action="start-step" data-step="challenges" class="btn-press h-12 rounded-xl bg-desk-800 border border-desk-600 text-[14px] font-bold">🎯 Wyzwania</button>
             <button data-action="start-step" data-step="records" class="btn-press h-12 rounded-xl bg-desk-800 border border-desk-600 text-[14px] font-bold">🏆 Rekordy</button>
           </div>
+          ${UI.installHint()}
           ${save && save.club.name ? '<button data-action="clear-save" class="text-[11.5px] text-paper-400 underline self-center mt-0.5">Usuń zapis</button>' : ''}
         </div>`);
     }
@@ -10426,7 +10471,9 @@ const UI = {
     const last = p.lastRating;
     const form = last == null ? ['–', 'brak meczów'] : last >= 7.5 ? ['🔥', 'w gazie'] : last >= 6.5 ? ['👍', 'dobra'] : last >= 5.5 ? ['😐', 'przeciętna'] : ['🥶', 'słaba'];
     const bars = hist.length ? hist.map((r) => `<div class="flex-1 rounded-sm ${r >= 7.5 ? 'bg-grass' : r >= 6 ? 'bg-ink-700' : r >= 4.5 ? 'bg-amber-400' : 'bg-stamp'}" style="height:${Math.round(r * 10)}%" title="${r.toFixed(1)}"></div>`).join('') : '<div class="text-[11px] text-ink-700 self-center">brak not</div>';
+    const role = Selectors.playerRole(p);
     const status = [
+      `<span class="inline-block px-1.5 rounded text-[11px] font-bold ${role.cls}">${role.icon} ${role.label}</span>`,
       lineup.includes(p) ? '<span class="text-grass font-bold">W SKŁADZIE</span>' : 'ŁAWKA',
       p.injured > 0 ? '<span class="text-stamp font-bold">🩹 kontuzja ' + p.injured + ' tyg.</span>' : '',
       p.suspended > 0 ? '<span class="text-stamp font-bold">⛔ pauza: ' + p.suspended + ' mecz' + (p.suspended > 1 ? 'e' : '') + '</span>' : '',
@@ -10455,6 +10502,7 @@ const UI = {
           </div>
           <p class="text-[13px] italic text-ink-700 leading-snug mt-1.5">„${Utils.escape(p.trait)}”</p>
           <div class="text-[11.5px] mt-1">${status}${badges ? '<br>' + badges : ''}</div>
+          <div class="text-[10.5px] text-ink-700 leading-snug mt-0.5">${role.icon} ${Utils.escape(role.desc)}</div>
           <div class="grid grid-cols-[1fr_1.2fr] gap-2 mt-2.5">
             <div class="rounded-lg bg-paper-200 px-2 py-1.5">
               <div class="text-[9.5px] uppercase tracking-wide text-ink-700">Forma · ${form[0]} ${form[1]}</div>
@@ -10479,6 +10527,21 @@ const UI = {
     </div>`;
   },
 
+  // 14.x: instalacja aplikacji z menu głównego – przycisk albo krótka podpowiedź zależna od przeglądarki
+  installHint() {
+    const env = Selectors.installEnv();
+    if (env === 'installed' || !/^https?:$/.test(location.protocol)) return '';
+    if (env === 'prompt') return '<button data-action="install-app" class="btn-press w-full h-10 rounded-xl bg-sky-700 text-white text-[13.5px] font-bold">📲 Zainstaluj aplikację na telefonie</button>';
+    const txt = env === 'inapp' ? 'Otwierasz grę w przeglądarce Messengera / X / Instagrama – tam instalacja nie działa. Stuknij ⋮ i wybierz „Otwórz w Chrome” (albo w przeglądarce), potem zainstaluj.'
+      : env === 'ios' ? 'iPhone: otwórz w Safari, stuknij Udostępnij ⬆️ i wybierz „Do ekranu początkowego”.'
+      : env === 'android' ? 'Zainstaluj: menu przeglądarki ⋮ → „Zainstaluj aplikację” / „Dodaj do ekranu głównego”.'
+      : '';
+    return txt ? `<p data-install-hint="${env}" class="text-[11px] text-paper-400 leading-snug text-center">📲 ${txt}</p>` : '';
+  },
+  rolePill(p) {
+    const r = Selectors.playerRole(p);
+    return `<span data-role-pill class="inline-block align-middle mr-1 px-1 rounded text-[9px] leading-[14px] font-bold whitespace-nowrap ${r.cls}" title="${Utils.escape(r.label + ' – ' + r.desc)}">${r.short}</span>`;
+  },
   ovrBadge(p) {
     const v = Selectors.ovr(p);
     // kolory względem ligi: złoty = gwiazda ligi, zielony = mocny, granat = przeciętny, szary = słaby
@@ -12170,7 +12233,7 @@ const UI = {
       return `
       <button data-action="player-open" data-id="${p.id}" class="${cols} w-full text-left h-[27px] px-1.5 text-[12px] border-b border-paper-300 last:border-0 border-l-[3px] ${inXI ? 'border-l-grass' : 'border-l-transparent'} ${gameState.ui.playerSheet === p.id ? 'bg-amber-glow/15' : 'active:bg-paper-200'}">
         <span class="text-[11px]">${DATA.positions[p.pos].icon}</span>
-        <span class="truncate"><b>${Utils.escape(Selectors.shortName(p))}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</span>
+        <span class="truncate">${UI.rolePill(p)}<b>${Utils.escape(Selectors.shortName(p))}</b>${marks(p)}${p.listed ? ' 📋' : ''}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</span>
         <span class="text-center text-ink-700">${p.age}</span>
         <span class="text-center">${p.seasonApps}</span>
         <span class="text-center font-semibold">${p.seasonGoals}</span>
@@ -12194,6 +12257,7 @@ const UI = {
         </div>
         ${rows}
       </section>
+      <p class="text-[10.5px] text-paper-400 leading-snug mb-1">Role (automatycznie: OVR, forma, występy): ${['star', 'key', 'starter', 'sub', 'junior'].map((k) => `<span class="inline-block px-1 rounded text-[9px] font-bold ${Selectors.roleDefs[k].cls}">${Selectors.roleDefs[k].short}</span>`).join(' ')}</p>
       <p class="text-[10.5px] text-paper-400 leading-snug">Skład ustala trener ${Utils.escape(coach.name)}. Prezes może najwyżej komuś podziękować – i liczyć się z reakcją trybun. Zielony pasek = jedenastka trenera; stuknij zawodnika po szczegóły i akcje.${gameState.transfer.open ? '' : ' 🔒 Skład zamknięty do okna transferowego.'}</p>`);
   },
 
@@ -12695,6 +12759,12 @@ const Actions = {
     UI.renderAll();
   },
 
+  'install-app'() {
+    const ev = window.__installPrompt;
+    if (!ev) return;
+    ev.prompt();
+    ev.userChoice.finally(() => { window.__installPrompt = null; UI.renderAll(); });
+  },
   'start-step'(el) {
     const to = el.dataset.step;
     const f = gameState.ui.form;
@@ -13099,6 +13169,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.dataset && e.target.dataset.field && gameState.screen === 'start') Actions['start-step']({ dataset: { step: 'crest' } });   // Enter w kroku 1 = dalej
 });
 
+/* PWA: przycisk „Zainstaluj aplikację” – systemowe okno instalacji (Chrome / Samsung Internet / Edge) */
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__installPrompt = e; if (typeof gameState !== 'undefined' && gameState.screen === 'start') UI.renderAll(); });
+window.addEventListener('appinstalled', () => { window.__installPrompt = null; window.__installed = true; if (typeof gameState !== 'undefined' && gameState.screen === 'start') UI.renderAll(); });
 /* PWA: service worker (instalacja aplikacji i działanie bez sieci) – tylko przez http(s) */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('Service worker:', e)); });
