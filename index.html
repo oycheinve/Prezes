@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Prezes – menedżer piłkarski</title>
+  <meta name="description" content="Menedżer piłkarski: od B-klasy do Ligi Mistrzów. Budujesz klub, kadrę, stadion i finanse." />
+
+  <!-- PWA: instalacja jako aplikacja na telefonie (Android / Chrome / Samsung Internet / iOS) -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#141a24" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Prezes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13081,6 +13093,11 @@ document.addEventListener('input', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.dataset && e.target.dataset.field && gameState.screen === 'start') Actions['start-step']({ dataset: { step: 'crest' } });   // Enter w kroku 1 = dalej
 });
+
+/* PWA: service worker (instalacja aplikacji i działanie bez sieci) – tylko przez http(s) */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('Service worker:', e)); });
+}
 
 /* START */
 UI.renderAll();
