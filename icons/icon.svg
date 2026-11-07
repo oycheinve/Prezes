@@ -1,49 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs>
-  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3a5c"/><stop offset=".55" stop-color="#e0875a"/><stop offset="1" stop-color="#f3c178"/></linearGradient>
-  <linearGradient id="pitch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f8a3a"/><stop offset="1" stop-color="#2f5e24"/></linearGradient>
-  <linearGradient id="jacket" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2f2a"/><stop offset="1" stop-color="#1f1815"/></linearGradient>
-  <radialGradient id="face" cx="45%" cy="40%" r="65%"><stop offset="0" stop-color="#f6c7a1"/><stop offset="1" stop-color="#d9946b"/></radialGradient>
-  <linearGradient id="cap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b5a4a"/><stop offset="1" stop-color="#3f342b"/></linearGradient>
-</defs>
-  <rect width="512" height="512" fill="url(#sky)"/>
-  <circle cx="400" cy="250" r="46" fill="#ffdca0" opacity=".85"/>
-  <!-- las i blaszak na horyzoncie -->
-  <path d="M0 268 Q40 236 80 258 Q120 228 170 254 Q220 232 262 256 Q310 236 352 258 Q400 240 440 260 Q480 244 512 262 V300 H0 Z" fill="#26402a"/>
-  <rect x="20" y="246" width="70" height="34" fill="#7a8794"/><path d="M14 248 L55 228 L96 248 Z" fill="#5b6672"/><rect x="40" y="258" width="16" height="22" fill="#3d4650"/>
-  <!-- boisko -->
-  <path d="M0 290 H512 V512 H0 Z" fill="url(#pitch)"/>
-  <path d="M0 330 H512 M0 380 H512 M0 440 H512" stroke="#5c9a45" stroke-width="22" opacity=".35"/>
-  <path d="M-20 420 Q256 300 532 420" fill="none" stroke="#e9f1e0" stroke-width="5" opacity=".8"/>
-  <ellipse cx="420" cy="470" rx="70" ry="16" fill="#6b5a3e" opacity=".75"/><ellipse cx="412" cy="466" rx="40" ry="7" fill="#9fb7c9" opacity=".7"/>
-  <!-- krzywa drewniana bramka -->
-  <g stroke="#e8dcc0" stroke-width="9" stroke-linecap="round" fill="none"><path d="M46 384 L52 286"/><path d="M50 288 Q140 278 226 292"/><path d="M226 292 L230 366"/></g>
-  <g stroke="#ffffff" stroke-width="1.6" opacity=".45"><path d="M70 290 L80 380 M100 288 L108 376 M130 286 L136 372 M160 286 L164 370 M190 288 L194 368 M60 312 L228 316 M62 340 L229 342"/></g>
-  <circle cx="58" cy="452" r="22" fill="#fff" stroke="#1d1d1d" stroke-width="3"/><path d="M58 439 l10 8 -4 12 h-12 l-4 -12z" fill="#1d1d1d"/>
-  <!-- PREZES -->
-  <g transform="translate(256 512) scale(1) translate(-256 -512)">
-    <!-- kurtka skórzana z kołnierzem i dres pod spodem -->
-    <path d="M86 512 Q96 400 176 376 L256 362 L336 376 Q416 400 426 512 Z" fill="url(#jacket)"/>
-    <path d="M214 368 L256 440 L298 368 L280 362 L256 400 L232 362 Z" fill="#1e4fa3"/><path d="M244 370 L256 392 L268 370" stroke="#fff" stroke-width="5" fill="none"/>
-    <path d="M176 376 L232 362 L256 430 L214 470 Z" fill="#4a3b33"/><path d="M336 376 L280 362 L256 430 L298 470 Z" fill="#4a3b33"/>
-    <!-- szyja i głowa -->
-    <path d="M222 330 h68 v40 q-34 18 -68 0 z" fill="#d9946b"/>
-    <ellipse cx="256" cy="262" rx="88" ry="96" fill="url(#face)"/>
-    <ellipse cx="170" cy="270" rx="16" ry="24" fill="#e2a37c"/><ellipse cx="342" cy="270" rx="16" ry="24" fill="#e2a37c"/>
-    <!-- kaszkiet -->
-    <path d="M164 222 Q170 150 258 146 Q348 150 352 220 Q300 200 256 204 Q210 202 164 222 Z" fill="url(#cap)"/>
-    <path d="M150 226 Q256 182 362 222 Q352 240 330 236 Q256 214 182 238 Q158 240 150 226 Z" fill="#2c241e"/>
-    <!-- brwi, oczy, czerwony nos -->
-    <path d="M198 238 q20 -12 40 0 M274 238 q20 -12 40 0" stroke="#4a3426" stroke-width="9" stroke-linecap="round" fill="none"/>
-    <path d="M206 258 q12 -6 24 0 M282 258 q12 -6 24 0" stroke="#2a1d16" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <ellipse cx="256" cy="286" rx="22" ry="20" fill="#e06a5a"/>
-    <!-- wąs -->
-    <path d="M190 316 Q214 290 256 304 Q298 290 322 316 Q300 330 272 318 Q256 326 240 318 Q212 330 190 316 Z" fill="#5a3a24"/>
-    <!-- usta i szlug -->
-    <path d="M238 336 q18 8 36 0" stroke="#7a3a2e" stroke-width="6" stroke-linecap="round" fill="none"/>
-    <g transform="rotate(-16 270 334)">
-      <rect x="262" y="327" width="96" height="15" rx="4" fill="#fbf8ef" stroke="#3a2a20" stroke-width="3"/>
-      <rect x="262" y="327" width="24" height="15" rx="3" fill="#e0953f" stroke="#3a2a20" stroke-width="3"/>
-      <rect x="350" y="327" width="11" height="15" rx="3" fill="#ff4d1f"/><circle cx="362" cy="334" r="9" fill="#ffb43a" opacity=".55"/>
+  <radialGradient id="bg" cx="50%" cy="25%" r="85%"><stop offset="0" stop-color="#1f2b40"/><stop offset="1" stop-color="#0d131d"/></radialGradient>
+  <linearGradient id="s1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a6b3f"/><stop offset="1" stop-color="#6b4627"/></linearGradient>
+  <linearGradient id="s2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34c27a"/><stop offset="1" stop-color="#16804a"/></linearGradient>
+  <linearGradient id="s3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef5"/><stop offset="1" stop-color="#9aa6b6"/></linearGradient>
+  <linearGradient id="s4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset=".5" stop-color="#f5c33b"/><stop offset="1" stop-color="#c98a12"/></linearGradient>
+  <clipPath id="bc"><circle r="40"/></clipPath>
+</defs><rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 262) scale(0.88) translate(-266 -232)">
+    <!-- schody: jeden blok, stopnie w kolorach od błota B-klasy do złota -->
+    <clipPath id="stairs"><path d="M96 420 V352 H184 V284 H272 V216 H360 V148 H424 a12 12 0 0 1 12 12 V408 a12 12 0 0 1 -12 12 Z"/></clipPath>
+    <g clip-path="url(#stairs)">
+      <rect x="96" y="140" width="88" height="290" fill="url(#s1)"/>
+      <rect x="184" y="140" width="88" height="290" fill="url(#s2)"/>
+      <rect x="272" y="140" width="88" height="290" fill="url(#s3)"/>
+      <rect x="360" y="140" width="80" height="290" fill="url(#s4)"/>
+      <path d="M184 140 V430 M272 140 V430 M360 140 V430" stroke="#0d131d" stroke-width="5" opacity=".35"/>
     </g>
-    <path d="M374 300 q-22 -26 2 -50 q22 -22 0 -50 q-18 -22 6 -44" stroke="#f2f2f2" stroke-width="9" stroke-linecap="round" fill="none" opacity=".85"/>
+    <text x="140" y="404" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="54" fill="#f3e3cc" opacity=".95">B</text>
+    <!-- piłka na szczycie z koroną -->
+    <g transform="translate(398 104)">
+      <circle r="40" fill="#f8fafc"/>
+      <g clip-path="url(#bc)" fill="#0d131d"><path d="M0 -13 L12 -4 L8 11 L-8 11 L-12 -4 Z"/>
+        <path d="M0 -46 L11 -38 L7 -27 L-7 -27 L-11 -38 Z"/><path d="M0 -46 L11 -38 L7 -27 L-7 -27 L-11 -38 Z" transform="rotate(72)"/><path d="M0 -46 L11 -38 L7 -27 L-7 -27 L-11 -38 Z" transform="rotate(144)"/><path d="M0 -46 L11 -38 L7 -27 L-7 -27 L-11 -38 Z" transform="rotate(216)"/><path d="M0 -46 L11 -38 L7 -27 L-7 -27 L-11 -38 Z" transform="rotate(288)"/></g>
+      <circle r="40" fill="none" stroke="#0d131d" stroke-width="3"/>
+    </g>
+    <path d="M366 56 L379 26 L398 48 L417 26 L430 56 Z" fill="url(#s4)" stroke="#0d131d" stroke-width="3" stroke-linejoin="round"/>
+    <!-- trasa w górę: przerywana linia od błota do szczytu -->
+    <path d="M80 330 Q150 250 236 238 Q320 214 352 120" fill="none" stroke="#f8fafc" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 18" opacity=".55"/>
   </g></svg>

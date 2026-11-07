@@ -2,7 +2,7 @@
    Strona (index.html): najpierw sieć, żeby każda nowa wersja z Vercela była od razu widoczna;
    bez sieci – ostatnia zapisana kopia. Ikony i manifest: z pamięci podręcznej.
    Zewnętrzne biblioteki (Tailwind, fonty): kopia z pamięci, odświeżana w tle. */
-const VERSION = 'prezes-v3';   // nowa wersja = nowe ikony (stara pamięć jest kasowana)
+const VERSION = 'prezes-v4';   // nowa wersja = nowe ikony (stara pamięć jest kasowana)
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
