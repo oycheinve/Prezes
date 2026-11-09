@@ -125,6 +125,7 @@ const CONFIG = {
   roundsPerRunda: 9,        // (stare zapisy) runda = połowa sezonu – teraz liczona z terminarza: Selectors.rundaLen()
   maxLogEntries: 300,
   minSquad: 13,             // poniżej tego trener dobiera chłopaków z łapanki
+  goalGap: 2,               // 14.x: min. odstęp (minuty) między kolejnymi golami w meczu
   u19Size: 16,              // 14.x: stała kadra akademii (braki łatają zapychacze)
   u19Intake: 5,             // 14.x: coroczny nabór
   u19OverAge: 2,            // 14.x: max starszych (19+) zawodników pierwszej drużyny w U19
@@ -5086,6 +5087,7 @@ const Engine = {
     if (lineup.some((p) => p.ace)) ourL += 0.7;                       // Kacper Chudy: z nim bramki padają same
     let gf = Utils.poisson(Math.max(0.15, ourL));
     let ga = Utils.poisson(Math.max(0.15, oppL));
+    if (!lineup.length) gf = 0;                                      // 14.x: nikt zdolny do gry – nie ma kto strzelić (bez walkowerów)
     if (fixedMatch === 'sell' && gf >= ga) ga = gf + 1;               // odpuszczony mecz
     const result = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
 
@@ -5118,10 +5120,12 @@ const Engine = {
     const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
     const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
     const theirRedMin = Math.min(91, ...cards.filter((c) => !c.us && c.card === 'R').map((c) => c.min));
-    const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Utils.randInt(m + 1, 90) : Utils.randInt(1, 90));   // przewaga liczebna = gole po kartce
+    const usedMin = [];   // minuty goli w tym meczu (odstęp min. 2 minuty)
+    const minAfter = (m) => (m < 90 && Math.random() < 0.65 ? Engine.goalMinute(usedMin, m + 1, 90) : Engine.goalMinute(usedMin, 1, 90));   // przewaga liczebna = gole po kartce
     for (let i = 0; i < gf; i++) {
       const gmin = minAfter(theirRedMin);
-      const field = Engine.onPitch(lineup, cards, gmin);   // wyrzucony z boiska już nie strzela
+      let field = Engine.onPitch(lineup, cards, gmin);   // wyrzucony z boiska już nie strzela
+      if (!field.length) field = lineup;
       const w = (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.tag === 'freekick' ? 1.5 : 1) * (p.ace ? 2 : 1);
       const scorer = Utils.weightedPick(field, w);
       scorer.goals++; scorer.seasonGoals++; Engine.cstat(scorer).g++;
@@ -6573,8 +6577,9 @@ const Engine = {
     lineup.forEach((p) => { p.cupApps = (p.cupApps || 0) + 1; });
     const nm = (p) => Selectors.shortName(p);
     const goals = [];
+    const usedMin = [];   // odstęp min. 2 minuty między golami
     for (let i = 0; i < m.gf; i++) {
-      const gmin = Utils.randInt(2, 90);
+      const gmin = Engine.goalMinute(usedMin, 2, 90);
       const field = Engine.onPitch(lineup, rawCards, gmin);   // wyrzucony z boiska już nie strzela
       const sc = Utils.weightedPick(field, (p) => ({ GK: 0.05, DEF: 0.7, MID: 2.5, FWD: 5 }[p.pos]) * p.skill * (p.ace ? 2 : 1));
       if (!sc) continue;
@@ -6588,7 +6593,7 @@ const Engine = {
       goals.push({ min: gmin, us: true, s: nm(sc), a: as ? as.last : null });
     }
     const oppPool = [Engine.oppScorerName(), Engine.oppScorerName()];
-    for (let i = 0; i < m.ga; i++) goals.push({ min: Utils.randInt(2, 90), us: false, name: Math.random() < 0.65 ? oppPool[0] : oppPool[1] });
+    for (let i = 0; i < m.ga; i++) goals.push({ min: Engine.goalMinute(usedMin, 2, 90), us: false, name: Math.random() < 0.65 ? oppPool[0] : oppPool[1] });
     goals.sort((a, b) => a.min - b.min);
     servedBan.forEach((p) => { p.suspended = Math.max(0, p.suspended - 1); });
     Engine.applyCardBans(rawCards);   // czerwona = pauza w kolejnym oficjalnym meczu (także po barażu)
@@ -6990,6 +6995,17 @@ const Engine = {
     const g = Math.min(gain, cap - p.skill);
     p.skill += g;
     return g;
+  },
+  // 14.x: minuta gola z odstępem – między kolejnymi golami (obu drużyn) co najmniej CONFIG.goalGap minut
+  goalMinute(used, lo = 1, hi = 90) {
+    const ok = (m) => used.every((u) => Math.abs(u - m) >= CONFIG.goalGap);
+    for (let t = 0; t < 40; t++) { const m = Utils.randInt(lo, hi); if (ok(m)) { used.push(m); return m; } }
+    const free = [];   // gęsto: najbliższa wolna minuta w preferowanym przedziale, potem w całym meczu (z doliczonym czasem)
+    for (let m = lo; m <= hi; m++) if (ok(m)) free.push(m);
+    if (!free.length) for (let m = 1; m <= 95; m++) if (ok(m)) free.push(m);
+    const m = free.length ? Utils.rand(free) : Math.min(95, Math.max(...used, 0) + CONFIG.goalGap);
+    used.push(m);
+    return m;
   },
   generatePlayer(opts = {}) {
     const p = Engine.makePlayer(opts);
@@ -9813,7 +9829,7 @@ const Selectors = {
     Selectors._rolesKey = key; Selectors._roles = roles;
     return roles;
   },
-  playerRole: (p) => Selectors.roleDefs[Selectors.squadRoles()[p.id] || 'sub'],
+  playerRole: (p) => Selectors.roleDefs[gameState.squad.includes(p) ? (Selectors.squadRoles()[p.id] || 'sub') : (p.age <= 19 || (gameState.u19 && gameState.u19.squad.includes(p)) ? 'junior' : 'sub')],
   // 14.x: środowisko instalacji PWA
   installEnv: () => {
     const ua = navigator.userAgent || '';
@@ -9823,6 +9839,17 @@ const Selectors = {
     if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
     if (window.__installPrompt) return 'prompt';
     return /Android/i.test(ua) ? 'android' : 'other';
+  },
+  // 14.x: zawodnik po id – kadra, akademia U19, absolwenci, wypożyczeni (do karty zawodnika z dowolnego miejsca)
+  findPlayer: (id) => {
+    if (!id) return null;
+    let p = gameState.squad.find((x) => x.id === id); if (p) return { p, where: 'squad' };
+    const u = gameState.u19;
+    p = u && u.squad.find((x) => x.id === id); if (p) return { p, where: 'u19' };
+    p = u && (u.graduates || []).find((x) => x.id === id); if (p) return { p, where: 'u19' };
+    let l = (gameState.loansOut || []).find((x) => x.player.id === id); if (l) return { p: l.player, where: 'loan', club: l.club };
+    l = (gameState.u19Loans || []).find((x) => x.player.id === id); if (l) return { p: l.player, where: 'loan', club: l.club };
+    return null;
   },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
@@ -10461,8 +10488,11 @@ const UI = {
   // Dolna szuflada zawodnika (Kadra): opis, forma, ocena, potencjał, statystyki i akcje pod kciukiem
   playerSheet() {
     const id = gameState.ui.playerSheet;
-    const p = id && gameState.activeTab === 'squad' ? gameState.squad.find((x) => x.id === id) : null;
+    const found = Selectors.findPlayer(id);   // 14.x: karta otwiera się w każdej zakładce
+    const p = found && found.p;
     if (!p) return '';
+    const inSquad = found.where === 'squad';
+    const u19View = found.where === 'u19' || p.u19Dev || p.exiled;
     const lineup = Selectors.projectedLineup();
     const t = gameState.transfer;
     const star = p.id === gameState.star.playerId;
@@ -10474,12 +10504,14 @@ const UI = {
     const role = Selectors.playerRole(p);
     const status = [
       `<span class="inline-block px-1.5 rounded text-[11px] font-bold ${role.cls}">${role.icon} ${role.label}</span>`,
-      lineup.includes(p) ? '<span class="text-grass font-bold">W SKŁADZIE</span>' : 'ŁAWKA',
+      !inSquad ? '' : lineup.includes(p) ? '<span class="text-grass font-bold">W SKŁADZIE</span>' : p.u19Dev ? '' : 'ŁAWKA',
       p.injured > 0 ? '<span class="text-stamp font-bold">🩹 kontuzja ' + p.injured + ' tyg.</span>' : '',
       p.suspended > 0 ? '<span class="text-stamp font-bold">⛔ pauza: ' + p.suspended + ' mecz' + (p.suspended > 1 ? 'e' : '') + '</span>' : '',
       Selectors.temperLabel(p) + (p.seasonYellows || p.seasonReds ? ' · 🟨' + (p.seasonYellows || 0) + ' 🟥' + (p.seasonReds || 0) : ''),
       p.benched ? '<span class="text-stamp font-bold">🚫 odsunięty</span>' : '',
       p.loan ? '🔁 wypożyczony z ' + Utils.escape(p.loan.from) : '',
+      found.where === 'u19' ? (p.filler ? '🌱 zapychacz U19' : '🌱 akademia ' + Utils.escape(Selectors.u19Name())) : '',
+      found.where === 'loan' ? '📤 na wypożyczeniu w ' + Utils.escape(found.club || '') : '',
       p.wantsOut ? '<span class="text-stamp font-bold">🚪 po sezonie do ' + Utils.escape(p.wantsOut) + '</span>' : '',
       star ? (gameState.star.rebel ? '<span class="text-stamp font-bold">🔥 buntownik</span>' : '🌟 chce odejść wyżej') : '',
       p.listed ? '📋 na liście transferowej' : '',
@@ -10516,11 +10548,13 @@ const UI = {
           </div>
           <div class="rounded-lg bg-paper-200 px-2 py-1.5 mt-2 text-[12px]">📈 Potencjał: <b>${UI.potentialText(p)}</b>${growth ? '<span class="text-ink-700"> · ' + (t.open ? 'wypożyczenie da regularną grę i szybszy rozwój' : 'bez gry rośnie wolno') + '</span>' : ''}</div>
           <div class="grid grid-cols-4 gap-1.5 mt-2 text-center">
-            ${stat('Mecze', p.seasonApps)}${stat('Gole', p.seasonGoals)}${stat('Asysty', p.seasonAssists || 0)}${stat('Klub M/G/A', p.apps + '/' + p.goals + '/' + (p.assists || 0))}
+            ${u19View ? stat('U19 mecze', p.u19Apps || 0) + stat('U19 gole', p.u19Goals || 0) + stat('U19 asysty', p.u19Assists || 0) + stat('U19 nota', p.u19RatingN ? (p.u19RatingSum / p.u19RatingN).toFixed(1) : '–')
+              : stat('Mecze', p.seasonApps || 0) + stat('Gole', p.seasonGoals || 0) + stat('Asysty', p.seasonAssists || 0) + stat('Klub M/G/A', (p.apps || 0) + '/' + (p.goals || 0) + '/' + (p.assists || 0))}
           </div>
-          ${p.loan ? '' : p.u19Dev ? `<button data-action="u19-recall" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold">⬆️ Wróć z U19 do pierwszej drużyny (${p.u19Apps || 0} m. w U19)</button>`
+          ${found.where === 'u19' && !p.filler && p.age < 19 ? `<button data-action="u19-promote" data-id="${p.id}" ${gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.proContractFee(p) ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold disabled:opacity-60">✍️ Profesjonalny kontrakt i do 1. drużyny (${Utils.formatMoney(Selectors.gradWage(p))}/tydz.${Selectors.proContractFee(p) ? ', podpis ' + Utils.formatMoney(Selectors.proContractFee(p)) : ''})</button>` : ''}
+          ${!inSquad || p.loan ? '' : p.u19Dev ? `<button data-action="u19-recall" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold">⬆️ Wróć z U19 do pierwszej drużyny (${p.u19Apps || 0} m. w U19)</button>`
             : p.exiled ? '' : (() => { const why = Selectors.u19SendBlock(p); return `<button data-action="u19-send" data-id="${p.id}" ${why ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold ${why ? 'bg-paper-300 text-ink-700 opacity-70' : 'bg-ink-900 text-paper-100'}">⬇️ Do U19 na rozwój${why ? ' – ' + why : ' (gra z juniorami, pensja bez zmian)'}</button>`; })()}
-          <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${Utils.formatMoney(p.wage)}/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan ? '' : ' · cena sprzedaży: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
+          <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${Utils.formatMoney(p.wage)}/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan || !inSquad ? '' : ' · cena sprzedaży: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
         </div>
 
       </div>
@@ -10538,6 +10572,10 @@ const UI = {
       : '';
     return txt ? `<p data-install-hint="${env}" class="text-[11px] text-paper-400 leading-snug text-center">📲 ${txt}</p>` : '';
   },
+  // 14.x: klikalne nazwisko – otwiera kartę zawodnika (kadra, U19, wypożyczeni)
+  pLink(p, inner, cls = '') {
+    return `<button data-action="player-open" data-id="${p.id}" class="text-left ${cls}">${inner}</button>`;
+  },
   rolePill(p) {
     const r = Selectors.playerRole(p);
     return `<span data-role-pill class="inline-block align-middle mr-1 px-1 rounded text-[9px] leading-[14px] font-bold whitespace-nowrap ${r.cls}" title="${Utils.escape(r.label + ' – ' + r.desc)}">${r.short}</span>`;
@@ -10551,6 +10589,11 @@ const UI = {
   },
 
   // Potencjał: gwiazdki zawsze, dokładny sufit dopiero z Gminną Akademią (trenerzy szkółki umieją go ocenić)
+  // 14.x: potencjał z szacowanym sufitem OVR – przy kontraktach (scena końca umowy, negocjacje)
+  potentialFull(p) {
+    const pot = Selectors.potential(p);
+    return UI.potentialText(p) + (p.age <= 26 && pot > p.skill ? ' · sufit ~OVR ' + Selectors.ovrOf(pot) : '');
+  },
   potentialText(p) {
     const pot = Selectors.potential(p);
     if (p.age > 26 || pot <= p.skill) return 'szczyt możliwości';
@@ -10609,6 +10652,7 @@ const UI = {
           <div class="min-w-0">
             <div class="text-[14px] font-bold truncate">${Utils.escape(Selectors.playerName(p))}${p.favorite ? ' ⭐' : ''}${p.legend ? ' 🏆' : ''}${p.prodigy ? ' ✨' : p.talent ? ' 💎' : ''}</div>
             <div class="text-[11px] ${sub}">${DATA.positions[p.pos].icon} ${DATA.positions[p.pos].label} · ${p.age} l. · <b>OVR ${Selectors.ovr(p)}</b> (drużyna ${Selectors.teamOvr()}) · ${Selectors.skillLabel(p.skill)}</div>
+            <div data-potential class="text-[11px] ${sub}">📈 Potencjał: <b class="text-amber-glow">${UI.potentialFull(p)}</b></div>
           </div>
           ${UI.profileBadge(p.profile)}
         </div>
@@ -11468,8 +11512,8 @@ const UI = {
         UI.tile('Bilans', me.w + '-' + me.d + '-' + me.l, me.p + ' meczów'),
         UI.tile('Bramki', me.gf + ':' + me.ga, me.pts + ' pkt · ' + (pos || '–') + '. miejsce'),
         UI.tile('Forma', dots || '–', u.last ? 'ost. ' + u.last.gf + ':' + u.last.ga : 'brak meczów'),
-      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon: gole i asysty · w nawiasie gole łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 whitespace-nowrap">${p.u19Assists || 0} as.</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
-        + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${p.talent ? '💎 ' : ''}${Utils.escape(Selectors.shortName(p))} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
+      ]) + UI.panel('⚽ Strzelcy U19', 'Sezon: gole i asysty · w nawiasie gole łącznie w akademii', scorers.length ? `<table class="w-full text-[12px]">${scorers.map((p, i) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 w-5 text-ink-700">${i + 1}.</td><td class="max-w-0 w-full truncate">${UI.pLink(p, '<b>' + Utils.escape(Selectors.shortName(p)) + '</b>')} <span class="text-[10.5px] text-ink-700">${p.age} l.</span></td><td class="text-right font-bold">${p.u19Goals}</td><td class="text-right pl-2 whitespace-nowrap">${p.u19Assists || 0} as.</td><td class="text-right pl-2 text-ink-700">(${p.u19GoalsTotal || 0})</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Jeszcze nikt nie strzelił.</p>')
+        + UI.panel('⭐ Noty i forma przed 19. urodzinami', 'Średnia nota w sezonie · mecze · trend', rated.length ? `<table class="w-full text-[12px]">${rated.map((p) => `<tr class="border-b border-paper-300 last:border-0"><td class="py-1 max-w-0 w-full truncate">${UI.pLink(p, (p.talent ? '💎 ' : '') + Utils.escape(Selectors.shortName(p)))} <span class="text-[10.5px] text-ink-700">${p.age} l.${p.age >= 18 ? ' · ostatni rok' : ''}</span></td><td class="text-right text-ink-700 px-1">${p.u19RatingN}</td><td class="text-right pl-1 whitespace-nowrap">${UI.ratingBadge(Math.round(avgR(p) * 10) / 10)}${trend(p)}</td></tr>`).join('')}</table>` : '<p class="text-[12px] text-ink-700">Brak not – liga juniorów jeszcze nie ruszyła.</p>');
     }
     if (view === 'base') {
       const folds = gameState.ui.folds || {};
@@ -11498,7 +11542,7 @@ const UI = {
     const full = gameState.squad.length >= CONFIG.maxSquad;
     const ni = u.intake;
     const rows = u.squad.slice().sort((a, b) => (a.filler ? 1 : 0) - (b.filler ? 1 : 0) || b.age - a.age || b.skill - a.skill).map((p) => {
-      if (p.filler) return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0 opacity-60">${UI.ovrBadge(p)}<div class="min-w-0 flex-1"><div class="text-[11.5px] truncate leading-tight">${Utils.escape(p.nick)}</div><div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · zapychacz – do najbliższego naboru</div></div></div>`;
+      if (p.filler) return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0 opacity-60">${UI.ovrBadge(p)}<div class="min-w-0 flex-1"><div class="text-[11.5px] truncate leading-tight">${UI.pLink(p, Utils.escape(p.nick))}</div><div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · zapychacz – do najbliższego naboru</div></div></div>`;
       const gem = Selectors.isGem(p);
       const isNew = ni && ni.ids.includes(p.id);
       const flags = (isNew ? ' 🆕' : '') + (p.talent ? ' 💎' : '') + (p.secured ? ' 🔒' : '') + (p.watch && rec ? ' 👀' : '');
@@ -11507,7 +11551,7 @@ const UI = {
       const secure = p.secured || !(p.age >= 17 || gem) ? '' : `<button data-action="u19-secure" data-id="${p.id}" ${budget < Selectors.secureCost(p) ? 'disabled' : ''} title="Umowa juniorska – chroni przed łowcami talentów" class="btn-press h-6 px-1.5 rounded-md text-[11px] font-bold whitespace-nowrap ${budget < Selectors.secureCost(p) ? 'bg-paper-300 text-ink-700 opacity-60' : 'bg-ink-900 text-paper-100'}">🔒 ${Utils.formatMoney(Selectors.secureCost(p))}</button>`;
       return `<div class="flex items-center gap-1 py-[2px] border-b border-paper-300 last:border-0">
         ${UI.ovrBadge(p)}
-        <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">${Utils.escape(Selectors.shortName(p))}${flags}</div>
+        <div class="min-w-0 flex-1"><div class="text-[12px] font-bold truncate leading-tight">${UI.pLink(p, Utils.escape(Selectors.shortName(p)) + flags)}</div>
         <div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · sufit ${UI.potentialText(p)}${gem && !p.secured && p.age >= 17 ? ' · <b class="text-stamp">perełka bez umowy</b>' : ''}</div></div>
         ${secure}${promo}
       </div>`;
@@ -11518,7 +11562,7 @@ const UI = {
         <div class="text-[10.5px] text-ink-700 leading-snug truncate">${CONFIG.u19Intake} chłopaków${ni.gems ? ' · 💎 perełki: ' + ni.gems : ' · bez perełek'} · jakość zależy od poziomu szkółki (${Selectors.academyLevel()}/${DATA.academyLevels.length - 1}) i rekrutera</div></section>`
       : `<p class="text-[10.5px] text-paper-400 mb-1">🎽 Co sezon nabór ${CONFIG.u19Intake} chłopaków (ocena ★–★★★★★) – jakość zależy od poziomu szkółki.</p>`;
     const seniorBox = `<section class="paper px-2.5 py-1.5 mb-1.5"><div class="text-[11px] font-bold">🎓 Z pierwszej drużyny w U19 · starsi (19+): ${Selectors.u19OverAge()}/${CONFIG.u19OverAge}</div>
-        ${seniors.length ? seniors.map((p) => `<div class="flex items-center gap-1.5 py-[2px] text-[11.5px]">${UI.ovrBadge(p)}<span class="min-w-0 flex-1 truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-ink-700">${p.age} l. · ${p.exiled ? 'karnie do końca sezonu' : 'na rozwój · ' + (p.u19Apps || 0) + ' m. w U19'}</span></span>${p.u19Dev ? UI.smallBtn('u19-recall', `data-id="${p.id}"`, '⬆️ Wróć', false) : ''}</div>`).join('') : '<p class="text-[10.5px] text-ink-700 leading-snug">Alternatywa dla wypożyczenia: odeślij zawodnika do U19 (Kadra → karta zawodnika). Gra regularnie z juniorami, rozwija się nieco wolniej niż na wypożyczeniu.</p>'}</section>`;
+        ${seniors.length ? seniors.map((p) => `<div class="flex items-center gap-1.5 py-[2px] text-[11.5px]">${UI.ovrBadge(p)}<span class="min-w-0 flex-1 truncate">${UI.pLink(p, '<b>' + Utils.escape(Selectors.shortName(p)) + '</b>')} <span class="text-ink-700">${p.age} l. · ${p.exiled ? 'karnie do końca sezonu' : 'na rozwój · ' + (p.u19Apps || 0) + ' m. w U19'}</span></span>${p.u19Dev ? UI.smallBtn('u19-recall', `data-id="${p.id}"`, '⬆️ Wróć', false) : ''}</div>`).join('') : '<p class="text-[10.5px] text-ink-700 leading-snug">Alternatywa dla wypożyczenia: odeślij zawodnika do U19 (Kadra → karta zawodnika). Gra regularnie z juniorami, rozwija się nieco wolniej niż na wypożyczeniu.</p>'}</section>`;
     return segs + intakeCard + UI.panel('🌱 ' + Utils.escape(Selectors.u19Name()), (pos ? pos + '. miejsce · ' : '') + (u.squad.length - fillers) + ' juniorów + ' + fillers + ' zapychaczy = ' + u.squad.length + ' · ✍️⬆️ = kontrakt i do 1. drużyny',
       rows || '<p class="text-[12px] italic">Akademia pusta.</p>')
       + seniorBox
@@ -11974,7 +12018,8 @@ const UI = {
       <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">${head}</p>
         <h2 class="text-center text-[21px] font-extrabold leading-tight mt-1">${Utils.escape(Selectors.playerName(p))}</h2>
-        <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} ${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
+        <p class="text-center text-[12px] text-paper-300 mt-0.5">${UI.ovrBadge(p)} OVR ${Selectors.ovr(p)} · 📈 <b class="text-amber-glow">${UI.potentialFull(p)}</b></p>
+        <p class="text-center text-[11.5px] text-paper-400">${DATA.positions[p.pos].label} · ${p.age} l. · teraz ${Utils.formatMoney(p.wage)}/tydz. · ${Utils.escape(Selectors.contractLabel(p))}</p>
         ${UI.seasonStatsLine(p)}
         ${n.kind === 'sign' ? (() => { const risk = ended ? 0 : Engine.breakRisk(n, n.offer); const w = n.will; const lab = n.done === 'cancelled' ? '💥 Transfer zerwany' : w >= 0.7 ? '🟢 Chętny do podpisu' : w >= 0.45 ? '🟡 Waha się' : '🟠 Mało przekonany'; return `<p class="text-center text-[12px] font-semibold mt-1 ${n.done === 'cancelled' ? 'text-stamp' : w >= 0.7 ? 'text-grass' : w >= 0.45 ? 'text-amber-300' : 'text-amber-500'}">${lab} · chęć ${Math.round(w * 100)}%${ended ? '' : ' · ryzyko zerwania przy tej ofercie: <b class="' + (risk >= 0.35 ? 'text-stamp' : risk >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(risk * 100) + '%</b>'}</p>`; })()
         : `<p class="text-center text-[12px] font-semibold mt-1 ${n.mood === 'ok' ? 'text-grass' : n.mood === 'wall' ? 'text-amber-400' : 'text-stamp'}">${n.mood === 'ok' ? '🟢 Chętny do rozmów' : n.mood === 'wall' ? '🟠 Stawia zaporowe warunki: ' + Utils.escape(n.reason) : '🔴 Nie chce rozmawiać: ' + Utils.escape(n.reason)}${ended || n.mood === 'refuse' ? '' : (() => { const r = Engine.breakRisk(n, n.offer); return ' · ryzyko zerwania: <b class="' + (r >= 0.35 ? 'text-stamp' : r >= 0.15 ? 'text-amber-400' : 'text-grass') + '">' + Math.round(r * 100) + '%</b>'; })()}</p>`}
@@ -12089,7 +12134,7 @@ const UI = {
     const row = (i, p, right) => `
       <tr class="border-b border-paper-300 last:border-0">
         <td class="py-1 pr-1 text-ink-700 w-5">${i + 1}.</td>
-        <td class="py-1 pr-1 max-w-0 w-full truncate"><b>${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
+        <td class="py-1 pr-1 max-w-0 w-full truncate">${UI.pLink(p, '<b>' + Utils.escape(Selectors.shortName(p)) + '</b>')} <span class="text-[10.5px] text-ink-700">${DATA.positions[p.pos].label.toLowerCase()}</span></td>
         ${right}
       </tr>`;
     const scorersHtml = scorers.length ? `<table class="w-full text-[12px]">
@@ -12276,7 +12321,7 @@ const UI = {
       <div class="flex items-center gap-2 py-1.5 border-b border-paper-300 last:border-0 text-[12px]">
         ${UI.ovrBadge(p)}
         <div class="min-w-0 flex-1">
-          <div class="truncate"><b>${l.junior ? '🌱 ' : ''}${Utils.escape(Selectors.shortName(p))}</b> <span class="text-[10.5px] text-ink-700">${p.age} l. · ${DATA.positions[p.pos].label.toLowerCase()}</span></div>
+          <div class="truncate">${UI.pLink(p, '<b>' + (l.junior ? '🌱 ' : '') + Utils.escape(Selectors.shortName(p)) + '</b>')} <span class="text-[10.5px] text-ink-700">${p.age} l. · ${DATA.positions[p.pos].label.toLowerCase()}</span></div>
           <div class="text-[10.5px] text-ink-700 truncate">→ ${Utils.escape(l.club)} · ${l.apps || 0} m, ${l.goals || 0} g, ${l.assists || 0} as.${avg != null ? ' · nota ' + avg.toFixed(1) + trend : ''} · wraca po sezonie ${l.until}</div>
         </div>
         <div class="text-right whitespace-nowrap"><div class="text-[10px] text-ink-700">OVR ${start} → ${now}</div><b class="${d > 0 ? 'text-grass' : 'text-ink-700'}">${d > 0 ? '+' + d : '±0'}</b></div>
