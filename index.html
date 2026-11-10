@@ -5731,10 +5731,10 @@ const Engine = {
 
 
   /* ----- Akademia U19 ----- */
-  makeJunior(age) {
+  makeJunior(age, pos = null) {
     const A = Selectors.academy();
     const bonus = Selectors.levelSkillBonus();
-    const p = Engine.makePlayer({ ageMin: age, ageMax: age, skillMin: Math.max(1, A.skill[0] + bonus - 1), skillMax: A.skill[1] + bonus - 1 });
+    const p = Engine.makePlayer({ ageMin: age, ageMax: age, skillMin: Math.max(1, A.skill[0] + bonus - 1), skillMax: A.skill[1] + bonus - 1, pos });
     p.wage = 0;   // junior gra za dres i obiad
     p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() + 2, p.potential + A.room + Selectors.u19Lvl('recruiter')));
     if (Math.random() < A.talent + Selectors.u19Lvl('recruiter') * 0.05) Engine.markTalent(p);
@@ -5749,7 +5749,10 @@ const Engine = {
     const A = Selectors.academy();
     const b = Selectors.levelSkillBonus();
     const sk = Math.max(1, A.skill[0] + b - 2 + Utils.randInt(0, 1));
-    const p = Engine.makePlayer({ ageMin: 15, ageMax: 18, skillMin: sk, skillMax: sk });
+    const need = { GK: 2, DEF: 5, MID: 5, FWD: 3 }, have = {};   // zapychacz łata pozycję, której w U19 brakuje najbardziej
+    (gameState.u19.squad || []).forEach((x) => { have[x.pos] = (have[x.pos] || 0) + 1; });
+    const pos = Object.keys(need).sort((a, b) => ((have[a] || 0) - need[a]) - ((have[b] || 0) - need[b]))[0];
+    const p = Engine.makePlayer({ ageMin: 15, ageMax: 18, skillMin: sk, skillMax: sk, pos });
     const k = (gameState.u19.fillerNo = (gameState.u19.fillerNo || 0) + 1);
     Object.assign(p, { first: 'Zapychacz', last: '#' + k, nick: 'Zapychacz #' + k, noNick: true, filler: true, wage: 0, potential: p.skill + (Math.random() < 0.3 ? 1 : 0), u19Apps: 0 });
     delete p.talent; delete p.prodigy;
@@ -5769,12 +5772,13 @@ const Engine = {
     if (!u) return null;
     u.squad = u.squad.filter((p) => !p.filler);   // zapychacze robią miejsce nowemu rocznikowi
     const fresh = [];
-    for (let i = 0; i < CONFIG.u19Intake; i++) { const p = Engine.makeJunior(Utils.randInt(15, 16)); p.intakeSeason = forSeason; u.squad.push(p); fresh.push(p); }
+    Selectors.balancedPositions(CONFIG.u19Intake).forEach((pos) => { const p = Engine.makeJunior(Utils.randInt(15, 16), pos); p.intakeSeason = forSeason; u.squad.push(p); fresh.push(p); });   // 14.x: zbalansowany nabór
     // za dużo juniorów: odchodzą najsłabiej rokujący (bez umowy, nie z tego naboru)
     const released = [];
     const value = (p) => Selectors.potential(p) * 2 + p.skill + (p.talent ? 6 : 0);
     while (u.squad.filter((p) => p.age < 19).length > CONFIG.u19Size) {
-      const out = u.squad.filter((p) => p.age < 19 && !p.secured && !fresh.includes(p)).sort((a, b) => value(a) - value(b))[0];
+      const minPos = { GK: 2, DEF: 4, MID: 4, FWD: 2 }, cnt = (pos) => u.squad.filter((x) => x.age < 19 && x.pos === pos).length;   // każda formacja zostaje obsadzona
+      const out = u.squad.filter((p) => p.age < 19 && !p.secured && !fresh.includes(p) && cnt(p.pos) > minPos[p.pos]).sort((a, b) => value(a) - value(b))[0];
       if (!out) break;
       u.squad = u.squad.filter((x) => x !== out); released.push(out.nick);
     }
@@ -5821,7 +5825,8 @@ const Engine = {
   },
   u19Init() {
     gameState.u19 = { squad: [], table: {}, coach: null, recruiter: null, graduates: [], log: [], last: null };
-    [15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 16].forEach((age) => gameState.u19.squad.push(Engine.makeJunior(age)));
+    const pos = Selectors.balancedPositions(12);
+    [15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 16].forEach((age, i) => gameState.u19.squad.push(Engine.makeJunior(age, pos[i])));
     Engine.u19Fill();
     Engine.u19NewSeason();
   },
@@ -6883,13 +6888,12 @@ const Engine = {
     trait = trait || Utils.rand(isPro ? DATA.proTraits : DATA.traits);
     const positions = ['GK', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD'];
     // Bramkarz, gdy brakuje – reszta losowo
-    const needGK = gameState.squad.filter((p) => p.pos === 'GK').length < 2;
     gameState.nextPlayerId++;
     const p = {
       id: 'p' + gameState.nextPlayerId,
       ...(isPro ? Engine.proName() : Engine.uniqueName()),
       age: Utils.randInt(ageMin, ageMax),
-      pos: pos || (needGK ? 'GK' : Utils.rand(positions)),
+      pos: pos || Utils.rand(positions),   // 14.x: bramkarz wymuszany tylko przy dobieraniu do kadry (generatePlayer)
       skill: Utils.clamp(Utils.randInt(skillMin, skillMax), 1, CONFIG.maxSkill),
       profile: trait.profile || Utils.rand(['off', 'def', 'uni']),
       wage: Math.round(Utils.randInt(wageMin, wageMax) / 5) * 5,
@@ -7070,6 +7074,7 @@ const Engine = {
     Engine.startNegotiation(p.id, 'sign', price);   // zawodnik musi jeszcze podpisać kontrakt – zerwanie = zwrot pieniędzy
   },
   generatePlayer(opts = {}) {
+    if (!opts.pos && gameState.squad.filter((p) => p.pos === 'GK').length < 2) opts = { ...opts, pos: 'GK' };   // brakuje bramkarza w kadrze
     const p = Engine.makePlayer(opts);
     gameState.squad.push(p);
     return p;
@@ -7263,7 +7268,7 @@ const Engine = {
   openTransferWindow() {
     const bonus = Selectors.levelSkillBonus();
     const e = Selectors.econ();
-    const market = Utils.shuffle(['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD']).slice(0, 5).map((pos) => {   // krótsza, bardziej selektywna lista
+    const market = Selectors.balancedPositions(5).map((pos) => {   // 14.x: głównie obrońcy i pomocnicy, jak w drużynie   // krótsza, bardziej selektywna lista
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 33, skillMin: 3 + bonus, skillMax: 8 + bonus, pos });
       p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e / 5) * 5);
       if (p.age <= 20 && Math.random() < 0.25) Engine.markTalent(p);
@@ -7274,7 +7279,7 @@ const Engine = {
       return Engine.fakeHistory(p, Engine.otherClubName(0));
     });
     // Wypożyczenia do nas: młodzi i zdolni z wyższych lig, na jeden sezon, za część pensji
-    const loanMarket = Utils.shuffle(['DEF', 'MID', 'FWD', 'GK']).slice(0, 3).map((pos) => {
+    const loanMarket = Selectors.balancedPositions(3, { gk: Math.random() < 0.25 }).map((pos) => {
       const p = Engine.makePlayer({ ageMin: 18, ageMax: 21, skillMin: 5 + bonus, skillMax: 8 + bonus, pos, pro: gameState.club.leagueLevel >= 5 });
       if (Math.random() < 0.4) Engine.markTalent(p);
       p.wage = Math.max(Math.round(Selectors.minWage() / 2 / 5) * 5, Math.round((p.skill * 3) * e / 5) * 5);   // płacimy połowę pensji
@@ -7742,7 +7747,7 @@ const Engine = {
   prepareYouthPick() {
     const A = Selectors.academy();
     const bonus = Selectors.levelSkillBonus();
-    const positions = Utils.shuffle(['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD']).slice(0, A.cands);
+    const positions = Selectors.balancedPositions(A.cands);
     const cands = positions.map((pos) => {
       const talent = Math.random() < A.talent;
       const p = Engine.makePlayer({ ageMin: 16, ageMax: 18, skillMin: A.skill[0] + bonus, skillMax: A.skill[1] + bonus + (talent ? 1 : 0), pos });
@@ -8311,7 +8316,7 @@ const Engine = {
     const found = [];
     for (let i = 0; i < Selectors.scoutBargainCount(); i++) {
       const lift = Math.floor(l / 2);
-      const p = Engine.makePlayer({ ageMin: 18, ageMax: 29, skillMin: 5 + bonus + lift, skillMax: 8 + bonus + lift, pos: Utils.rand(['DEF', 'MID', 'FWD', 'MID']) });
+      const p = Engine.makePlayer({ ageMin: 18, ageMax: 29, skillMin: 5 + bonus + lift, skillMax: 8 + bonus + lift, pos: Selectors.balancedPositions(1, { gk: false })[0] });
       if (p.age <= 21 && Math.random() < l * 0.08) { Engine._scouting = true; Engine.markTalent(p); Engine._scouting = false; }
       p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * e / 5) * 5);
       const discount = Utils.clamp(0.1 + l * 0.025 + Utils.randRange(-0.03, 0.03), 0.08, 0.25);   // okazja: kilkanaście–25% taniej
@@ -9938,6 +9943,22 @@ const Selectors = {
   // 14.x: wykup po wypożyczeniu
   loanBuyClause: (p) => Math.max(Selectors.minFee(), Math.round(Selectors.marketValue({ ...p, loan: null }) * 1.1 / 10) * 10),
   loanBuyPrice: (b) => Math.min(b.buyFee, Math.max(Selectors.minFee(), Math.round(Selectors.marketValue({ ...b.player, loan: null }) / 10) * 10)),   // klauzula albo niższa nowa wycena
+  // 14.x: pozycje jak w prawdziwej drużynie – na 11: 1 bramkarz, 4 obrońców, 4 pomocników, 2 napastników
+  //       (metoda największych reszt: obrońcy i pomocnicy zawsze najliczniejsi, bramkarz najwyżej 1 na krótkiej liście)
+  balancedPositions: (n, { gk = true } = {}) => {
+    const w = { GK: gk ? 1 : 0, DEF: 4, MID: 4, FWD: 2 };
+    const tot = Object.values(w).reduce((a, b) => a + b, 0);
+    const cnt = {}, frac = {};
+    Object.keys(w).forEach((k) => { const e = n * w[k] / tot; cnt[k] = Math.floor(e); frac[k] = e - cnt[k]; });
+    let left = n - Object.values(cnt).reduce((a, b) => a + b, 0);
+    const maxGK = n < 8 ? 1 : Math.ceil(n / 8);
+    while (left > 0) {
+      const opts = Object.keys(w).filter((k) => w[k] && frac[k] > 0 && !(k === 'GK' && cnt.GK >= maxGK));
+      const k = opts.length ? Utils.weightedPick(opts, (x) => frac[x]) : (Math.random() < 0.5 ? 'DEF' : 'MID');
+      cnt[k]++; frac[k] = 0; left--;
+    }
+    return Utils.shuffle(Object.entries(cnt).flatMap(([k, c]) => Array(c).fill(k)));
+  },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
