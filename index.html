@@ -1286,7 +1286,7 @@ const DATA = {
       cutscene: { icon: '🎥', place: 'Studio telewizji · wieczorne wydanie', scripted: true },
       from: 'Dziennikarz śledczy (ten od „Passata”)',
       title: 'Prowokacja dziennikarska',
-      body: () => 'Na ekranie: ukryta kamera, reklamówka z Biedronki i Prezes mówiący „nikt się nie dowie”. Pan z Passata okazał się dziennikarzem śledczym. Wydział Dyscypliny wszczął postępowanie – wyrok po sezonie (to ' + gameState.club.corruptionCaught + '. afera w karierze). Pod remizą stoją kamery. Co powie Prezes?',
+      body: () => 'Na ekranie: ukryta kamera, reklamówka z Biedronki i Prezes mówiący „nikt się nie dowie”. Pan z Passata okazał się dziennikarzem śledczym. Wydział Dyscypliny wszczął postępowanie – wyrok za 2 tygodnie (to ' + gameState.club.corruptionCaught + '. afera w karierze). Pod remizą stoją kamery. Co powie Prezes?',
       options: [
         {
           label: 'Przeprosić i obiecać oczyszczenie klubu',
@@ -4165,6 +4165,7 @@ const Engine = {
     s.rounds = firstHalf.concat(secondHalf);
 
     s.table = {};
+    s.penalties = [];   // 14.x: kary punktowe Związku – nowy sezon, czysta karta
     delete s.pstats;
     [US].concat(gameState.league.rivals.map((r) => r.name)).forEach((t) => { s.table[t] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }; });
     s.lastResults = [];
@@ -7043,14 +7044,24 @@ const Engine = {
     return m;
   },
   // 14.x: ujemne punkty w tabeli od Związku (zapisane przy drużynie, widoczne w tabeli)
-  deductPoints(n, reason) {
-    const row = gameState.season && gameState.season.table && gameState.season.table[US];
+  deductPoints(n, reason, team = US) {
+    const row = gameState.season && gameState.season.table && gameState.season.table[team];
     if (!row || !(n > 0)) return 0;
-    row.pts -= n;   // bez dolnej granicy – Związek potrafi wpędzić pod kreskę
+    row.pts -= n;   // od razu, bez czekania do końca sezonu; bez dolnej granicy – Związek potrafi wpędzić pod kreskę
     row.pen = (row.pen || 0) + n;
-    Engine.addLog('⚖️ Związek odejmuje ' + n + ' pkt w tabeli: ' + reason + '.', 'system');
-    Engine.alert('⚖️', '-' + n + ' pkt w tabeli', 'Wydział Dyscypliny: ' + reason + '.', 'bad', true);
+    (gameState.season.penalties = gameState.season.penalties || []).push({ team, pts: n, reason, round: gameState.calendar.round, week: gameState.calendar.week });
+    if (team === US) {
+      Engine.addLog('⚖️ Związek odejmuje ' + n + ' pkt w tabeli: ' + reason + '.', 'system');
+      Engine.alert('⚖️', '-' + n + ' pkt w tabeli', 'Wydział Dyscypliny: ' + reason + '. Punkty odjęte od razu – szczegóły pod tabelą ligową.', 'bad', true);
+    } else Engine.addLog('⚖️ ' + Selectors.teamName(team) + ': −' + n + ' pkt (' + reason + ').', 'event');
     return n;
+  },
+  // 14.x: kary dla rywali – zadymy ich kiboli, rzadko korupcja (realizm tabeli)
+  rivalPenalties() {
+    const rivals = Object.keys(gameState.season.table || {}).filter((t) => t !== US);
+    if (!rivals.length) return;
+    if (Math.random() < 0.025) { const t = Utils.rand(rivals); Engine.deductPoints(Utils.randInt(1, 3), Utils.rand(['zadyma kibiców', 'race i petardy na murawie', 'wtargnięcie kibiców na boisko', 'bójka kibiców pod stadionem']), t); }
+    if (Math.random() < 0.004) { const t = Utils.rand(rivals); Engine.deductPoints(Utils.randInt(5, 12), Utils.rand(['korupcja – ustawiony mecz', 'afera korupcyjna z sędzią', 'korupcja – kupione punkty']), t); }
   },
   // 14.x: profil kibiców (kibole ↔ piknikarze)
   shiftFans(d, why) {
@@ -8043,8 +8054,9 @@ const Engine = {
     d.sold = 0;
     d.stingAt = Utils.randInt(2, 4);
     c.corruptionCaught++;
-    d.caseOpen = true;            // Związek prowadzi postępowanie – wyrok na koniec sezonu
+    d.caseOpen = true;            // Związek prowadzi postępowanie – 14.x: wyrok w trakcie sezonu, za 2 tygodnie
     d.caseWeek = gameState.calendar.week;
+    d.verdictWeek = gameState.calendar.week + 2;
     Engine.addScandal('PROWOKACJA DZIENNIKARSKA – sprzedany mecz na nagraniu');
     // Dopiero teraz wszystko się wali: morale, kibice i DNA za wszystkie dotychczasowe „interesy”
     Engine.applyEffects({ fans: -20, lockerRoom: -12 });
@@ -8053,10 +8065,14 @@ const Engine = {
     if (Selectors.hasRealSponsor() && Math.random() < 0.5) Engine.endSponsor('💨 Sponsor ' + Selectors.sponsor().name + ' zrywa umowę po prowokacji: „Nie chcemy logo na nagraniu z ukrytej kamery”.');
     Engine.xPost('portal', 'PROWOKACJA! Dziennikarz śledczy udawał „pana z Passata”. Nagranie: prezes ' + Selectors.clubDisplayName() + ' sprzedaje mecz! 🎥🚔');
     gameState.stats.stings = (gameState.stats.stings || 0) + 1;
-    Engine.alert('🎥', 'PROWOKACJA DZIENNIKARSKA!', 'Nagranie w telewizji. Wydział Dyscypliny wszczyna postępowanie – wyrok zapadnie po sezonie. To ' + c.corruptionCaught + '. afera w karierze: im więcej, tym surowsza kara.', 'bad', true);
+    Engine.alert('🎥', 'PROWOKACJA DZIENNIKARSKA!', 'Nagranie w telewizji. Wydział Dyscypliny wszczyna postępowanie – wyrok za 2 tygodnie, punkty odejmą od razu. To ' + c.corruptionCaught + '. afera w karierze: im więcej, tym surowsza kara.', 'bad', true);
     Engine.pushDecision('stingAftermath');
   },
-  // Wyrok po sezonie – stopniowany recydywą: minus punkty → kary finansowe → degradacja → zawieszenie zarządu
+  stingVerdictDue() {
+    const d = gameState.dark;
+    if (d && d.caseOpen && d.verdictWeek != null && gameState.calendar.week >= d.verdictWeek) Engine.stingVerdict();
+  },
+  // Wyrok (14.x: w trakcie sezonu; po sezonie tylko gdy sprawa jeszcze otwarta) – stopniowany recydywą
   stingVerdict() {
     const d = gameState.dark;
     if (!d.caseOpen) return null;
@@ -8668,7 +8684,8 @@ const Engine = {
       Engine.addLog(entry.text + Engine.describeEffects(entry.effects), entry.effects ? 'event' : 'flavor');
     },
     function matchday() {
-      if (Selectors.isMatchWeek()) { Engine.playMatchday(); Engine.fanAftermath(); }
+      if (Selectors.isMatchWeek()) { Engine.playMatchday(); Engine.fanAftermath(); Engine.rivalPenalties(); }
+      Engine.stingVerdictDue();   // 14.x: wyrok za prowokację zapada w trakcie sezonu
     },
     function fanProfileTick() {   // 14.x: polityka biletowa, strategia w mediach i wyniki powoli zmieniają, kto chodzi na mecze
       const t = gameState.matchday.ticket;
@@ -11956,7 +11973,9 @@ const UI = {
         </table>
       </section>
       <p class="text-[10.5px] text-paper-400 leading-snug">${n} drużyn${upName ? ' · wyżej: ' + upName : ''} · ${legend.join(' · ')}
-        ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>`;
+        ${gameState.season.promotionBan ? ' · <b class="text-stamp">⛔ ZAKAZ AWANSU (afera)</b>' : ''}</p>
+      ${(gameState.season.penalties || []).length ? `<section data-penalties class="paper px-2 py-1.5 mt-1.5"><div class="text-[10.5px] uppercase tracking-wide text-ink-700 font-semibold">⚖️ Kary punktowe Związku w tym sezonie</div>
+        ${gameState.season.penalties.slice().reverse().map((x) => `<div class="flex items-baseline gap-1.5 text-[11.5px] py-[2px] border-b border-paper-300 last:border-0 ${x.team === US ? 'font-bold' : ''}"><b class="text-stamp whitespace-nowrap">−${x.pts} pkt</b><span class="min-w-0 flex-1 leading-snug">${Utils.escape(Selectors.teamName(x.team))} – ${Utils.escape(x.reason)}</span><span class="text-[10px] text-ink-700 whitespace-nowrap">${x.round ? 'po ' + x.round + '. kol.' : 'przed sezonem'}</span></div>`).join('')}</section>` : ''}`;
   },
 
   // 13.75: karta meczu europejskiego w terminarzu – rywal, dostępność kadry, przycisk rozegrania najbliższego tygodnia
