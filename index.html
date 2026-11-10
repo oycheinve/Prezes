@@ -4058,7 +4058,15 @@ const Engine = {
     gameState.pendingDecisions = gameState.pendingDecisions.filter((id) => id !== decisionId);
     Engine.applyEffects(effects, 'Decyzja: ' + title);
     Engine.addLog(log + Engine.describeEffects(effects), 'decision');
-    Engine._decisionCtx = { title, label: Utils.val(option.label) };   // echa decyzji pamiętają, skąd się wzięły
+    Engine._decisionCtx = { title, label: Utils.val(option.label) };
+    { // 14.x: decyzje wobec kibiców kształtują profil trybun
+      const txt = (title + ' ' + (Utils.val(option.label) || '') + ' ' + (Utils.val(option.hint) || '')).toLowerCase();
+      if (/kibic|ultras|kibol|trybun|fanatyk|młyn|oprawa/.test(txt)) {
+        const toKib = /porozmawiać|oprawa|race|pirotechnik|młyn|ultras.*(zgod|pozw)|tańsze|za darmo|darmowy|ugoda|wspólna|pomoc dla ultras/.test(txt);
+        const toPik = /monitoring|zakaz stadionowy|ochron|rodzin|piknik|catering|vip|policj|kary|regulamin|bilety imienne|identyfik/.test(txt);
+        Engine.shiftFans(toPik && !toKib ? 6 : toKib && !toPik ? -6 : 0, 'decyzja: ' + (Utils.val(option.label) || '').toLowerCase());
+      }
+    }   // echa decyzji pamiętają, skąd się wzięły
     try { if (option.onChoose) option.onChoose(); } finally { Engine._decisionCtx = null; }   // może dodać kolejną decyzję (np. następny emeryt)
     if (decision.cutscene) Engine.decisionMishap();   // 13.91: nawet najlepszy sztab nie zdejmie ryzyka do zera
   },
@@ -4996,7 +5004,9 @@ const Engine = {
     let base = (25 + gameState.morale.fans * 1.1) * Selectors.revEcon();   // świeżo awansowany klub: mniej widzów, marka się buduje
     if (gameState.boycott && gameState.boycott.active) base *= 0.15;   // 13.90: bojkot – puste trybuny
     base *= Selectors.upgradeProd('attendance');   // obiekty i ich kolejne poziomy
-    base *= Selectors.formFactor();                  // passa przyciąga, kryzys odstrasza
+    { const pik = Selectors.pikShare(), ff = Selectors.formFactor();   // 14.x: kibole przychodzą zawsze, piknikarze tylko na sukces
+      base *= (1 + (ff - 1) * (0.3 + 1.5 * pik)) * (1 + 0.12 * (1 - pik)); }
+    if (gameState.closedDoors > 0 && fixture.home !== false && !fixture.rivalObj) return 0;   // kara Związku: mecz bez publiczności
     if (Selectors.coachTrait('mediaStar')) base *= 1.1;   // trener-celebryta ściąga ludzi
     if (rival.derby) base *= 2;
     base *= fixture.hype || 1;   // mecz pucharowy przyciąga więcej ludzi
@@ -5006,7 +5016,9 @@ const Engine = {
     if (Selectors.mediaStrategy() === 'populist') base *= 1.1;   // strategia populistyczna: „wszyscy na stadion”
     if (gameState.bonuses.fetaMatches > 0) base *= 1.1;   // po fecie ludzie jeszcze przychodzą
     // Letnicy z miasta nie liczą każdej złotówki na bilecie
-    base *= gameState.club.character === 'suburban' && ticket.attendance < 1 ? 1 - (1 - ticket.attendance) / 2 : ticket.attendance;
+    { const pik = Selectors.pikShare();   // 14.x: piknikarze zapłacą więcej za bilet, kibole obrażają się na drożyznę
+      const ta = ticket.attendance < 1 ? 1 - (1 - ticket.attendance) * (1.35 - 0.9 * pik) : ticket.attendance;
+      base *= gameState.club.character === 'suburban' && ta < 1 ? 1 - (1 - ta) / 2 : ta; }
     if (gameState.club.character === 'industrial') base *= 1.15;   // osada przemysłowa: ludzie i tak nie mają co robić w sobotę
     if (gameState.stadium.pitch < 25) base *= 0.85;
     if (gameState.rental) base *= gameState.rental.attendance || 0.62;   // 13.96: kibice muszą dojeżdżać na wynajęty stadion
@@ -5058,7 +5070,7 @@ const Engine = {
     const oppS = cup ? cup.oppS : gameState.season.strength[rival.name];
     const style = DATA.styles[coach.style];
     const ratio = ourS / oppS;
-    const homeAdv = cup && cup.neutral ? 1 : fixture.home ? 1.12 * (1 + (Selectors.passPolicy().homeAdv || 0)) : 1 / 1.08;   // karnetowicze robią (albo nie) atmosferę
+    const homeAdv = cup && cup.neutral ? 1 : fixture.home ? 1.12 * (1 + (Selectors.passPolicy().homeAdv || 0)) * (1 + 0.06 * (1 - Selectors.pikShare())) : 1 / 1.08;   // 14.x: kibole robią kocioł   // karnetowicze robią (albo nie) atmosferę
     const tempo = Engine.goalTempo(cup);
     let ourL = 1.25 * Math.pow(ratio, 1.3) * style.tempo * homeAdv * tempo;
     let oppL = 1.25 * Math.pow(1 / ratio, 1.3) * style.tempo / homeAdv * tempo;
@@ -5286,6 +5298,12 @@ const Engine = {
   },
 
   homeMatchdayIncome(fixture, rival, weather) {
+    if (gameState.closedDoors > 0) {   // 14.x: kara Związku – mecz bez publiczności
+      gameState.closedDoors--;
+      Engine.addLog('🚫 Mecz bez publiczności (kara za zadymę kibiców): zero biletów, budka zamknięta.', 'match');
+      if (gameState.lastMatch) { gameState.lastMatch.attendance = 0; gameState.lastMatch.money.push({ label: '🚫 Mecz bez publiczności (kara)', amount: 0 }); }
+      return;
+    }
     const md = gameState.matchday;
     const ticket = DATA.tickets[md.ticket];
 
@@ -5300,7 +5318,7 @@ const Engine = {
     const pp = Selectors.passPolicy();
     // Budka: każda pozycja menu sprzedaje się osobno – zależnie od swojej ceny
     const bud = gameState.budka;
-    const mult = att * weather.grill * Selectors.upgradeProd('grill') * (pp.grill || 1) * Selectors.formFactor();
+    const mult = att * weather.grill * Selectors.upgradeProd('grill') * (pp.grill || 1) * Selectors.formFactor() * (0.85 + 0.4 * Selectors.pikShare());   // piknikarze wydają więcej
     let sold = 0, grillProfit = 0;
     bud.last = {};
     (Selectors.budkaOpen() ? Selectors.budkaMenu() : []).forEach((id) => {
@@ -7007,6 +7025,50 @@ const Engine = {
     used.push(m);
     return m;
   },
+  // 14.x: profil kibiców (kibole ↔ piknikarze)
+  shiftFans(d, why) {
+    if (!d) return;
+    const before = Selectors.fanProfile();
+    gameState.fanProfile = Utils.clamp(Math.round((before + d) * 10) / 10, -100, 100);
+    if (why && Math.abs(d) >= 3) Engine.addLog((d < 0 ? '🧣 Więcej kiboli na trybunach' : '🎈 Więcej piknikarzy na trybunach') + ' (' + why + '). Profil: ' + Selectors.fanProfileLabel() + '.', 'event');
+  },
+  // Po meczu: kibole bywają problemem – zadyma = kara finansowa, czasem mecz bez publiczności
+  fanAftermath() {
+    const m = gameState.lastMatch;
+    if (!m || m.fanChecked) return;
+    m.fanChecked = true;
+    if (!m.home && Math.random() > 0.35) return;   // na wyjeździe jedzie tylko część ekipy
+    if (Math.random() >= Selectors.riotChance(m.derby, m.result === 'L')) return;
+    const e = Selectors.econ();
+    const fine = Math.round(Utils.randRange(180, 320) * e * (1.4 - Selectors.pikShare()) / 10) * 10;
+    const closed = Math.random() < 0.35;
+    Engine.money('Kara Związku: zadyma kibiców', -fine);
+    if (closed) gameState.closedDoors = (gameState.closedDoors || 0) + 1;
+    Engine.applyEffects({ fans: -1 });
+    const what = Utils.rand(['race i petardy na murawie', 'bójka pod bramą stadionu', 'wtargnięcie na boisko', 'zniszczone krzesełka w sektorze gości', 'obraźliwe przyśpiewki i rzucanie butelkami']);
+    Engine.addLog('🔥 Zadyma kibiców (' + what + ')' + (m.home ? '' : ' na wyjeździe') + '. Kara Związku: ' + Utils.formatMoney(fine) + (closed ? ' + najbliższy mecz u siebie bez publiczności' : '') + '.', 'event');
+    Engine.alert('🔥', 'Zadyma kibiców', what.charAt(0).toUpperCase() + what.slice(1) + '. Kara ' + Utils.formatMoney(fine) + (closed ? ' i mecz bez publiczności.' : '.'), 'bad');
+    Engine.xPost('portal', 'Skandal na meczu ' + Selectors.clubDisplayName() + ': ' + what + '. Związek już wszczął postępowanie. 🔥🚔');
+  },
+  // 14.x: wykup zawodnika po wypożyczeniu – klauzula albo nowa wycena (jeśli spadła), potem rozmowa o kontrakcie
+  loanBuyout(id) {
+    const t = gameState.transfer;
+    const b = (gameState.loanBuyouts || []).find((x) => x.player.id === id);
+    if (!b || !t.open || Selectors.transferBanned() || gameState.squad.length >= CONFIG.maxSquad) return;
+    const price = Selectors.loanBuyPrice(b);
+    if (gameState.finance.budget < price) return;
+    const p = b.player;
+    gameState.loanBuyouts = gameState.loanBuyouts.filter((x) => x !== b);
+    Engine.money('Wykup z wypożyczenia: ' + Selectors.playerName(p), -price);
+    p.wage = Math.max(Selectors.minWage(), p.wage * 2);   // koniec dzielenia pensji z macierzystym klubem
+    delete p.loan; delete p.fee;
+    p.contractEnd = gameState.calendar.season + 2;
+    gameState.squad.push(p);
+    t.bought++;
+    const v = Selectors.marketValue(p), dv = Selectors.dealVerdict(price, v);
+    Engine.addLog('🔁 Wykup: ' + Selectors.playerName(p) + ' z ' + b.club + ' na stałe za ' + Utils.formatMoney(price) + ' (' + (dv.pct > 0 ? '+' : '') + dv.pct + '% wartości · ' + dv.label.replace(/^\S+ /, '').toLowerCase() + ').', 'decision');
+    Engine.startNegotiation(p.id, 'sign', price);   // zawodnik musi jeszcze podpisać kontrakt – zerwanie = zwrot pieniędzy
+  },
   generatePlayer(opts = {}) {
     const p = Engine.makePlayer(opts);
     gameState.squad.push(p);
@@ -7242,6 +7304,7 @@ const Engine = {
     const t = gameState.transfer;
     if (!t.open) return;
     t.open = false;
+    if ((gameState.loanBuyouts || []).length) { Engine.addLog('🔁 Okno zamknięte – bez wykupu wracają do siebie: ' + gameState.loanBuyouts.map((b) => Selectors.playerName(b.player) + ' (' + b.club + ')').join(', ') + '.', 'event'); gameState.loanBuyouts = []; }
     t.market = [];
     const st = gameState.star;
     if (st.promised && st.promised < t.season && Selectors.starPlayer()) {
@@ -7298,11 +7361,12 @@ const Engine = {
     const p = t.open && t.loanMarket.find((x) => x.id === id);
     if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
     Engine.money('Wypożyczenie: ' + Selectors.playerName(p), -p.fee);
+    p.loan.buyFee = Selectors.loanBuyClause(p);   // 14.x: klauzula wykupu ustalona przy wypożyczeniu
     t.loanMarket = t.loanMarket.filter((x) => x.id !== id);
     delete p.fee;
     gameState.squad.push(p);
     t.bought++;
-    Engine.addLog('🤝 Wypożyczenie: ' + Selectors.playerName(p) + ' z ' + p.loan.from + ' do końca sezonu (' + Utils.formatMoney(p.wage) + '/tydz.).', 'decision');
+    Engine.addLog('🤝 Wypożyczenie: ' + Selectors.playerName(p) + ' z ' + p.loan.from + ' do końca sezonu (' + Utils.formatMoney(p.wage) + '/tydz.). Klauzula wykupu po sezonie: ' + Utils.formatMoney(p.loan.buyFee) + '.', 'decision');
   },
 
   loanOut(id) {
@@ -7322,10 +7386,14 @@ const Engine = {
   // Koniec sezonu: wypożyczeni wracają do macierzystych klubów, nasi wracają z wypożyczeń
   settleLoans(summary) {
     const season = gameState.calendar.season;
+    gameState.loanBuyouts = [];   // 14.x: wypożyczeni czekają na decyzję o wykupie do końca okna transferowego
     gameState.squad.filter((p) => p.loan && p.loan.until <= season).forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
-      summary.loanEnd.push(Selectors.playerName(p) + ' → ' + p.loan.from);
+      const buyFee = p.loan.buyFee || Selectors.loanBuyClause(p);
+      gameState.loanBuyouts.push({ player: p, club: p.loan.from, buyFee, season });
+      summary.loanEnd.push(Selectors.playerName(p) + ' → ' + p.loan.from + ' (wykup możliwy w oknie transferowym)');
     });
+    if (gameState.loanBuyouts.length) Engine.alert('🔁', 'Wykup po wypożyczeniu', gameState.loanBuyouts.map((b) => Selectors.playerName(b.player)).join(', ') + ' – możesz ich wykupić w oknie transferowym (Giełda → Wypożycz).', 'info');
     gameState.loansOut = gameState.loansOut.filter((l) => {
       if (l.until > season) return true;
       const p = l.player;
@@ -8342,6 +8410,7 @@ const Engine = {
     if (!u || gameState.stadium.upgrades[id] || gameState.finance.budget < cost || Selectors.buildOf('up', id) || !Selectors.canBuild('up', id)) return;
     const label = Selectors.upgradeLabel(id, Selectors.band());
     Engine.money('Inwestycja: ' + label, -cost);
+    { const pk = { toilets: 4, parking: 2, scoreboard: 3, shop: 3, tvcams: 3, vip: 8 }[id]; if (pk) Engine.shiftFans(pk, 'nowa inwestycja: ' + label.toLowerCase()); }
     if (!gameState.stadium.upgradeBand) gameState.stadium.upgradeBand = {};
     gameState.stadium.upgradeBand[id] = Selectors.band();   // obiekt zapamiętuje, w jakich realiach go zbudowano
     Engine.startBuild('up', id, Selectors.upgradeWeeks(id), label);
@@ -8555,7 +8624,16 @@ const Engine = {
       Engine.addLog(entry.text + Engine.describeEffects(entry.effects), entry.effects ? 'event' : 'flavor');
     },
     function matchday() {
-      if (Selectors.isMatchWeek()) Engine.playMatchday();
+      if (Selectors.isMatchWeek()) { Engine.playMatchday(); Engine.fanAftermath(); }
+    },
+    function fanProfileTick() {   // 14.x: polityka biletowa, strategia w mediach i wyniki powoli zmieniają, kto chodzi na mecze
+      const t = gameState.matchday.ticket;
+      let d = t === 'colaska' ? -1.2 : t === 'zdzierstwo' ? 1.2 : 0;
+      const st = Selectors.mediaStrategy();
+      if (st === 'populist') d -= 0.5; else if (st === 'neutral') d += 0.3;
+      const ff = Selectors.formFactor();
+      if (ff >= 1.15) d += 0.6; else if (ff <= 0.85) d -= 0.6;   // passa ściąga piknikarzy, kryzys zostawia wiernych
+      Engine.shiftFans(d);
     },
     function mediaStrategyTick() {
       // Pasywny wpływ strategii medialnej (bez cotygodniowego postowania)
@@ -8698,6 +8776,7 @@ const Engine = {
         d *= Selectors.passPolicy().merch || 1;                             // fanatycy z tanich karnetów kupują szaliki
         if (Selectors.mediaStrategy() === 'meme') d *= 1.1;                 // memy sprzedają gadżety
         d *= Selectors.formFactor();                                       // passa zwycięstw albo kryzys
+        d *= 0.8 + 0.5 * Selectors.pikShare();                             // 14.x: piknikarze kupują gadżety chętniej
         if (gameState.report.result === 'W') d *= 1.5;
         if (gameState.report.homeMatch) d *= 1.4;
         const sold = Math.min(m.stock[id], Math.floor(d) + (Math.random() < d % 1 ? 1 : 0));
@@ -8906,7 +8985,7 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => Math.round((sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
-    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1))) * ({ 6: 2, 7: 4, 8: 8 }[Math.floor(gameState.club.leagueLevel)] || 1)),   // na szczycie sponsorzy płacą realne kwoty
+    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1) * (0.9 + 0.25 * Selectors.pikShare()))) * ({ 6: 2, 7: 4, 8: 8 }[Math.floor(gameState.club.leagueLevel)] || 1)),   // piknikarze przyciągają sponsorów   // na szczycie sponsorzy płacą realne kwoty
   // 13.72: powaga sponsorów rośnie z ligą – większe kontrakty, ale mniej cierpliwości i potrącenia za słabe wyniki
   sponsorTier: (lvl = gameState.club.leagueLevel) => [
     { label: 'lokalny biznes', mult: 1, patience: 5, crash: 3, cut: 0 },
@@ -9851,6 +9930,14 @@ const Selectors = {
     l = (gameState.u19Loans || []).find((x) => x.player.id === id); if (l) return { p: l.player, where: 'loan', club: l.club };
     return null;
   },
+  // 14.x: profil kibiców – od -100 (kibole, fanatycy) do +100 (piknikarze, kibice sukcesu)
+  fanProfile: () => (gameState.fanProfile != null ? gameState.fanProfile : -15),
+  pikShare: () => (Selectors.fanProfile() + 100) / 200,                       // 0 = sami kibole, 1 = sami piknikarze
+  fanProfileLabel: (v = Selectors.fanProfile()) => (v <= -55 ? '🔥 Kibole' : v <= -15 ? '🧣 Przewaga kiboli' : v < 15 ? '⚖️ Mieszanka' : v < 55 ? '🎈 Przewaga piknikarzy' : '🎈 Piknikarze'),
+  riotChance: (derby, lost) => Utils.clamp(0.05 * Math.pow(1 - Selectors.pikShare(), 1.6) * (derby ? 2.2 : 1) * (lost ? 1.5 : 1), 0, 0.3),
+  // 14.x: wykup po wypożyczeniu
+  loanBuyClause: (p) => Math.max(Selectors.minFee(), Math.round(Selectors.marketValue({ ...p, loan: null }) * 1.1 / 10) * 10),
+  loanBuyPrice: (b) => Math.min(b.buyFee, Math.max(Selectors.minFee(), Math.round(Selectors.marketValue({ ...b.player, loan: null }) / 10) * 10)),   // klauzula albo niższa nowa wycena
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10576,6 +10663,21 @@ const UI = {
   pLink(p, inner, cls = '') {
     return `<button data-action="player-open" data-id="${p.id}" class="text-left ${cls}">${inner}</button>`;
   },
+  // 14.x: profil kibiców – kibole ↔ piknikarze, z konsekwencjami
+  fanProfilePanel() {
+    const v = Selectors.fanProfile(), pik = Selectors.pikShare();
+    const pct = Math.round(pik * 100);
+    const riot = Math.round(Selectors.riotChance(false, false) * 100), riotD = Math.round(Selectors.riotChance(true, true) * 100);
+    const closed = gameState.closedDoors > 0 ? `<p class="text-[11px] font-bold text-stamp mt-1">🚫 Kara Związku: najbliższy mecz u siebie bez publiczności.</p>` : '';
+    return UI.panel('👥 Profil kibiców', Selectors.fanProfileLabel(), `
+      <div class="flex justify-between text-[10.5px] font-semibold"><span>🔥 Kibole ${100 - pct}%</span><span>Piknikarze ${pct}% 🎈</span></div>
+      <div class="relative h-2.5 rounded-full mt-0.5" style="background:linear-gradient(90deg,#b91c1c,#f59e0b 50%,#0ea5e9)"><span class="absolute -top-1 w-1.5 h-4.5 rounded bg-ink-900 ring-2 ring-white" style="left:calc(${pct}% - 3px);height:18px"></span></div>
+      <div class="grid grid-cols-2 gap-1.5 mt-1.5 text-[10.5px] leading-snug">
+        <div class="rounded-md bg-paper-200 px-1.5 py-1"><b>🔥 Kibole</b>: trybuny pełne bez względu na wynik, kocioł u siebie (+${Math.round(6 * (1 - pik))}% przewagi). Ryzyko zadymy: ${riot}% na mecz (derby po porażce ${riotD}%) – kary i mecze bez publiczności.</div>
+        <div class="rounded-md bg-paper-200 px-1.5 py-1"><b>🎈 Piknikarze</b>: zapłacą za drogi bilet, więcej kupią w sklepiku i budce, sponsor ${(Math.round(25 * pik - 10) >= 0 ? '+' : '') + Math.round(25 * pik - 10)}%. W kryzysie trybuny pustoszeją.</div>
+      </div>
+      <p class="text-[10.5px] text-ink-700 mt-1 leading-snug">Kształtują to: ceny biletów (tanie → kibole, drogie → piknikarze), wyniki, inwestycje (toalety, VIP, sklep), strategia w mediach i decyzje wobec kibiców.</p>${closed}`);
+  },
   rolePill(p) {
     const r = Selectors.playerRole(p);
     return `<span data-role-pill class="inline-block align-middle mr-1 px-1 rounded text-[9px] leading-[14px] font-bold whitespace-nowrap ${r.cls}" title="${Utils.escape(r.label + ' – ' + r.desc)}">${r.short}</span>`;
@@ -10923,7 +11025,12 @@ const UI = {
             + head('🌍 Zagranica') + `<p class="text-[10.5px] text-paper-400 leading-snug">${fnote}</p>` + frg;
         })();
     } else if (view === 'loan') {
-      rows = banNote + '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji, po sezonie wracają do siebie.</p>'
+      const buys = gameState.loanBuyouts || [];
+      rows = banNote + (buys.length ? `<div class="text-[10.5px] uppercase tracking-wide text-amber-glow font-semibold mt-2.5 mb-0.5">🔁 Wykup po wypożyczeniu – do końca okna</div>`
+          + buys.map((b) => { const p = b.player, price = Selectors.loanBuyPrice(b), v = Selectors.marketValue({ ...p, loan: null });
+            return card(p, Utils.formatMoney(price), '🔁 ' + Utils.escape(b.club) + ' · klauzula ' + Utils.formatMoney(b.buyFee) + (price < b.buyFee ? ' → nowa wycena' : ''),
+              `<span class="text-[11px] text-paper-300 self-center mr-auto">wartość ${Utils.formatMoney(v)} · pensja po wykupie ~${Utils.formatMoney(Math.max(Selectors.minWage(), p.wage * 2))}/tydz.</span>` + btn('loan-buyout', p.id, '✍️ Wykup za ' + Utils.formatMoney(price), full || budget < price, 'bg-amber-glow text-ink-900')); }).join('') : '')
+        + '<p class="text-[11px] text-paper-400 mt-2">Młodzi i zdolni z wyższych lig na jeden sezon. Płacisz opłatę i połowę pensji. Po sezonie możesz ich wykupić (klauzula ok. +10% wartości albo niższa nowa wycena) – inaczej wracają do siebie.</p>'
         + (t.loanMarket.map((p) => card(p, Utils.formatMoney(p.fee), '🔁 ' + Utils.escape(p.loan.from), btn('loan-in', p.id, 'Wypożycz za ' + Utils.formatMoney(p.fee), full || budget < p.fee, 'bg-amber-glow text-ink-900'))).join('')
         || '<p class="text-[12.5px] text-paper-400 py-2">Wszyscy chętni już wypożyczeni.</p>')
         + (gameState.loansOut.length ? `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-3">Nasi na wypożyczeniu</div>` + gameState.loansOut.map((l) => `<div class="text-[12px] py-1 text-paper-300">📤 ${Utils.escape(Selectors.playerName(l.player))} → ${Utils.escape(l.club)} (wraca po sezonie ${l.until})</div>`).join('') : '');
@@ -10951,7 +11058,7 @@ const UI = {
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px]">${gameState.squad.length}/${CONFIG.maxSquad}</b></div>
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Przyszło / odeszło</div><b class="text-[14px]">${t.bought} / ${t.sold}</b></div>
         </div>
-        <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('loan', '🤝 Wypożycz')}${seg('sell', '💸 Sprzedaj')}</div>
+        <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('loan', (gameState.loanBuyouts || []).length ? '🤝 Wypoż. (' + gameState.loanBuyouts.length + ')' : '🤝 Wypożycz')}${seg('sell', '💸 Sprzedaj')}</div>
         ${UI.trXiBar()}
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto px-4 mt-1 text-paper-100">${gameState.ui.trXi ? UI.trXiPanel() : ''}${rows}</div>
@@ -12565,7 +12672,7 @@ const UI = {
         </button>`;
     }).join('');
 
-    return UI.panel('Bilety na mecze', 'Kasa na bramce: pan Heniek i zeszyt w kratkę.', `
+    return UI.fanProfilePanel() + UI.panel('Bilety na mecze', 'Kasa na bramce: pan Heniek i zeszyt w kratkę.', `
       <div class="bg-paper-200 rounded-md px-2 py-1.5 mb-1">${preview}</div>
       <p class="text-[11.5px] leading-snug mb-1 truncate">${Selectors.passPolicy().icon} Karnety: <b>${Selectors.passPolicy().label}</b>${Selectors.passHolders() ? ' · ' + Selectors.passHolders() + ' szt. (' + Utils.formatMoney(gameState.matchday.pass.revenue) + ' z góry)' : ''}</p>
       ${UI.h4('Polityka cenowa biletów na bramce')}
@@ -12960,6 +13067,7 @@ const Actions = {
   'u19-send'(el) { Engine.u19SendDown(el.dataset.id); App.commit(); },
   'u19-recall'(el) { Engine.u19Recall(el.dataset.id); App.commit(); },
   'u19-promote'(el) { Engine.u19Promote(el.dataset.id); App.commit(); },
+  'loan-buyout'(el) { Engine.loanBuyout(el.dataset.id); App.commit(); },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
