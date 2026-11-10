@@ -4251,13 +4251,15 @@ const Engine = {
     const x = Engine.rivalPlayer(team, id);
     if (!x) return false;
     if (wl.length >= 8) { Engine.alert('⭐', 'Lista życzeń pełna', 'Na liście może być najwyżej 8 zawodników. Usuń kogoś, żeby dodać nowego.', 'bad'); return false; }
-    wl.push({ team, id, n: x.n, f: x.f, l: x.l, k: x.k, pro: x.pro, ae: !!x.ae, pos: x.pos, age: x.age, skill: x.skill, added: gameState.calendar.season });
+    wl.push({ team, id, n: x.n, f: x.f, l: x.l, k: x.k, pro: x.pro, ae: !!x.ae, pos: x.pos, age: x.age, skill: x.skill, apps: x.apps || 0, g: x.g || 0, a: x.a || 0, rs: x.rs || 0, rc: x.rc || 0, last: x.last || null, pot: x.pot, added: gameState.calendar.season });
     Engine.addLog('⭐ ' + x.n + ' (' + Selectors.teamName(team) + ') na liście życzeń – skaut postara się, żeby trafił na najbliższą giełdę.', 'decision');
     return true;
   },
   // Otwarcie okna: zawodnicy z listy życzeń wystawieni priorytetowo (na górze giełdy, oznaczeni ⭐)
   watchlistToMarket() {
-    const t = gameState.transfer, wl = gameState.watchlist || [];
+    const t = gameState.transfer;
+    const mine = new Set(gameState.squad.map((p) => p.rivalId || p.wlId).filter(Boolean));
+    const wl = gameState.watchlist = (gameState.watchlist || []).filter((w) => !mine.has(w.id));   // kupieni znikają z listy życzeń
     if (!t || !t.open || !wl.length) return;
     wl.forEach((w) => {
       if (t.market.some((p) => p.wlId === w.id)) return;
@@ -4612,6 +4614,7 @@ const Engine = {
     if (p.exiled) return { mood: 'refuse', reason: 'Zesłany do rezerw – nie chce słyszeć o nowej umowie.' };
     if (p.id === gameState.star.playerId && gameState.star.rebel) return { mood: 'refuse', reason: 'Bunt w szatni – czuje się oszukany obietnicą transferu.' };
     if (p.demandOut) return { mood: 'wall', reason: 'Żąda transferu – zostanie tylko za zaporowe pieniądze.' };
+    if (p.relegSulk >= gameState.calendar.season) return { mood: 'wall', reason: 'Po spadku nie widzi tu przyszłości – zostanie tylko za zaporowe pieniądze.' };
     if (p.wantsOut && !/koniec kontraktu/.test(p.wantsOut)) return { mood: 'wall', reason: 'Ma już ofertę: ' + p.wantsOut + '.' };
     const over = Selectors.ovr({ ...p, formHistory: [] }) - Selectors.teamOvr();
     if (over >= 8 && Selectors.giantTarget(p)) return { mood: 'wall', reason: 'Czuje, że wyrósł z klubu – interesują go wielkie europejskie marki.' };
@@ -4762,9 +4765,15 @@ const Engine = {
     p.first = src.f || String(src.n || '').split(' ')[0]; p.last = src.l || (parsed ? parsed[2] : String(src.n || '').split(' ').slice(1).join(' '));
     p.nick = src.k || (parsed ? parsed[1] : p.last); p.noNick = !!src.pro;
     p.wage = Math.max(Selectors.minWage(), Math.round((p.skill * 6 - 8) * Selectors.econ() * 1.1 / 5) * 5);
+    // 14.x: te same dane co w klasyfikacji i profilu rywala – bez losowej wyceny i bez wymyślonej historii
+    p.tmVar = 1;
+    const live = Engine.rivalPlayer(team, src.id);
+    if (live) { if (live.pot == null) live.pot = p.potential; p.potential = live.pot; } else if (src.pot != null) p.potential = src.pot;
     p.fee = Math.max(30, Math.round(Selectors.marketValue(p) / 10) * 10);
     Engine.fakeHistory(p, team);
-    if (src.apps) p.prevSeason = { apps: src.apps, goals: src.g, avg: src.rc ? Math.round(src.rs / src.rc * 10) / 10 : p.prevSeason.avg };
+    const st = (live || src).apps ? (live || src) : ((live || src).last || null);
+    p.prevSeason = st ? { apps: st.apps || 0, goals: st.g || 0, assists: st.a || 0, avg: st.rc ? Math.round(st.rs / st.rc * 10) / 10 : null } : { apps: 0, goals: 0, assists: 0, avg: null };
+    p.seasonSnap = !!(live || src).apps;   // statystyki bieżącego sezonu (a nie zakończonego)
     p.wlId = src.id; p.wlTeam = team;
     return p;
   },
@@ -4782,6 +4791,7 @@ const Engine = {
     const c = (gameState.clubSquads || {})[p.wlTeam];
     if (c) { const i = c.squad.findIndex((x) => x.id === p.wlId); if (i >= 0) { const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length; c.squad[i] = Engine.newClubPlayer(p.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1), 1, CONFIG.maxSkill), gameState.club.leagueLevel >= 6); } }
     gameState.watchlist = (gameState.watchlist || []).filter((w) => w.id !== p.wlId);
+    p.rivalId = p.wlId;   // kupiony – już nigdy nie wraca na listę życzeń
     delete p.wlId; delete p.wlTeam;
   },
   // Między sezonami: wiek, rozwój młodych, spadek formy weteranów, emerytury zastępowane juniorami; tylko kluby z bieżącej ligi
@@ -4795,6 +4805,7 @@ const Engine = {
       if (c.season >= gameState.calendar.season) return;
       c.season = gameState.calendar.season;
       c.squad = c.squad.map((x) => {
+        x.last = { apps: x.apps || 0, g: x.g || 0, a: x.a || 0, rs: x.rs || 0, rc: x.rc || 0 };   // 14.x: zakończony sezon – do giełdy i listy życzeń
         x.capps += x.apps; x.cg += x.g; x.ca += x.a;
         x.apps = 0; x.g = 0; x.a = 0; x.rs = 0; x.rc = 0;
         x.age++;
@@ -5065,7 +5076,9 @@ const Engine = {
     }
 
     // --- Siła i oczekiwane gole ---
-    const ourS = Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost)) * (1 - Selectors.backbone().total) * Selectors.relationFactor();   // 13.94: ściana trudności
+    const hang = gameState.relegHangover > 0 ? 1 - 0.012 * gameState.relegHangover : 1;   // 14.x: kac spadkowy słabnie z każdym meczem
+    if (!cup && gameState.relegHangover > 0) gameState.relegHangover--;
+    const ourS = hang * Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost)) * (1 - Selectors.backbone().total) * Selectors.relationFactor();   // 13.94: ściana trudności
     if (!cup) coachState.carpetBoost = 0;
     const oppS = cup ? cup.oppS : gameState.season.strength[rival.name];
     const style = DATA.styles[coach.style];
@@ -7029,6 +7042,16 @@ const Engine = {
     used.push(m);
     return m;
   },
+  // 14.x: ujemne punkty w tabeli od Związku (zapisane przy drużynie, widoczne w tabeli)
+  deductPoints(n, reason) {
+    const row = gameState.season && gameState.season.table && gameState.season.table[US];
+    if (!row || !(n > 0)) return 0;
+    row.pts -= n;   // bez dolnej granicy – Związek potrafi wpędzić pod kreskę
+    row.pen = (row.pen || 0) + n;
+    Engine.addLog('⚖️ Związek odejmuje ' + n + ' pkt w tabeli: ' + reason + '.', 'system');
+    Engine.alert('⚖️', '-' + n + ' pkt w tabeli', 'Wydział Dyscypliny: ' + reason + '.', 'bad', true);
+    return n;
+  },
   // 14.x: profil kibiców (kibole ↔ piknikarze)
   shiftFans(d, why) {
     if (!d) return;
@@ -7047,10 +7070,14 @@ const Engine = {
     const fine = Math.round(Utils.randRange(180, 320) * e * (1.4 - Selectors.pikShare()) / 10) * 10;
     const closed = Math.random() < 0.35;
     Engine.money('Kara Związku: zadyma kibiców', -fine);
+    // punkty: przy poważnej zadymie (mecz bez publiczności, derby) albo gdy kibole rządzą trybunami – Związek odbiera też punkty
+    const kib = 1 - Selectors.pikShare();
+    const pts = !m.cupInfo && (closed || m.derby || Math.random() < kib * 0.6) ? (closed ? 2 : 1) + (m.derby ? 1 : 0) : 0;
     if (closed) gameState.closedDoors = (gameState.closedDoors || 0) + 1;
     Engine.applyEffects({ fans: -1 });
     const what = Utils.rand(['race i petardy na murawie', 'bójka pod bramą stadionu', 'wtargnięcie na boisko', 'zniszczone krzesełka w sektorze gości', 'obraźliwe przyśpiewki i rzucanie butelkami']);
-    Engine.addLog('🔥 Zadyma kibiców (' + what + ')' + (m.home ? '' : ' na wyjeździe') + '. Kara Związku: ' + Utils.formatMoney(fine) + (closed ? ' + najbliższy mecz u siebie bez publiczności' : '') + '.', 'event');
+    Engine.addLog('🔥 Zadyma kibiców (' + what + ')' + (m.home ? '' : ' na wyjeździe') + '. Kara Związku: ' + Utils.formatMoney(fine) + (closed ? ' + najbliższy mecz u siebie bez publiczności' : '') + (pts ? ' + ' + pts + ' pkt ujemne' : '') + '.', 'event');
+    if (pts) Engine.deductPoints(pts, 'zadyma kibiców (' + what + ')');
     Engine.alert('🔥', 'Zadyma kibiców', what.charAt(0).toUpperCase() + what.slice(1) + '. Kara ' + Utils.formatMoney(fine) + (closed ? ' i mecz bez publiczności.' : '.'), 'bad');
     Engine.xPost('portal', 'Skandal na meczu ' + Selectors.clubDisplayName() + ': ' + what + '. Związek już wszczął postępowanie. 🔥🚔');
   },
@@ -7097,7 +7124,8 @@ const Engine = {
     if (!lineup.length) return;
     const avg = lineup.reduce((s, p) => s + Selectors.ovr(p), 0) / lineup.length;
     const pool = gameState.squad.filter((p) => !p.loan && p.starAsked !== gameState.calendar.season && !(p.loyalUntil >= gameState.calendar.season) && Engine.isTooGood(p, avg));
-    if (!pool.length || Math.random() > 0.7) return;
+    // 14.x: gwiazda buntuje się chętniej, gdy klub nie walczy o najwyższe cele
+    if (!pool.length || Math.random() > (Selectors.clubAmbitious() ? 0.35 : 0.85)) return;
     const p = pool.sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a))[0];
     p.starAsked = gameState.calendar.season;
     Object.assign(st, { playerId: p.id, rebel: false, promised: 0, lastWeek: gameState.calendar.week });
@@ -7140,6 +7168,13 @@ const Engine = {
   },
 
   relegationRevolt(summary, league) {
+    // 14.x: załamanie po spadku – nastroje w dół, „kac spadkowy” na start sezonu, bunty kontraktowe
+    Engine.applyEffects({ lockerRoom: -12, fans: -8 });
+    gameState.relegHangover = 8;
+    gameState.squad.filter((p) => !p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season + 1 && Math.random() < 0.45).slice(0, 3).forEach((p) => { p.relegSulk = gameState.calendar.season + 1; });
+    const sulk = gameState.squad.filter((p) => p.relegSulk);
+    Engine.crisis('stars', '📉', 'SPADEK: SZATNIA SIĘ SYPIE', '😞 Po spadku do ligi ' + league + ' szatnia jest rozbita (szatnia -12%, kibice -8%). Pierwsze tygodnie będą ciężkie – drużyna gra słabiej, dopóki nie złapie rytmu.' + (sulk.length ? ' Kontrakty: ' + sulk.map((p) => Selectors.shortName(p)).join(', ') + ' stawiają zaporowe warunki przy przedłużeniu.' : ''));
+    summary.left.push('😞 Kac spadkowy: słabsza gra przez pierwsze ~8 meczów' + (sulk.length ? ' · bunt kontraktowy: ' + sulk.map((p) => Selectors.shortName(p)).join(', ') : ''));
     const team = Selectors.teamOvr();
     const keys = gameState.squad.filter((p) => !p.loan && !p.legend && Selectors.ovr(p) >= team + 2).sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a)).slice(0, 3);
     keys.forEach((p) => {
@@ -7241,6 +7276,10 @@ const Engine = {
     }
     if (!Selectors.rebel()) return;   // odsunięty od składu nie szkodzi
     Engine.applyEffects({ lockerRoom: -3 });
+    if (Math.random() < 0.4) {   // 14.x: buntownik opuszcza treningi – forma leci
+      p.formHistory = (p.formHistory || []).concat([5]).slice(-5);
+      Engine.addLog('🚫 ' + Selectors.playerName(p) + ' nie przyszedł na trening. „Czekam na telefon od menedżera, nie od trenera.”', 'event');
+    }
     if (gameState.calendar.week - st.talkWeek >= 4 && !gameState.pendingDecisions.includes('starRebel')) {
       st.talkWeek = gameState.calendar.week;
       Engine.pushDecision('starRebel');
@@ -7975,13 +8014,13 @@ const Engine = {
       const c = gameState.club;
       c.corruptionCaught++;
       const fine = Math.round(1000 * Selectors.econ() * c.corruptionCaught);
-      const points = c.corruptionCaught >= 2 ? 6 : 3;
+      const points = c.corruptionCaught >= 2 ? 10 : 5;   // 14.x: korupcja = bezkompromisowe minusy
       Engine.addScandal('AFERA KORUPCYJNA – nagranie z czarnego Passata');
       Engine.applyEffects({ fans: -20, lockerRoom: -10 });
       Engine.money('Kara Związku: afera korupcyjna', -fine);
       Engine.shiftDNA(-20 - (d.dnaDebt || 0));
       d.dnaDebt = 0;
-      gameState.season.table[US].pts -= points;
+      Engine.deductPoints(points, 'afera korupcyjna – kupiony mecz' + (c.corruptionCaught >= 2 ? ' (recydywa)' : ''));
       Engine.xPost('portal', 'AFERA W ' + Selectors.leagueName().toUpperCase() + '! Nagranie z dyktafonu: „reklamówka z Biedronki”, „nikt się nie dowie”. Związek odejmuje ' + Selectors.clubDisplayName() + ' ' + points + ' pkt i nakłada ' + Utils.formatMoney(fine) + ' kary! 🎙️');
       Engine.addLog('🎙️ AFERA! Ktoś nagrał rozmowę z panem z Passata dyktafonem z Pepco. Związek: -' + points + ' pkt i ' + Utils.formatMoney(fine) + ' kary. Kibice wściekli. [kibice -20%, szatnia -10%]', 'event');
       if (Selectors.hasRealSponsor()) Engine.endSponsor('💨 Sponsor ' + Selectors.sponsor().name + ' ucieka po aferze: „Nie będziemy się tłumaczyć prokuratorowi z waszych reklamówek”.');
@@ -8028,11 +8067,11 @@ const Engine = {
     let text;
     const ban = (k) => { gameState.transferBan = { from: gameState.calendar.season, until: gameState.calendar.season + k }; return ' + BAN TRANSFEROWY (' + (k === 1 ? 'najbliższe okienko' : k + ' okienka') + ': zakaz rejestracji nowych zawodników)'; };
     if (n <= 1) {
-      if (row) row.pts = Math.max(0, row.pts - 6);
+      Engine.deductPoints(6, 'sprzedany mecz (prowokacja dziennikarska)');
       text = 'Wyrok Związku: -6 punktów w tabeli i upomnienie.';
     } else if (n === 2) {
       const fine = Math.round(2500 * e);
-      if (row) row.pts = Math.max(0, row.pts - 10);
+      Engine.deductPoints(10, 'sprzedany mecz – recydywa');
       Engine.money('Kara Wydziału Dyscypliny (recydywa)', -fine);
       text = 'Wyrok Związku (recydywa): -10 punktów i kara ' + Utils.formatMoney(fine) + (Math.random() < 0.4 ? ban(1) : '') + '.';
     } else if (n === 3) {
@@ -8045,7 +8084,7 @@ const Engine = {
       } else {   // alternatywna sankcja: zostajemy w lidze, ale bez wzmocnień
         const fine = Math.round(6000 * e);
         Engine.money('Kara Wydziału Dyscypliny (ban transferowy)', -fine);
-        if (row) row.pts = Math.max(0, row.pts - 15);
+        Engine.deductPoints(15, 'sprzedany mecz – skrajna recydywa');
         text = 'Wyrok Związku (skrajna recydywa): -15 punktów, kara ' + Utils.formatMoney(fine) + ban(2) + '.';
       }
     } else {
@@ -8890,6 +8929,12 @@ const Engine = {
     },
     function starRebellion() {
       Engine.starTick();
+      // 14.x: w połowie sezonu gwiazda przerastająca ligę stawia warunki, jeśli klub nie walczy o czołówkę
+      const rounds = (gameState.season.rounds || []).length;
+      if (rounds && gameState.calendar.round === Math.floor(rounds / 2) && !gameState.star.playerId && !Selectors.clubAmbitious() && !gameState.pendingDecisions.includes('starDemand') && gameState.star.midAsked !== gameState.calendar.season) {
+        gameState.star.midAsked = gameState.calendar.season;
+        Engine.maybeStarDemand();
+      }
       // kontuzje się goją; dobry fizjoterapeuta czasem przyspiesza powrót o tydzień
       const fizjo = Selectors.staffLevel('fizjo');
       gameState.squad.forEach((p) => {
@@ -9855,6 +9900,7 @@ const Selectors = {
     const ps = p.prevSeason;
     const ours = gameState.squad.includes(p);
     const started = ours ? ((gameState.calendar.round || 0) > 0 || (p.seasonApps || 0) > 0) : !ps;   // zawodnik z innego klubu: znamy jego zakończony sezon
+    if (!started && ps && !ours && p.seasonSnap) return { prev: false, label: 'Sezon ' + gameState.calendar.season + (p.fromClub ? ' · ' + p.fromClub : ''), apps: ps.apps || 0, goals: ps.goals || 0, assists: ps.assists || 0, avg: ps.avg != null ? ps.avg : null };   // 14.x: z listy życzeń – bieżący sezon u rywala
     if (!started && ps) return { prev: true, label: gameState.calendar.season > 1 ? 'Sezon ' + (gameState.calendar.season - 1) + ' (poprzedni)' : 'Poprzedni sezon', apps: ps.apps || 0, goals: ps.goals || 0, assists: ps.assists || 0, avg: ps.avg != null ? ps.avg : null };
     return { prev: false, label: 'Sezon ' + gameState.calendar.season, apps: p.seasonApps || 0, goals: p.seasonGoals || 0, assists: p.seasonAssists || 0, avg: Selectors.avgRating(p) };
   },
@@ -9958,6 +10004,12 @@ const Selectors = {
       cnt[k]++; frac[k] = 0; left--;
     }
     return Utils.shuffle(Object.entries(cnt).flatMap(([k, c]) => Array(c).fill(k)));
+  },
+  // 14.x: czy klub walczy o najwyższe cele (czołówka tabeli albo świeży sukces)
+  clubAmbitious: () => {
+    const t = gameState.season.table && gameState.season.table[US];
+    if (t && t.p >= 6) return Selectors.ourPosition() <= Math.max(2, Math.ceil(Selectors.leagueSize() / 5));
+    return !!(gameState.lastSeason && ['promo', 'title', 'euro', 'podium'].includes(gameState.lastSeason.outcome));
   },
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
@@ -11880,7 +11932,7 @@ const UI = {
         <td class="${py} pr-1 max-w-0 w-full truncate">${Utils.escape(Selectors.teamName(r.team))}${rival && rival.derby ? ' <span class="text-stamp">🔥</span>' : ''}</td>
         <td class="text-center px-1">${r.p}</td><td class="text-center px-1 text-ink-700">${r.w}</td><td class="text-center px-1 text-ink-700">${r.d}</td><td class="text-center px-1 text-ink-700">${r.l}</td>
         <td class="text-center px-1 whitespace-nowrap">${r.gf}:${r.ga}</td>
-        <td class="text-right pr-1.5 font-bold">${r.pts}</td>
+        <td class="text-right pr-1.5 font-bold whitespace-nowrap">${r.pen ? `<span class="text-[9.5px] font-bold text-stamp mr-0.5" title="punkty odjęte przez Związek">−${r.pen}</span>` : ''}${r.pts}</td>
       </tr>`;
     }).join('');
     const lvl = gameState.club.leagueLevel;
@@ -11979,7 +12031,7 @@ const UI = {
         <td class="pl-1 pr-1 text-right border-l-[3px] ${edge(i)}">${i + 1}</td>
         <td class="pr-1 max-w-0 w-full truncate">${Utils.escape(us ? Selectors.clubDisplayName() : r.team)}</td>
         <td class="text-center px-0.5">${r.p}</td><td class="text-center px-0.5 text-ink-700 whitespace-nowrap">${r.w}-${r.d}-${r.l}</td>
-        <td class="text-center px-0.5 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold">${r.pts}</td></tr>`;
+        <td class="text-center px-0.5 whitespace-nowrap">${r.gf}:${r.ga}</td><td class="text-right pr-1.5 font-bold whitespace-nowrap">${r.pen ? `<span class="text-[9.5px] font-bold text-stamp mr-0.5">−${r.pen}</span>` : ''}${r.pts}</td></tr>`;
     }).join('');
     const status = eu.lpTable ? 'faza ligowa · ' + eu.lp.played + '/' + C.lpGames + (eu.lp.rank ? ' · ' + eu.lp.rank + '. miejsce' : '') : Utils.escape(DATA.euro.stages[eu.stage].label) + ' · uczestnicy fazy ligowej';
     return `<p class="text-[11px] text-paper-400 mb-0.5 truncate">${C.icon} ${C.name} · ${status}${eu.done ? ' · ' + Utils.escape(eu.result) : !Selectors.euroLive() ? '' : eu.stage !== 'LP' && eu.lpTable ? ' · teraz: ' + Utils.escape(DATA.euro.stages[eu.stage].label) : ''}</p>
