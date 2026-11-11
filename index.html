@@ -4242,7 +4242,7 @@ const Engine = {
   },
   // Zawodnik rywala po ID (starsze zapisy: ID nadawane przy pierwszym odczycie)
   rivalPlayer(team, id) {
-    const c = (gameState.clubSquads || {})[team];
+    const c = (gameState.clubSquads || {})[team] || (gameState.euroSquads || {})[team];   // 14.x: także kluby z pucharów
     return c ? c.squad.find((x) => x.id === id) || null : null;
   },
   ensureRivalIds() {
@@ -4794,7 +4794,7 @@ const Engine = {
   // Kupiony zawodnik z listy życzeń znika z kadry rywala i z listy
   watchSigned(p) {
     if (!p.wlId) return;
-    const c = (gameState.clubSquads || {})[p.wlTeam];
+    const c = (gameState.clubSquads || {})[p.wlTeam] || (gameState.euroSquads || {})[p.wlTeam];
     if (c) { const i = c.squad.findIndex((x) => x.id === p.wlId); if (i >= 0) { const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length; c.squad[i] = Engine.newClubPlayer(p.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1), 1, CONFIG.maxSkill), gameState.club.leagueLevel >= 6); } }
     gameState.watchlist = (gameState.watchlist || []).filter((w) => w.id !== p.wlId);
     p.rivalId = p.wlId;   // kupiony – już nigdy nie wraca na listę życzeń
@@ -5190,7 +5190,7 @@ const Engine = {
     // Gole rywala: w lidze konkretni zawodnicy z jego kadry (te same, które trafiają do klasyfikacji);
     // w pucharach – zawodnicy spoza naszej ligi, losowani na ten mecz
     let oppEv = Engine._oppGoals;
-    if (cup && cup.euro) oppEv = Engine.euroCredit(rival.name, ga, gf);   // 14.x: strzelcy rywala z Europy trafiają do klasyfikacji pucharów
+    if (cup && cup.euro) oppEv = Engine.euroCredit(rival.name, ga, gf, oppS);   // 14.x: strzelcy rywala z Europy trafiają do klasyfikacji pucharów
     if (!oppEv || oppEv.length !== ga) {
       const foreign = cup && cup.euro;
       const pool = [0, 1, 2].map(() => Engine.oppScorerName(foreign));
@@ -6241,25 +6241,65 @@ const Engine = {
   /* ----- Europejskie puchary ----- */
   // 14.x: klasyfikacje europejskich pucharów – każda drużyna ma stałą kadrę (kluby z naszej ligi: ich prawdziwi zawodnicy),
   // gole, asysty, występy i noty liczą się z wszystkich meczów pucharów (także bez naszego udziału)
-  euroSquad(team) {
+  euroSquad(team, str) {
     const season = gameState.calendar.season;
     if (!gameState.euroStats || gameState.euroStats.season !== season) gameState.euroStats = { season, teams: {} };
-    const T = gameState.euroStats.teams;
-    if (T[team]) return T[team];
     const home = (gameState.clubSquads || {})[team];
-    if (home && home.squad && home.squad.length) {
-      T[team] = home.squad.slice(0, 18).map((x) => ({ id: x.id, n: x.n, pos: x.pos, sk: x.skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0 }));
-    } else {
-      const P = DATA.proNames[Utils.rand(['iber', 'balk', 'north'])];
-      const pos = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'DEF', 'MID', 'FWD', 'GK', 'MID'];
-      T[team] = pos.map((ps, i) => { gameState.nextRivalId = (gameState.nextRivalId || 0) + 1; return { id: 'e' + gameState.nextRivalId, n: Utils.rand(P.first) + ' ' + Utils.rand(P.last), pos: ps, sk: i < 11 ? 2 : 1, apps: 0, g: 0, a: 0, rs: 0, rc: 0 }; });
+    if (home && home.squad && home.squad.length) {   // klub z naszej ligi: jego ligowi zawodnicy, statystyki pucharowe osobno
+      const T = gameState.euroStats.teams;
+      if (!T[team]) T[team] = home.squad.slice(0, 18).map((x) => ({ id: x.id, n: x.n, pos: x.pos, sk: x.skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0 }));
+      return T[team];
     }
-    return T[team];
+    return Engine.euroClubSquad(team, str).squad;
+  },
+  // 14.x: zagraniczne kluby z pucharów – pełne kadry jak w naszej lidze (wiek, OVR, potencjał, profil, lista życzeń, giełda);
+  // siła zawodników wynika z siły klubu; kadry zostają na kolejne sezony (starzenie, rozwój, emerytury)
+  euroClubSquad(team, str) {
+    const season = gameState.calendar.season;
+    const E = gameState.euroSquads || (gameState.euroSquads = {});
+    let c = E[team];
+    if (!c) {
+      const eu = gameState.euro || {};
+      const s = str || ((eu.lpTable || {})[team] || {}).s || ((eu.history || []).find((h) => h.opp === team) || {}).s || (DATA.euro.comps[eu.comp || 'UECL'] || DATA.euro.comps.UECL).base;
+      const center = Utils.clamp(13 + (s - 3.7) * 4.5, 11, 18.5);
+      const region = ['iber', 'balk', 'north'][[...team].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 3];
+      const P = DATA.proNames[region];
+      const pos = ['GK', 'GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
+      const stars = Utils.shuffle(pos.map((_, i) => i).filter((i) => pos[i] !== 'GK')).slice(0, 2);
+      c = E[team] = { season, region, squad: pos.map((ps, i) => {
+        const age = Utils.randInt(18, 33);
+        const sk = Utils.clamp(Math.round(center + Utils.randRange(-1.4, 1.2) + (stars.includes(i) ? Utils.randRange(1, 2) : 0) - (age <= 20 ? 1 : 0)), 1, CONFIG.maxSkill);
+        const x = Engine.newClubPlayer(ps, age, sk, true);
+        x.f = Utils.rand(P.first); x.l = Utils.rand(P.last); x.k = x.l; x.n = x.f + ' ' + x.l; x.euro = true;
+        return x;
+      }) };
+    }
+    if (c.season < season) {   // nowy sezon pucharów: statystyki od zera, wiek, rozwój, emerytury
+      const P = DATA.proNames[c.region || 'north'];
+      c.season = season;
+      c.squad = c.squad.map((x) => {
+        x.last = { apps: x.apps || 0, g: x.g || 0, a: x.a || 0, rs: x.rs || 0, rc: x.rc || 0 };
+        x.capps += x.apps; x.cg += x.g; x.ca += x.a; x.apps = 0; x.g = 0; x.a = 0; x.rs = 0; x.rc = 0;
+        const watched = (gameState.watchlist || []).some((w) => w.id === x.id);
+        x.age += Math.max(1, season - (x.seasonSeen || season - 1)); x.seasonSeen = season;
+        if (!watched && x.age <= 23 && Math.random() < 0.55) x.skill = Math.min(CONFIG.maxSkill, x.skill + 1);
+        if (!watched && x.age >= 32 && Math.random() < 0.4) x.skill = Math.max(1, x.skill - 1);
+        if (x.age >= 36 || (x.age >= 33 && Math.random() < 0.25)) {
+          const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length;
+          const y = Engine.newClubPlayer(x.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1 + Utils.randRange(-1, 1)), 1, CONFIG.maxSkill), true);
+          y.f = Utils.rand(P.first); y.l = Utils.rand(P.last); y.k = y.l; y.n = y.f + ' ' + y.l; y.euro = true; y.seasonSeen = season;
+          return y;
+        }
+        return x;
+      });
+    }
+    return c;
   },
   // Rozpisanie wyniku drużyny na zawodników; zwraca zdarzenia bramkowe { n, a } (do relacji naszego meczu)
-  euroCredit(team, gf, ga) {
-    const sq = Engine.euroSquad(team);
-    const gks = sq.filter((x) => x.pos === 'GK'), field = sq.filter((x) => x.pos !== 'GK').sort((a, b) => (b.sk || 0) - (a.sk || 0));
+  euroCredit(team, gf, ga, str) {
+    const sq = Engine.euroSquad(team, str);
+    const skl = (x) => (x.sk != null ? x.sk : x.skill || 0);
+    const gks = sq.filter((x) => x.pos === 'GK').sort((a, b) => skl(b) - skl(a)), field = sq.filter((x) => x.pos !== 'GK').sort((a, b) => skl(b) - skl(a));
     const xi = [gks[0] || sq[0]].concat(field.slice(0, 7), Utils.shuffle(field.slice(7)).slice(0, 3));   // trzon + rotacja
     const ev = [];
     for (let i = 0; i < gf; i++) {
@@ -6284,6 +6324,7 @@ const Engine = {
   },
   euroSetup(q) {
     const C = DATA.euro.comps[q.comp];
+    Object.keys(gameState.euroSquads || {}).forEach((t) => { if (gameState.euroSquads[t].season < gameState.calendar.season - 2) delete gameState.euroSquads[t]; });   // 14.x: dawno niespotkane kluby
     gameState.euro = { season: gameState.calendar.season, comp: q.comp, origin: q.comp, path: q.path, stage: q.comp === 'UEL' ? 'Q3' : 'Q2',
       lp: null, done: false, result: '', earned: 0, history: [], venue: 'home', asked: [] };
     gameState.stats.euroSeasons = (gameState.stats.euroSeasons || 0) + 1;
@@ -12354,8 +12395,9 @@ const UI = {
     Engine.ensureRivalIds();
     gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ pid: p.id, name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
     if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Selectors.ovrPlain(x.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
+    if (ctx === 'euro' && euroOn) Object.entries(gameState.euroSquads || {}).forEach(([team, c]) => { if (c.season !== gameState.calendar.season) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team, pos: x.pos, age: x.age, ovr: Selectors.ovrPlain(x.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null }); }); });
     if (ctx === 'euro' && euroOn && gameState.euroStats && gameState.euroStats.season === gameState.calendar.season) Object.entries(gameState.euroStats.teams).forEach(([team, sq]) => { if (team === US) return; sq.forEach((x) => { if (!x.apps) return; const rp = Engine.rivalPlayer(team, x.id); rows.push(rp ? { rid: rp.id, tm: team, name: x.n, team, pos: x.pos, age: rp.age, ovr: Selectors.ovrPlain(rp.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null } : { eu: true, name: x.n, team, pos: x.pos, apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null }); }); });
-    const euroGames = ctx === 'euro' ? Math.max(0, ...rows.filter((x) => x.us).map((x) => x.apps), ...rows.filter((x) => x.eu).map((x) => x.apps)) : 0;
+    const euroGames = ctx === 'euro' ? Math.max(0, ...rows.map((x) => x.apps)) : 0;
     const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : ctx === 'euro' ? Math.max(1, Math.floor(euroGames * 0.3)) : 1;
     const val = (x) => (sortKey === 'r' ? (x.apps >= minApps && x.r != null ? x.r : -1) : x[sortKey]);
     rows.sort((x, y) => val(y) - val(x) || y.g - x.g || y.a - x.a || (y.r || 0) - (x.r || 0));
@@ -12506,15 +12548,15 @@ const UI = {
       <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
         <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold">Profil zawodnika</p>
         <h2 class="text-center text-[22px] font-extrabold leading-tight mt-1">${on ? '⭐ ' : ''}${Utils.escape(x.n)}</h2>
-        <p class="text-center text-[12px] text-paper-300 mt-0.5">${Utils.escape(Selectors.teamName(o.team))} · ${Utils.escape(Selectors.leagueName())}${x.ae ? ' · 🪞 alter-ego' : ''}</p>
+        <p class="text-center text-[12px] text-paper-300 mt-0.5">${Utils.escape(Selectors.teamName(o.team))} · ${x.euro ? '🇪🇺 europejskie puchary' : Utils.escape(Selectors.leagueName())}${x.ae ? ' · 🪞 alter-ego' : ''}</p>
         <div class="grid grid-cols-3 gap-1.5 mt-3">
           ${tile('OVR', ovr, Selectors.skillLabel(x.skill))}${tile('Wiek', x.age + ' l.', x.age <= 21 ? 'młodzieżowiec' : x.age >= 32 ? 'weteran' : '')}${tile('Pozycja', DATA.positions[x.pos].icon, DATA.positions[x.pos].label)}
         </div>
-        <p class="text-[11px] uppercase text-paper-400 mt-3 mb-1">Ten sezon (liga)</p>
+        <p class="text-[11px] uppercase text-paper-400 mt-3 mb-1">Ten sezon (${x.euro ? 'puchary' : 'liga'})</p>
         <div class="grid grid-cols-4 gap-1.5">
           ${tile('Mecze', x.apps || 0)}${tile('Gole', x.g || 0)}${tile('Asysty', x.a || 0)}${tile('Nota', x.rc ? (x.rs / x.rc).toFixed(2) : '–')}
         </div>
-        <p class="text-[11px] text-paper-300 mt-2">📚 Kariera w lidze: ${(x.capps || 0) + (x.apps || 0)} meczów, ${(x.cg || 0) + (x.g || 0)} goli, ${(x.ca || 0) + (x.a || 0)} asyst · 💰 wartość rynkowa ok. ${Utils.formatValue(val)}</p>
+        <p class="text-[11px] text-paper-300 mt-2">📚 Kariera ${x.euro ? 'w pucharach' : 'w lidze'}: ${(x.capps || 0) + (x.apps || 0)} meczów, ${(x.cg || 0) + (x.g || 0)} goli, ${(x.ca || 0) + (x.a || 0)} asyst · 💰 wartość rynkowa ok. ${Utils.formatValue(val)}</p>
         <p class="text-[11px] text-paper-400 mt-1.5 leading-snug">${onMarket ? '🔄 Jest teraz na giełdzie (na górze listy, ⭐).' : on ? '⭐ Na liście życzeń – skaut wystawi go na najbliższej giełdzie transferowej.' : 'Dodaj do listy życzeń, a skaut wystawi go priorytetowo na najbliższej giełdzie transferowej.'}</p>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
