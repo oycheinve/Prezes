@@ -5833,8 +5833,12 @@ const Engine = {
     const bonus = Selectors.levelSkillBonus();
     const p = Engine.makePlayer({ ageMin: age, ageMax: age, skillMin: Math.max(1, A.skill[0] + bonus - 1), skillMax: A.skill[1] + bonus - 1, pos });
     p.wage = 0;   // junior gra za dres i obiad
-    p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() + 2, p.potential + A.room + Selectors.u19Lvl('recruiter')));
-    if (Math.random() < A.talent + Selectors.u19Lvl('recruiter') * 0.05) Engine.markTalent(p);
+    // 14.x: lepsza szkółka = większa SZANSA na wysoki sufit, nie gwarancja: premia losowa (zwykle mała, czasem pełna),
+    // zwykły junior kończy niżej niż perełka, perełek najwyżej ok. 1/3 naboru
+    const rec = Selectors.u19Lvl('recruiter');
+    const extra = Math.round(A.room * Math.pow(Math.random(), 2)) + (Math.random() < 0.35 ? rec : 0);
+    p.potential = Math.max(p.skill, Math.min(Selectors.leagueSkillCap() - 1, p.potential + extra));
+    if (Math.random() < Math.min(0.32, A.talent * 0.65 + rec * 0.03)) Engine.markTalent(p);
     p.youthPro = Utils.rand(DATA.youthTraits.pros);
     p.youthCon = Utils.rand(DATA.youthTraits.cons);
     if (p.youthCon.startsWith('Kontuzjogenny')) p.fragile = true;
