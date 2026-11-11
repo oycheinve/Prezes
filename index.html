@@ -12577,7 +12577,7 @@ const UI = {
     }).join('');
     const bench = gameState.squad.filter((p) => !lineup.includes(p))
       .sort((a, b) => DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill)
-      .map((p) => `<button data-action="player-open" data-id="${p.id}" class="flex items-center gap-1 min-w-0 text-left text-[11.5px] h-7"><span class="text-[10px]">${DATA.positions[p.pos].icon}</span><b class="truncate">${Utils.escape(p.nick)}</b><span class="text-ink-700">${p.injured > 0 ? '🩹 ' + p.injured + ' tyg.' : p.benched ? '🚫' : p.loan ? '🔁' : Selectors.ratingText(Selectors.avgRating(p))}</span></button>`).join('');
+      .map((p) => `<button data-action="player-open" data-id="${p.id}" class="flex items-center gap-1 min-w-0 text-left text-[11.5px] h-7"><span class="text-[10px]">${DATA.positions[p.pos].icon}</span>${UI.ovrBadge(p)}<b class="truncate">${Utils.escape(p.nick)}</b><span class="text-ink-700">${p.injured > 0 ? '🩹 ' + p.injured + ' tyg.' : p.benched ? '🚫' : p.loan ? '🔁' : Selectors.ratingText(Selectors.avgRating(p))}</span></button>`).join('');
     return `
       <section class="rounded-xl bg-grass px-2 py-2.5 mb-2 space-y-2.5 relative overflow-hidden" style="background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 22px, transparent 22px 44px);">
         <div class="text-[10px] uppercase tracking-wide text-white/80 font-semibold text-center">Jedenastka · ${DATA.styles[coach.style].label} ${DATA.styles[coach.style].formation.slice(1).join('-')} · OVR ${Selectors.teamOvr()}</div>
