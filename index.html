@@ -206,7 +206,7 @@ const DATA = {
     null,
     // teams – liczba drużyn; up – bezpośredni awans; upPO – miejsca barażowe o awans; down – bezpośredni spadek;
     // downPO – miejsce barażowe o utrzymanie; euro – miejsca w europejskich pucharach (Ekstraklasa)
-    { name: 'B-klasa',        econ: 1,   rivalBase: 1.25, skillBonus: 0, teams: 10, up: 1, upPO: [2], down: 0, downPO: null, pool: null },
+    { name: 'B-klasa',        econ: 1,   rivalBase: 1.25, skillBonus: 0, teams: 12, up: 1, upPO: [2], down: 0, downPO: null, pool: null },
     { name: 'A-klasa',        econ: 1.6, rivalBase: 1.50, skillBonus: 1, teams: 14, up: 1, upPO: [2], down: 2, downPO: 12,
       pool: ['Strażak Remizowo', 'Lotnik Kukurydzowo', 'Fala Stawki', 'Start Wólka Dolna', 'Sparta Kurzawa', 'Polonia Bździszewo Wielkie', 'Wisłoka Psie Pole', 'Promień Kozia Górka', 'Zryw Kąkolew', 'Unia Pniewo', 'Błękitni Zabłocie Wielkie', 'Ruch Krowiarki', 'Iskra Stara Wieś', 'Granica Kamionka', 'Kłos Zgniłocha'] },
     { name: 'Klasa Okręgowa', econ: 2.5, rivalBase: 1.77, skillBonus: 2, teams: 16, up: 1, upPO: [2], down: 3, downPO: 13,
@@ -823,23 +823,23 @@ const DATA = {
   top5Countries: ['ENG', 'ESP', 'ITA', 'GER', 'FRA'],   // 14.x: kluby na sprzedaż tylko z Top 5 lig (Holandia zostaje dla starszych zapisów)
   countries: {
     ENG: { name: 'Anglia', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', names: 'en', cup: 'Puchar Anglii (FA Cup)', final: 'Wembley, Londyn', fed: 'FA',
-      top: { name: 'Premier League', avg: 79, econ: 1500, clubs: ['Arsenal FC', 'Manchester City', 'Liverpool FC', 'Chelsea FC', 'Manchester United', 'Tottenham Hotspur', 'Newcastle United', 'Aston Villa', 'Brighton & Hove Albion', 'Nottingham Forest', 'Crystal Palace', 'Brentford FC', 'Fulham FC', 'AFC Bournemouth', 'West Ham United', 'Everton FC', 'Wolverhampton Wanderers', 'Leeds United'] },
-      second: { name: 'Championship', avg: 71, econ: 400, clubs: ['Leicester City', 'Ipswich Town', 'Southampton FC', 'Sheffield United', 'West Bromwich Albion', 'Middlesbrough FC', 'Norwich City', 'Coventry City', 'Watford FC', 'Hull City', 'Stoke City', 'Bristol City', 'Millwall FC', 'Blackburn Rovers', 'Swansea City', 'Derby County', 'Preston North End', 'Queens Park Rangers'] } },
+      top: { name: 'Premier League', avg: 79, econ: 1500, teams: 20, down: 3, clubs: ['Arsenal FC', 'Manchester City', 'Liverpool FC', 'Chelsea FC', 'Manchester United', 'Tottenham Hotspur', 'Newcastle United', 'Aston Villa', 'Brighton & Hove Albion', 'Nottingham Forest', 'Crystal Palace', 'Brentford FC', 'Fulham FC', 'AFC Bournemouth', 'West Ham United', 'Everton FC', 'Wolverhampton Wanderers', 'Leeds United', 'Burnley FC', 'Sunderland AFC'] },
+      second: { name: 'Championship', avg: 71, econ: 400, teams: 24, upPO: [3, 4, 5, 6], clubs: ['Leicester City', 'Ipswich Town', 'Southampton FC', 'Sheffield United', 'West Bromwich Albion', 'Middlesbrough FC', 'Norwich City', 'Coventry City', 'Watford FC', 'Hull City', 'Stoke City', 'Bristol City', 'Millwall FC', 'Blackburn Rovers', 'Swansea City', 'Derby County', 'Preston North End', 'Queens Park Rangers', 'Portsmouth FC', 'Sheffield Wednesday', 'Oxford United', 'Wrexham AFC', 'Charlton Athletic', 'Birmingham City'] } },
     ESP: { name: 'Hiszpania', flag: '🇪🇸', names: 'iber', cup: 'Puchar Króla (Copa del Rey)', final: 'La Cartuja, Sewilla', fed: 'RFEF',
-      top: { name: 'LaLiga', avg: 77, econ: 900, clubs: ['Real Madryt', 'FC Barcelona', 'Atlético Madryt', 'Athletic Bilbao', 'Villarreal CF', 'Real Betis', 'Real Sociedad', 'Celta Vigo', 'Sevilla FC', 'Valencia CF', 'Girona FC', 'Rayo Vallecano', 'CA Osasuna', 'RCD Mallorca', 'Getafe CF', 'Espanyol Barcelona', 'Deportivo Alavés', 'Elche CF'] },
-      second: { name: 'LaLiga Hypermotion', avg: 69, econ: 200, clubs: ['UD Las Palmas', 'Real Valladolid', 'CD Leganés', 'Sporting Gijón', 'Real Zaragoza', 'Racing Santander', 'Deportivo La Coruña', 'Granada CF', 'Cádiz CF', 'SD Eibar', 'UD Almería', 'Málaga CF', 'Albacete Balompié', 'SD Huesca', 'Burgos CF', 'CD Castellón', 'Córdoba CF', 'CD Mirandés'] } },
+      top: { name: 'LaLiga', avg: 77, econ: 900, teams: 20, down: 3, clubs: ['Real Madryt', 'FC Barcelona', 'Atlético Madryt', 'Athletic Bilbao', 'Villarreal CF', 'Real Betis', 'Real Sociedad', 'Celta Vigo', 'Sevilla FC', 'Valencia CF', 'Girona FC', 'Rayo Vallecano', 'CA Osasuna', 'RCD Mallorca', 'Getafe CF', 'Espanyol Barcelona', 'Deportivo Alavés', 'Elche CF', 'Levante UD', 'Real Oviedo'] },
+      second: { name: 'LaLiga Hypermotion', avg: 69, econ: 200, teams: 22, upPO: [3, 4, 5, 6], clubs: ['UD Las Palmas', 'Real Valladolid', 'CD Leganés', 'Sporting Gijón', 'Real Zaragoza', 'Racing Santander', 'Deportivo La Coruña', 'Granada CF', 'Cádiz CF', 'SD Eibar', 'UD Almería', 'Málaga CF', 'Albacete Balompié', 'SD Huesca', 'Burgos CF', 'CD Castellón', 'Córdoba CF', 'CD Mirandés', 'Real Sociedad B', 'Cultural Leonesa', 'AD Ceuta', 'FC Andorra'] } },
     GER: { name: 'Niemcy', flag: '🇩🇪', names: 'de', cup: 'Puchar Niemiec (DFB-Pokal)', final: 'Olympiastadion, Berlin', fed: 'DFB',
-      top: { name: 'Bundesliga', avg: 77, econ: 900, clubs: ['Bayern Monachium', 'Bayer Leverkusen', 'Borussia Dortmund', 'RB Lipsk', 'Eintracht Frankfurt', 'VfB Stuttgart', 'SC Freiburg', 'VfL Wolfsburg', 'Borussia Mönchengladbach', 'FSV Mainz 05', 'TSG Hoffenheim', 'Werder Brema', '1. FC Union Berlin', 'FC Augsburg', '1. FC Köln', 'Hamburger SV', '1. FC Heidenheim', 'FC St. Pauli'] },
-      second: { name: '2. Bundesliga', avg: 69, econ: 220, clubs: ['VfL Bochum', 'Holstein Kiel', 'FC Schalke 04', 'Hertha BSC', 'Fortuna Düsseldorf', 'Hannover 96', '1. FC Kaiserslautern', '1. FC Nürnberg', 'Karlsruher SC', 'SC Paderborn', 'SV Darmstadt 98', 'Eintracht Brunszwik', 'SpVgg Greuther Fürth', 'Arminia Bielefeld', 'Dynamo Drezno', 'Preußen Münster', '1. FC Magdeburg', 'SV Elversberg'] } },
+      top: { name: 'Bundesliga', avg: 77, econ: 900, teams: 18, down: 2, downPO: 16, clubs: ['Bayern Monachium', 'Bayer Leverkusen', 'Borussia Dortmund', 'RB Lipsk', 'Eintracht Frankfurt', 'VfB Stuttgart', 'SC Freiburg', 'VfL Wolfsburg', 'Borussia Mönchengladbach', 'FSV Mainz 05', 'TSG Hoffenheim', 'Werder Brema', '1. FC Union Berlin', 'FC Augsburg', '1. FC Köln', 'Hamburger SV', '1. FC Heidenheim', 'FC St. Pauli'] },
+      second: { name: '2. Bundesliga', avg: 69, econ: 220, teams: 18, upPO: [3], clubs: ['VfL Bochum', 'Holstein Kiel', 'FC Schalke 04', 'Hertha BSC', 'Fortuna Düsseldorf', 'Hannover 96', '1. FC Kaiserslautern', '1. FC Nürnberg', 'Karlsruher SC', 'SC Paderborn', 'SV Darmstadt 98', 'Eintracht Brunszwik', 'SpVgg Greuther Fürth', 'Arminia Bielefeld', 'Dynamo Drezno', 'Preußen Münster', '1. FC Magdeburg', 'SV Elversberg'] } },
     ITA: { name: 'Włochy', flag: '🇮🇹', names: 'it', cup: 'Puchar Włoch (Coppa Italia)', final: 'Stadio Olimpico, Rzym', fed: 'FIGC',
-      top: { name: 'Serie A', avg: 77, econ: 800, clubs: ['Inter Mediolan', 'SSC Napoli', 'Juventus Turyn', 'AC Milan', 'Atalanta Bergamo', 'AS Roma', 'Lazio Rzym', 'ACF Fiorentina', 'Bologna FC', 'Como 1907', 'Torino FC', 'Udinese Calcio', 'Genoa CFC', 'Cagliari Calcio', 'Parma Calcio', 'US Lecce', 'Hellas Verona', 'US Sassuolo'] },
-      second: { name: 'Serie B', avg: 68, econ: 170, clubs: ['Empoli FC', 'AC Monza', 'Venezia FC', 'Palermo FC', 'Sampdoria Genua', 'Spezia Calcio', 'US Cremonese', 'Frosinone Calcio', 'SSC Bari', 'Modena FC', 'Cesena FC', 'US Catanzaro', 'AC Reggiana', 'FC Südtirol', 'Pisa SC', 'Carrarese Calcio', 'SS Juve Stabia', 'Calcio Padova'] } },
+      top: { name: 'Serie A', avg: 77, econ: 800, teams: 20, down: 3, clubs: ['Inter Mediolan', 'SSC Napoli', 'Juventus Turyn', 'AC Milan', 'Atalanta Bergamo', 'AS Roma', 'Lazio Rzym', 'ACF Fiorentina', 'Bologna FC', 'Como 1907', 'Torino FC', 'Udinese Calcio', 'Genoa CFC', 'Cagliari Calcio', 'Parma Calcio', 'US Lecce', 'Hellas Verona', 'US Sassuolo', 'Pisa SC', 'US Cremonese'] },
+      second: { name: 'Serie B', avg: 68, econ: 170, teams: 20, upPO: [3, 4, 5, 6], clubs: ['Empoli FC', 'AC Monza', 'Venezia FC', 'Palermo FC', 'Sampdoria Genua', 'Spezia Calcio', 'Frosinone Calcio', 'SSC Bari', 'Modena FC', 'Cesena FC', 'US Catanzaro', 'AC Reggiana', 'FC Südtirol', 'Carrarese Calcio', 'SS Juve Stabia', 'Calcio Padova', 'US Avellino', 'Virtus Entella', 'Mantova 1911', 'Delfino Pescara'] } },
     FRA: { name: 'Francja', flag: '🇫🇷', names: 'fr', cup: 'Puchar Francji (Coupe de France)', final: 'Stade de France, Paryż', fed: 'FFF',
-      top: { name: 'Ligue 1', avg: 75, econ: 650, clubs: ['Paris Saint-Germain', 'Olympique Marsylia', 'AS Monaco', 'OGC Nice', 'Lille OSC', 'Olympique Lyon', 'RC Strasbourg', 'RC Lens', 'Stade Brestois', 'Stade Rennais', 'Toulouse FC', 'AJ Auxerre', 'Angers SCO', 'Le Havre AC', 'FC Nantes', 'FC Lorient', 'Paris FC', 'FC Metz'] },
-      second: { name: 'Ligue 2', avg: 67, econ: 150, clubs: ['AS Saint-Étienne', 'Montpellier HSC', 'Stade de Reims', 'SM Caen', 'EA Guingamp', 'Grenoble Foot 38', 'Amiens SC', 'FC Annecy', 'Clermont Foot', 'ES Troyes AC', 'Pau FC', 'Red Star FC', 'Rodez AF', 'USL Dunkerque', 'Stade Lavallois', 'SC Bastia', 'Le Mans FC', 'AS Nancy'] } },
+      top: { name: 'Ligue 1', avg: 75, econ: 650, teams: 18, down: 2, downPO: 16, clubs: ['Paris Saint-Germain', 'Olympique Marsylia', 'AS Monaco', 'OGC Nice', 'Lille OSC', 'Olympique Lyon', 'RC Strasbourg', 'RC Lens', 'Stade Brestois', 'Stade Rennais', 'Toulouse FC', 'AJ Auxerre', 'Angers SCO', 'Le Havre AC', 'FC Nantes', 'FC Lorient', 'Paris FC', 'FC Metz'] },
+      second: { name: 'Ligue 2', avg: 67, econ: 150, teams: 18, upPO: [3], clubs: ['AS Saint-Étienne', 'Montpellier HSC', 'Stade de Reims', 'SM Caen', 'EA Guingamp', 'Grenoble Foot 38', 'Amiens SC', 'FC Annecy', 'Clermont Foot', 'ES Troyes AC', 'Pau FC', 'Red Star FC', 'Rodez AF', 'USL Dunkerque', 'Stade Lavallois', 'SC Bastia', 'Le Mans FC', 'AS Nancy'] } },
     NED: { name: 'Holandia', flag: '🇳🇱', names: 'nl', cup: 'Puchar Holandii (KNVB Beker)', final: 'De Kuip, Rotterdam', fed: 'KNVB',
-      top: { name: 'Eredivisie', avg: 71, econ: 300, clubs: ['PSV Eindhoven', 'Ajax Amsterdam', 'Feyenoord Rotterdam', 'AZ Alkmaar', 'FC Twente', 'FC Utrecht', 'Go Ahead Eagles', 'NEC Nijmegen', 'SC Heerenveen', 'Sparta Rotterdam', 'Fortuna Sittard', 'PEC Zwolle', 'Heracles Almelo', 'NAC Breda', 'FC Groningen', 'Excelsior Rotterdam', 'FC Volendam', 'SC Telstar'] },
-      second: { name: 'Eerste Divisie', avg: 62, econ: 60, clubs: ['Willem II', 'RKC Waalwijk', 'Almere City', 'De Graafschap', 'Roda JC', 'ADO Den Haag', 'SC Cambuur', 'FC Den Bosch', 'FC Emmen', 'VVV-Venlo', 'Helmond Sport', 'FC Dordrecht', 'MVV Maastricht', 'TOP Oss', 'Vitesse Arnhem', 'Achilles 29', 'FC Eindhoven', 'Quick Boys'] } },
+      top: { name: 'Eredivisie', avg: 71, econ: 300, teams: 18, down: 2, downPO: 16, clubs: ['PSV Eindhoven', 'Ajax Amsterdam', 'Feyenoord Rotterdam', 'AZ Alkmaar', 'FC Twente', 'FC Utrecht', 'Go Ahead Eagles', 'NEC Nijmegen', 'SC Heerenveen', 'Sparta Rotterdam', 'Fortuna Sittard', 'PEC Zwolle', 'Heracles Almelo', 'NAC Breda', 'FC Groningen', 'Excelsior Rotterdam', 'FC Volendam', 'SC Telstar'] },
+      second: { name: 'Eerste Divisie', avg: 62, econ: 60, teams: 18, upPO: [3, 4, 5, 6], clubs: ['Willem II', 'RKC Waalwijk', 'Almere City', 'De Graafschap', 'Roda JC', 'ADO Den Haag', 'SC Cambuur', 'FC Den Bosch', 'FC Emmen', 'VVV-Venlo', 'Helmond Sport', 'FC Dordrecht', 'MVV Maastricht', 'TOP Oss', 'Vitesse Arnhem', 'Achilles 29', 'FC Eindhoven', 'Quick Boys'] } },
   },
   // Akademia U19: trener juniorów (rozwój) i rekruter talentów (nabór, wykrywanie łowców perełek)
   u19Staff: {
@@ -5652,7 +5652,7 @@ const Engine = {
       } else {
         outcome = 'shame';
         Engine.applyEffects({ fans: -10 });
-        Engine.addLog('🙈 Ostatnie miejsce w B-klasie. Niżej się nie da, ale wstyd na cały powiat. [kibice -10%]', 'system');
+        Engine.addLog(gameState.abroad ? '🙈 Ostatnie miejsce w lidze ' + Selectors.leagueName() + '. Spadku nie ma, ale media w ' + Selectors.country().name + ' nie zostawiają suchej nitki. [kibice -10%]' : '🙈 Ostatnie miejsce w B-klasie. Niżej się nie da, ale wstyd na cały powiat. [kibice -10%]', 'system');
         Engine.xPost('ultras', 'Ostatnie miejsce… Chłopaki, my i tak zostajemy. Ale kto wyłączy światło w blaszaku, jak wszyscy odejdą? 💔');
         Engine.xPostRaw('😤', '@Fanatycy' + Selectors.handleFrom(gameState.league.rivals[0].name), 'Czerwona latarnia B-klasy 🏮😂 Nawet krowy pana Zdzicha grają lepiej.');
         Engine.pushDecision('lastPlaceShame');
@@ -6930,6 +6930,14 @@ const Engine = {
       res.won = single('Finał', finOpp, st[finOpp] || 2, pos < fin);
       return res;
     }
+    if (kind === 'up' && r.upPO.length === 1 && DATA.leagueLevels[level].abroad) {
+      // Niemcy / Francja: 3. drużyna drugiej ligi gra dwumecz z 16. drużyną najwyższej ligi
+      const U = DATA.leagueLevels[Selectors.nextLevel(level)];
+      const opp = U.pool[Utils.randInt(13, 16)];
+      res.title = 'Baraż o ' + U.name + ': 3. drużyna vs 16. drużyna (' + opp + ')';
+      res.won = twoLegs(opp, U.rivalBase * Utils.randRange(0.9, 0.97));
+      return res;
+    }
     if (kind === 'up' && level === 5) {
       // III liga: wicemistrz grupy gra dwumecz z 14. drużyną II ligi (realne zasady PZPN)
       const U = DATA.leagueLevels[6];
@@ -6975,7 +6983,8 @@ const Engine = {
     else if (Selectors.leagueReal(level)) {
       // Prawdziwe kluby: siła zależna od miejsca w tabeli (czołówka mocniejsza), nasz klub zastępuje jedną drużynę ze środka/dołu
       const n = (L.teams || 18) - 1;
-      const out = Utils.randInt(4, pool.length - 1);
+      const ownInPool = (Selectors.leaguePool(level) || []).some((x) => x.toLowerCase() === String(gameState.club.name || '').toLowerCase());   // 14.x: kupiony klub z tej ligi zajmuje swoje miejsce
+      const out = ownInPool ? -1 : Utils.randInt(4, pool.length - 1);
       const names = pool.filter((_, i) => i !== out).slice(0, n);
       const derbies = Utils.shuffle(names.slice(3)).slice(0, 2);
       gameState.league.rivals = names.map((name, i) => ({
@@ -7095,7 +7104,7 @@ const Engine = {
     const c = state && state.abroad && DATA.countries[state.abroad.country];
     if (!c) { DATA.leagueLevels[7] = { ...DATA._plLevels[7] }; DATA.leagueLevels[8] = { ...DATA._plLevels[8] }; return; }
     const lv = (L, base, top) => ({ ...base, name: L.name, econ: L.econ, econ0: L.econ, rivalBase: Selectors.euroStrOvr(L.avg), skillBonus: Math.round((L.avg - 16) / 4 - 5),
-      teams: 18, pool: L.clubs.slice(), ordered: true, up: top ? 0 : 2, upPO: top ? null : [3, 4, 5, 6], down: top ? 3 : 0, downPO: null, euro: top ? [2, 3, 4] : undefined, abroad: true });
+      teams: L.teams || L.clubs.length, pool: L.clubs.slice(), ordered: true, up: top ? 0 : 2, upPO: top ? null : (L.upPO || [3, 4, 5, 6]), down: top ? (L.down || 3) : 0, downPO: top ? (L.downPO || null) : null, euro: top ? [2, 3, 4] : undefined, abroad: true });   // 14.x: realna liczba drużyn i zasady awansu/spadku
     DATA.leagueLevels[7] = lv(c.second, DATA._plLevels[7], false);
     DATA.leagueLevels[8] = lv(c.top, DATA._plLevels[8], true);
   },
@@ -12446,7 +12455,7 @@ const UI = {
     if (rl.euro.length) legend.push(dot('bg-sky-500') + ' 2: el. LM · 3: el. LE · 4: el. LKE');
     if (rl.downPO) legend.push(dot('bg-orange-400') + ' ' + rl.downPO + ': baraż o utrzymanie');
     if (rl.down) legend.push(dot('bg-stamp') + ' ' + range(n - rl.down + 1, n) + ': spadek' + (downName ? ' (' + downName + ')' : ''));
-    if (!rl.down) legend.push(dot('bg-stamp') + ' ' + n + ': wstyd na cały powiat');
+    if (!rl.down) legend.push(dot('bg-stamp') + ' ' + n + ': ' + (gameState.abroad ? 'ostatnie miejsce' : 'wstyd na cały powiat'));
     return segs + picker + title + `
       <section class="paper py-0.5 mb-1.5 overflow-hidden">
         <table class="w-full ${big ? 'text-[11px]' : 'text-[12px]'}">
