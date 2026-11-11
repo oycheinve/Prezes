@@ -9711,7 +9711,8 @@ const Selectors = {
       : pDown >= 0.5 ? '„Czarny koń? Raczej czarna owca. Spadek wisi w powietrzu.”'
       : pDown >= 0.25 ? '„Walka o utrzymanie do ostatniej kolejki.”'
       : frac <= 0.35 ? '„Ciemny koń ligi. Kibice mogą marzyć.”' : '„Środek tabeli – i to będzie sukces.”';
-    const res = { pos, stars, odds, quote, pUp, pDown, range: [quant(0.1), quant(0.9)], n };
+    const oddsDown = Math.min(60, Math.max(1.05, 0.92 / Math.max(0.015, pDown))).toFixed(2);   // kurs na spadek
+    const res = { pos, stars, odds, oddsDown, quote, pUp, pDown, range: [quant(0.1), quant(0.9)], n };
     Selectors._pvKey = key; Selectors._pv = res;
     return res;
   },
@@ -12027,7 +12028,7 @@ const UI = {
     const pv = Selectors.seasonPreview();
     const bigLeague = Selectors.leagueSize() > 12;
     const title = `<p class="text-[11px] text-paper-400 mb-1">${Selectors.leagueName()}${gameState.club.leagueLevel === 5 ? ' · Grupa ' + Selectors.groupLabel() : gameState.club.leagueLevel === 3.5 && Selectors.vGroup() ? ' · ' + Selectors.vGroup().name : ''} · Sezon ${gameState.calendar.season}${gameState.club.leagueLevel < 5 ? ' · woj. ' + Selectors.voivodeship() : ''}${bigLeague ? '' : ' · Wywieszona na drzwiach remizy. Ktoś długopisem dopisał nam 3 punkty – nieważne.'}</p>
-      <div class="rounded-lg bg-desk-800 px-2.5 py-1 mb-1 text-[11px] text-paper-200 leading-snug">📰 <b>Prognoza:</b> ${pv.pos}. miejsce${pv.range ? ' <span class="text-paper-400">(zwykle ' + (pv.range[0] === pv.range[1] ? pv.range[0] : pv.range[0] + '–' + pv.range[1]) + ')</span>' : ''} · <span class="text-amber-glow">${'★'.repeat(pv.stars)}${'☆'.repeat(5 - pv.stars)}</span> · ${Selectors.leagueRules().top ? 'tytuł' : 'awans'} <b>${pv.pUp != null ? Math.round(pv.pUp * 100) + '%' : '–'}</b>${pv.pDown ? ' · spadek <b class="text-stamp">' + Math.round(pv.pDown * 100) + '%</b>' : ''} · kurs <b>${pv.odds}</b>${bigLeague ? '' : `<br><span class="italic text-paper-400">${pv.quote}</span>`}</div>`;
+      <div class="rounded-lg bg-desk-800 px-2.5 py-1 mb-1 text-[11px] text-paper-200 leading-snug">📰 <b>Prognoza:</b> ${pv.pos}. miejsce${pv.range ? ' <span class="text-paper-400">(zwykle ' + (pv.range[0] === pv.range[1] ? pv.range[0] : pv.range[0] + '–' + pv.range[1]) + ')</span>' : ''} · <span class="text-amber-glow">${'★'.repeat(pv.stars)}${'☆'.repeat(5 - pv.stars)}</span> · kurs na ${Selectors.leagueRules().top ? 'tytuł' : 'awans'} <b>${pv.odds}</b>${pv.pDown != null && Selectors.leagueRules().down ? ' · na spadek <b class="text-stamp">' + pv.oddsDown + '</b>' : ''}${bigLeague ? '' : `<br><span class="italic text-paper-400">${pv.quote}</span>`}</div>`;
     if (view === 'fixtures') return segs + title + UI.fixturesView();
     if (view === 'stats') return segs + UI.statsView();
     if (view === 'money') return segs + UI.leagueMoneyView();
