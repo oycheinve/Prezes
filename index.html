@@ -820,6 +820,7 @@ const DATA = {
 
   // 14.x: kariera za granicą – po sprzedaży klubu prezes kupuje klub w jednym z tych krajów; gra przebudowuje 2 najwyższe ligi
   // (avg = średni OVR składów; econ = skala finansów jak w DATA.leagueLevels; names = pula nazwisk miejscowych zawodników)
+  top5Countries: ['ENG', 'ESP', 'ITA', 'GER', 'FRA'],   // 14.x: kluby na sprzedaż tylko z Top 5 lig (Holandia zostaje dla starszych zapisów)
   countries: {
     ENG: { name: 'Anglia', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', names: 'en', cup: 'Puchar Anglii (FA Cup)', final: 'Wembley, Londyn', fed: 'FA',
       top: { name: 'Premier League', avg: 79, econ: 1500, clubs: ['Arsenal FC', 'Manchester City', 'Liverpool FC', 'Chelsea FC', 'Manchester United', 'Tottenham Hotspur', 'Newcastle United', 'Aston Villa', 'Brighton & Hove Albion', 'Nottingham Forest', 'Crystal Palace', 'Brentford FC', 'Fulham FC', 'AFC Bournemouth', 'West Ham United', 'Everton FC', 'Wolverhampton Wanderers', 'Leeds United'] },
@@ -7117,7 +7118,7 @@ const Engine = {
     if (!cs) return;
     gameState.saleProceeds = cs.price;
     gameState.soldTo = cs.buyer;
-    const cids = Utils.shuffle(Object.keys(DATA.countries));
+    const cids = Utils.shuffle(DATA.top5Countries.slice());   // 14.x: oferty wyłącznie z Top 5 lig Europy
     const offers = [];
     // tani klub w tarapatach (zawsze w zasięgu), 2 kluby z drugiej ligi, 1–2 z najwyższej
     const make = (cid, top, troubled) => {
@@ -7130,7 +7131,7 @@ const Engine = {
       if (troubled) price = Math.min(price, Math.round(cs.price * Utils.randRange(0.55, 0.85) / 1000) * 1000);   // zadłużony – oddadzą za ułamek
       return { country: cid, club, level: top ? 8 : 7, league: L.name, ovr, price, troubled: !!troubled };
     };
-    const cheap = Object.keys(DATA.countries).sort((a, b) => DATA.countries[a].second.econ - DATA.countries[b].second.econ)[Utils.randInt(0, 1)];
+    const cheap = DATA.top5Countries.slice().sort((a, b) => DATA.countries[a].second.econ - DATA.countries[b].second.econ)[Utils.randInt(0, 1)];
     offers.push(make(cheap, false, true));
     const rest = cids.filter((c) => c !== cheap);
     offers.push(make(rest[0], false, false));
