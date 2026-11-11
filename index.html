@@ -1193,17 +1193,18 @@ const DATA = {
       euro: true,
       available: () => Selectors.euroLive() && gameState.squad.some((p) => !p.loan && (p.euroApps || 0) >= 2),
       cutscene: { icon: '💶', place: 'Telefon z zagranicy · po meczu' },
-      from: 'Dyrektor sportowy europejskiego giganta',
-      prepare: () => { const p = gameState.squad.filter((x) => !x.loan && (x.euroApps || 0) >= 2).sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a))[0]; gameState.cutscenes.targetId = p ? p.id : null; },
-      title: 'Gigant chce naszą gwiazdę',
-      body: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return 'Po europejskim meczu dzwoni dyrektor sportowy klubu z czołówki Europy. „' + (p ? Selectors.playerName(p) : 'Wasz najlepszy zawodnik') + ' zrobił na nas wrażenie. Oferujemy ' + Utils.formatMoney(Selectors.euroBid()) + '. Teraz albo nigdy.”'; },
+      prepare: () => { const p = gameState.squad.filter((x) => !x.loan && (x.euroApps || 0) >= 2).sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a))[0]; gameState.cutscenes.targetId = p ? p.id : null; gameState.cutscenes.buyer = Utils.rand(Selectors.giants()); },
+      player: () => gameState.squad.find((x) => x.id === gameState.cutscenes.targetId),   // 14.x: profil zawodnika w cut-scence
+      from: () => 'Dyrektor sportowy: ' + (gameState.cutscenes.buyer || 'europejski gigant'),
+      title: () => (gameState.cutscenes.buyer || 'Gigant') + ' chce naszą gwiazdę',
+      body: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return 'Po europejskim meczu dzwoni dyrektor sportowy klubu ' + (gameState.cutscenes.buyer || 'z czołówki Europy') + '. „' + (p ? Selectors.playerName(p) : 'Wasz najlepszy zawodnik') + ' zrobił na nas wrażenie. Oferujemy ' + Utils.formatMoney(Selectors.euroBid()) + '. Teraz albo nigdy.”'; },
       options: [
         {
           label: 'Sprzedać – rekord transferowy klubu',
           hint: () => '+' + Utils.formatMoney(Selectors.euroBid()) + ', szatnia -4%, kibice -5%',
           effects: () => ({ budget: Selectors.euroBid(), lockerRoom: -4, fans: -5 }),
-          log: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return p ? Selectors.playerName(p) + ' odchodzi do europejskiego giganta. W gminie wiszą jego plakaty.' : 'Transfer nie doszedł do skutku.'; },
-          onChoose: () => { const id = gameState.cutscenes.targetId; if (gameState.star.playerId === id) Engine.endStar(true); gameState.squad = gameState.squad.filter((x) => x.id !== id); },
+          log: () => { const p = gameState.squad.find((x) => x.id === gameState.cutscenes.targetId); return p ? Selectors.playerName(p) + ' odchodzi do klubu ' + (gameState.cutscenes.buyer || 'z czołówki Europy') + '. W gminie wiszą jego plakaty.' : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => { const id = gameState.cutscenes.targetId; const p = gameState.squad.find((x) => x.id === id); if (p && gameState.cutscenes.buyer) Engine.giantAnnounce(p, gameState.cutscenes.buyer, Selectors.euroBid(), true); if (gameState.star.playerId === id) Engine.endStar(true); gameState.squad = gameState.squad.filter((x) => x.id !== id); },
         },
         {
           label: 'Odmówić – gramy o coś w Europie',
@@ -2935,8 +2936,8 @@ const DATA = {
       transfer: true,           // w oknie transferowym pokazywana w zakładce „Oferty” giełdy
       cutscene: { icon: '🌟', place: 'Szatnia · po treningu', scripted: true },
       player: () => Selectors.starPlayer(),
-      from: () => { const p = Selectors.starPlayer(); return p ? Selectors.playerName(p) + ' (z menedżerem z miasta)' : 'Szatnia'; },
-      title: 'Za dobry na ten klub',
+      from: () => { const p = Selectors.starPlayer(); if (p && Selectors.giantTarget(p) && !p.giantBuyer) p.giantBuyer = Utils.rand(Selectors.giants()); return p ? Selectors.playerName(p) + ' (z menedżerem z miasta)' + (p.giantBuyer && Selectors.giantTarget(p) ? ' · chce go ' + p.giantBuyer : '') : 'Szatnia'; },
+      title: () => { const p = Selectors.starPlayer(); return p && p.giantBuyer && Selectors.giantTarget(p) ? 'Chce go ' + p.giantBuyer : 'Za dobry na ten klub'; },
       body: () => {
         const p = Selectors.starPlayer();
         if (!p) return 'Gwiazda zgasła, zanim zdążyła zaświecić.';
