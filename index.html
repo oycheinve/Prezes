@@ -4267,7 +4267,7 @@ const Engine = {
     wl.forEach((w) => {
       if (t.market.some((p) => p.wlId === w.id)) return;
       const cur = Engine.rivalPlayer(w.team, w.id);
-      const p = Engine.marketFromRival(w.team, Object.assign({ id: w.id }, cur || w));
+      const p = Engine.marketFromRival(w.team, Object.assign({ id: w.id }, cur || w, w.skill != null ? { skill: w.skill } : {}));   // 14.x: ten sam OVR co przy dodaniu do listy
       p.wl = true;
       t.market.unshift(p);
     });
@@ -4325,7 +4325,7 @@ const Engine = {
     if (!t) return;
     const capSkill = Math.round((Engine.marketOvrCap() - 16) / 4);   // skok umiejętności = 4 OVR
     const capList = (list) => (list || []).forEach((p) => {
-      if (p.skill <= capSkill) return;
+      if (p.skill <= capSkill || p.wlId) return;   // 14.x: zawodnik z listy życzeń zachowuje OVR z klasyfikacji
       const v0 = Selectors.marketValue(p), fee0 = p.fee;
       p.skill = capSkill;
       if (p.potential != null) p.potential = Math.max(p.skill, Math.min(p.potential, capSkill + 2));
@@ -4812,8 +4812,9 @@ const Engine = {
         x.capps += x.apps; x.cg += x.g; x.ca += x.a;
         x.apps = 0; x.g = 0; x.a = 0; x.rs = 0; x.rc = 0;
         x.age++;
-        if (x.age <= 23 && Math.random() < 0.55) x.skill = Math.min(CONFIG.maxSkill, x.skill + 1);
-        if (x.age >= 32 && Math.random() < 0.4) x.skill = Math.max(1, x.skill - 1);
+        const watched = (gameState.watchlist || []).some((w) => w.id === x.id);   // 14.x: na liście życzeń – OVR zostaje taki, jak przy dodaniu
+        if (!watched && x.age <= 23 && Math.random() < 0.55) x.skill = Math.min(CONFIG.maxSkill, x.skill + 1);
+        if (!watched && x.age >= 32 && Math.random() < 0.4) x.skill = Math.max(1, x.skill - 1);
         if (x.age >= 36 || (x.age >= 33 && Math.random() < 0.25)) {
           const avg = c.squad.reduce((a, y) => a + y.skill, 0) / c.squad.length;
           return Engine.newClubPlayer(x.pos, Utils.randInt(18, 21), Utils.clamp(Math.round(avg - 1 + Utils.randRange(-1, 1)), 1, CONFIG.maxSkill), gameState.club.leagueLevel >= 6);
