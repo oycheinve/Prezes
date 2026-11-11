@@ -4450,7 +4450,7 @@ const Engine = {
     }
     const ok = n.done === 'signed' || n.done === 'forced';
     const res = ok ? 'umowa ' + Utils.formatMoney(p.wage) + '/tydz. (żądanie na start: ' + Utils.formatMoney(start.ask) + ', ' + (p.wage <= start.ask ? '−' : '+') + Math.abs(Math.round((p.wage / start.ask - 1) * 100)) + '%)' : 'rozmowy zakończone fiaskiem';
-    n.log.unshift('🧑‍💼 Dyrektor ' + d.name + ' (poziom ' + lvl + ') prowadził rozmowy: ' + (n.rounds - start.rounds) + ' rund · ' + res + '.');
+    n.log.unshift('🧑‍💼 ' + (/^dyrektor/i.test(d.name) ? '' : 'Dyrektor ') + d.name + ' (poziom ' + lvl + ') prowadził rozmowy: ' + (n.rounds - start.rounds) + ' rund · ' + res + '.');
     Engine.addLog('🧑‍💼 Negocjacje przez dyrektora sportowego (' + d.name + '): ' + Selectors.playerName(p) + ' – ' + res + '.', 'decision');
   },
   // Rozsądne skoki kwot: zaokrąglanie do „ładnych” wielokrotności
