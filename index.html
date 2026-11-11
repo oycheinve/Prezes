@@ -1883,7 +1883,7 @@ const DATA = {
           log: 'Agent przeliczył banknoty pod stołem i wręczył umowę.',
           onChoose: () => {
             if (Selectors.transferBanned()) { Engine.addLog('⛔ Ban transferowy: Związek odrzucił rejestrację zawodnika od agenta. Prowizja przepadła.', 'event'); return; }
-            if (gameState.squad.length >= CONFIG.maxSquad) { Engine.addLog('🕶️ Kadra pełna – zawodnik zostaje u agenta, prowizji nikt nie oddał.', 'event'); return; }
+            if (Selectors.squadFull()) { Engine.addLog('🕶️ Kadra pełna – zawodnik zostaje u agenta, prowizji nikt nie oddał.', 'event'); return; }
             const b = Selectors.levelSkillBonus();
             const p = Engine.generatePlayer({ ageMin: 21, ageMax: 28, skillMin: 6 + b, skillMax: 8 + b, wageMin: Math.round(25 * Selectors.econ()), wageMax: Math.round(35 * Selectors.econ()) });
             Engine.addLog('🕶️ Do klubu dołącza ' + Selectors.playerName(p) + ' (OVR ' + Selectors.ovr(p) + ').', 'event');
@@ -2871,7 +2871,7 @@ const DATA = {
       body: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Trener juniorów kładzie na biurku teczkę: „' + Selectors.playerName(p) + ' wyrasta z U19. ' + (p.talent ? 'To perełka – szkoda by było go stracić. ' : '') + 'Albo dajemy mu kontrakt w pierwszej drużynie, albo musi szukać klubu.” ➕ ' + p.youthPro + ' · ➖ ' + p.youthCon : ''; },
       options: [
         {
-          label: () => (gameState.squad.length >= CONFIG.maxSquad ? 'Kontrakt w pierwszej drużynie (zwolni najsłabszego)' : 'Kontrakt w pierwszej drużynie'),
+          label: () => (Selectors.squadFull() ? 'Kontrakt w pierwszej drużynie (zwolni najsłabszego)' : 'Kontrakt w pierwszej drużynie'),
           hint: () => { const p = gameState.u19 && gameState.u19.graduates[0]; return p ? 'Pensja ok. ' + Utils.formatMoney(Selectors.gradWage(p)) + '/tydz.' + (p.secured ? ' (zabezpieczony wcześniej)' : '') : ''; },
           effects: { lockerRoom: +1 },
           log: () => { const p = gameState.u19.graduates[0]; return p ? Selectors.playerName(p) + ' podpisuje pierwszy zawodowy kontrakt. Mama płacze w sekretariacie.' : ''; },
@@ -4372,7 +4372,7 @@ const Engine = {
     if (Selectors.transferBanned()) return false;
     const t = gameState.transfer;
     const p = t.open && (t.foreign || []).find((x) => x.id === id);
-    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return false;
+    if (!p || Selectors.squadFull() || gameState.finance.budget < p.fee) return false;
     if (!Selectors.signReqsOk(p)) { Engine.ambitionRefusal(p, 'foreign'); return false; }
     const acc = Selectors.foreignSignChance(p);
     if (Math.random() > acc) {
@@ -4666,7 +4666,7 @@ const Engine = {
     const t = gameState.transfer;
     const pool = list === 'foreign' ? (t.foreign || []) : t.market;
     const p = t.open && pool.find((x) => x.id === id);
-    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    if (!p || Selectors.squadFull() || gameState.finance.budget < p.fee) return;
     if (p.declined) return;
     // ukryte ambicje i niechęć – widoczne jako status przy zawodniku, bez wyskakujących okienek
     if (!Engine.talkStatus(p, list).ok) return;
@@ -4961,7 +4961,7 @@ const Engine = {
   pickLineup(absentIds = []) {
     const coach = Selectors.coach();
     const style = DATA.styles[coach.style];
-    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !p.exiled && !p.u19Dev && !(p.injured > 0) && !(p.suspended > 0));
+    const avail = gameState.squad.filter((p) => !absentIds.includes(p.id) && !p.benched && !p.exiled && !p.u19Dev && !p.unreg && !(p.injured > 0) && !(p.suspended > 0));
     // Obietnica dla „Naszych w Bawarii”: najmłodszy zawodnik musi grać
     const youngest = gameState.dda.youthPromise > 0 ? avail.slice().sort((a, b) => a.age - b.age)[0] : null;
     const score = (p) => {
@@ -5821,12 +5821,13 @@ const Engine = {
     if (why) return;
     p.u19Dev = { season: gameState.calendar.season, week: gameState.calendar.week };
     p.u19Apps = p.u19Apps || 0;
-    delete p.benched; delete p.listed;
+    delete p.benched; delete p.listed; delete p.unreg;   // U19 nie liczy się do limitu kadry
     Engine.addLog('⬇️ ' + Selectors.playerName(p) + ' przechodzi do ' + Selectors.u19Name() + ' na rozwój – regularna gra w lidze juniorów (pensja bez zmian).', 'decision');
   },
   u19Recall(id) {
     const p = gameState.squad.find((x) => x.id === id);
     if (!p || !p.u19Dev) return;
+    if (Selectors.squadFull()) { Engine.alert('📵', 'Kadra pełna', 'Limit ' + CONFIG.maxSquad + ' zarejestrowanych – zrób miejsce (sprzedaż, wypożyczenie), zanim ' + Selectors.shortName(p) + ' wróci z U19.', 'bad'); return; }
     delete p.u19Dev;
     Engine.addLog('⬆️ ' + Selectors.playerName(p) + ' wraca z U19 do pierwszej drużyny.', 'decision');
   },
@@ -5834,7 +5835,7 @@ const Engine = {
   u19Promote(id) {
     const u = gameState.u19;
     const p = u && u.squad.find((x) => x.id === id);
-    if (!p || p.filler || gameState.squad.length >= CONFIG.maxSquad) return;
+    if (!p || p.filler || Selectors.squadFull()) return;
     const fee = Selectors.proContractFee(p);
     if (gameState.finance.budget < fee) return;
     u.squad = u.squad.filter((x) => x.id !== id);
@@ -6015,7 +6016,7 @@ const Engine = {
     const p = u && u.graduates.shift();
     if (p) {
       if (sign) {
-        if (gameState.squad.length >= CONFIG.maxSquad) {
+        if (Selectors.squadFull()) {
           const weakest = gameState.squad.filter((x) => !x.favorite && !x.legend && !x.loan).sort((a, b) => a.skill - b.skill || b.age - a.age)[0];
           if (weakest) { gameState.squad = gameState.squad.filter((x) => x.id !== weakest.id); Engine.addLog('👋 Dla juniora zwalnia się miejsce: odchodzi ' + Selectors.playerName(weakest) + '.', 'event'); }
         }
@@ -6105,7 +6106,7 @@ const Engine = {
     const noise = Math.max(0, 4 - lvl) * 3;   // słabszy dyrektor częściej się myli
     let tries = 0;
     for (let k = 0; k < (lvl >= 3 ? 3 : 2); k++) {
-      if (gameState.squad.length >= CONFIG.maxSquad) break;
+      if (Selectors.squadFull()) break;
       const pool = t.market.filter((p) => p.fee <= budget && p.fee <= gameState.finance.budget);
       if (!pool.length) break;
       const gainOf = (p) => Selectors.ovr(p) - needs[p.pos].weakest;
@@ -7103,7 +7104,7 @@ const Engine = {
   loanBuyout(id) {
     const t = gameState.transfer;
     const b = (gameState.loanBuyouts || []).find((x) => x.player.id === id);
-    if (!b || !t.open || Selectors.transferBanned() || gameState.squad.length >= CONFIG.maxSquad) return;
+    if (!b || !t.open || Selectors.transferBanned() || Selectors.squadFull()) return;
     const price = Selectors.loanBuyPrice(b);
     if (gameState.finance.budget < price) return;
     const p = b.player;
@@ -7134,6 +7135,23 @@ const Engine = {
       const rest = p.cond == null ? 0 : 10 + fizjo * 0.8 + (p.age <= 23 ? 2 : p.age >= 31 ? -2 : 0) + (p.condPlayedWeek === gameState.calendar.week ? 0 : 8);   // grający co tydzień powoli tracą świeżość, odpoczywający szybko wracają
       if (p.cond != null) p.cond = Math.min(100, p.cond + rest);
     });
+  },
+  // 14.x: rejestracja w oknie transferowym – niezarejestrowany nie gra (pensja leci), można go sprzedać, wypożyczyć albo odesłać do U19
+  toggleReg(id) {
+    const p = gameState.squad.find((x) => x.id === id);
+    if (!p || p.loan || p.u19Dev || !gameState.transfer || !gameState.transfer.open) return;
+    if (p.unreg) { if (Selectors.squadFull()) return; delete p.unreg; Engine.addLog('✅ ' + Selectors.playerName(p) + ' zarejestrowany do rozgrywek.', 'decision'); }
+    else { p.unreg = true; Engine.addLog('📵 ' + Selectors.playerName(p) + ' poza rejestracją – nie zagra, dopóki nie zwolni się miejsce w kadrze (najbliższe okno).', 'decision'); }
+  },
+  enforceRegistration() {
+    let over = Selectors.overLimit();
+    if (!over) return;
+    const out = gameState.squad.filter((p) => !p.unreg && !p.u19Dev && !p.loan && p.id !== gameState.star.playerId).sort((a, b) => a.skill - b.skill || b.age - a.age).slice(0, over);
+    out.forEach((p) => { p.unreg = true; });
+    if (out.length) {
+      Engine.addLog('📵 Okno zamknięte z nadmiarem kadry – Związek nie zarejestrował: ' + out.map((p) => Selectors.playerName(p)).join(', ') + '. Nie zagrają do następnego okna (pensje płacisz dalej).', 'system');
+      Engine.alert('📵', 'Poza rejestracją: ' + out.length, out.map((p) => Selectors.shortName(p)).join(', ') + ' – kadra przekraczała limit ' + CONFIG.maxSquad + '. Zagrają dopiero po rejestracji w kolejnym oknie.', 'bad');
+    }
   },
   generatePlayer(opts = {}) {
     if (!opts.pos && gameState.squad.filter((p) => p.pos === 'GK').length < 2) opts = { ...opts, pos: 'GK' };   // brakuje bramkarza w kadrze
@@ -7370,6 +7388,11 @@ const Engine = {
     Engine.rivalsToMarket();      // kluby z ligi wystawiają też swoich zawodników (m.in. alter-ego)
     Engine.openForeignMarket();   // zagraniczna giełda (od II ligi)
     Engine.capMarket();           // bez „kosmitów” na krajowej giełdzie niższych lig
+    if (Selectors.overLimit()) {   // 14.x: powroty z wypożyczeń ponad limit kadry
+      const n = Selectors.overLimit();
+      Engine.addLog('📵 Kadra ' + Selectors.regCount() + '/' + CONFIG.maxSquad + ' – po powrotach z wypożyczeń jest nadmiar ' + n + '. W oknie wybierz niezarejestrowanych albo sprzedaj, wypożycz lub odeślij do U19.', 'system');
+      Engine.alert('📵', 'Kadra ponad limit', Selectors.regCount() + '/' + CONFIG.maxSquad + ' zarejestrowanych. Do końca okna wskaż ' + n + ' niezarejestrowanych (Giełda → Sprzedaj) albo pozbądź się nadmiaru – inaczej Związek skreśli najsłabszych.', 'bad');
+    }
     Engine.directorAct();   // tryb automatyczny: dyrektor sportowy kupuje od razu
     // Ruchy kadrowe tylko teraz: gwiazdy żądające odejścia i oferty z wyższej ligi
     Engine.maybeStarDemand();
@@ -7382,6 +7405,7 @@ const Engine = {
   closeTransferWindow() {
     const t = gameState.transfer;
     if (!t.open) return;
+    Engine.enforceRegistration();   // 14.x: limit kadry – nadmiar poza rejestracją
     t.open = false;
     if ((gameState.loanBuyouts || []).length) { Engine.addLog('🔁 Okno zamknięte – bez wykupu wracają do siebie: ' + gameState.loanBuyouts.map((b) => Selectors.playerName(b.player) + ' (' + b.club + ')').join(', ') + '.', 'event'); gameState.loanBuyouts = []; }
     t.market = [];
@@ -7412,7 +7436,7 @@ const Engine = {
     if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.market.find((x) => x.id === id);
-    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    if (!p || Selectors.squadFull() || gameState.finance.budget < p.fee) return;
     if (p.declined) return false;
     if (!Selectors.signReqsOk(p)) { Engine.ambitionRefusal(p, 'market'); return false; }
     // Gwiazdy ponad poziom klubu mogą odmówić – agent szuka lepszej ligi
@@ -7438,7 +7462,7 @@ const Engine = {
     if (Selectors.transferBanned()) return;   // ban transferowy Związku
     const t = gameState.transfer;
     const p = t.open && t.loanMarket.find((x) => x.id === id);
-    if (!p || gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < p.fee) return;
+    if (!p || Selectors.squadFull() || gameState.finance.budget < p.fee) return;
     Engine.money('Wypożyczenie: ' + Selectors.playerName(p), -p.fee);
     p.loan.buyFee = Selectors.loanBuyClause(p);   // 14.x: klauzula wykupu ustalona przy wypożyczeniu
     t.loanMarket = t.loanMarket.filter((x) => x.id !== id);
@@ -7454,7 +7478,7 @@ const Engine = {
     if (!t.open || !p || p.loan || p.id === gameState.star.playerId || gameState.squad.length <= CONFIG.minSquad) return;
     const fee = Selectors.loanOutFee(p);
     gameState.squad = gameState.squad.filter((x) => x.id !== id);
-    delete p.u19Dev;   // wypożyczenie zastępuje grę w U19
+    delete p.u19Dev; delete p.unreg;   // wypożyczenie zastępuje grę w U19; rejestracja przepada
     const club = Engine.otherClubName(Math.random() < 0.5 ? 0 : -1);
     gameState.loansOut.push({ player: p, club, until: t.season, ovrStart: Selectors.ovr({ ...p, formHistory: [] }) });
     Engine.money('Wypożyczenie do ' + club + ': ' + Selectors.playerName(p), fee);
@@ -7484,6 +7508,7 @@ const Engine = {
       delete p.fromClub;
       const gain = l.midGain ? 0 : Engine.develop(p, p.prevSeason.apps, true);   // rozwój w trakcie sezonu już się liczy
       if (gain) summary.growth.push(Selectors.playerName(p) + ' +' + gain + ' (wypożyczenie: ' + l.club + ')');
+      delete p.unreg;
       gameState.squad.push(p);
       Engine.loanReturnNote(p, l.club, before, p.prevSeason, false);
       summary.loanBack.push(Selectors.playerName(p) + ' ← ' + l.club);
@@ -7552,7 +7577,7 @@ const Engine = {
   },
 
   coachBringsPlayer() {
-    if (gameState.squad.length >= CONFIG.maxSquad || Selectors.transferBanned()) return;   // ban: Związek nie zarejestruje nikogo nowego
+    if (Selectors.squadFull() || Selectors.transferBanned()) return;   // ban: Związek nie zarejestruje nikogo nowego
     const p = Engine.generatePlayer({ ageMin: 26, ageMax: 32, skillMin: 6 + Selectors.levelSkillBonus(), skillMax: 8 + Selectors.levelSkillBonus(), wageMin: Math.round(30 * Selectors.econ()), wageMax: Math.round(45 * Selectors.econ()) });
     Engine.addLog('🤝 Trener ' + Selectors.coach().name + ' ściągnął „kolegę z dawnych lat”: ' + Selectors.playerName(p) + ' (' + DATA.positions[p.pos].label.toLowerCase() + '). Chce ' + Utils.formatMoney(p.wage) + '/tydz. „na paliwo”.', 'event');
   },
@@ -7842,13 +7867,13 @@ const Engine = {
     const p = id && yp.cands.find((x) => x.id === id);
     yp.done = true;
     if (!p) { Engine.addLog('🌱 Selekcja zakończona bez podpisu. Chłopaki wrócili na Orlik.', 'event'); return; }
-    if (gameState.squad.length >= CONFIG.maxSquad) { Engine.addLog('🌱 Brak wolnego haczyka w szatni – junior wrócił na Orlik.', 'event'); return; }
+    if (Selectors.squadFull()) { Engine.addLog('🌱 Brak wolnego haczyka w szatni – junior wrócił na Orlik.', 'event'); return; }
     gameState.squad.push(p);
     Engine.addLog((p.talent ? '💎 PEREŁKA ze szkółki: ' : '🌱 Ze szkółki dołącza ') + Selectors.playerName(p) + ' (' + p.age + ' l., ' + DATA.positions[p.pos].label.toLowerCase() + '). „' + p.youthPro + '” – ale też: „' + p.youthCon + '”.', 'event');
   },
 
   youthIntake() {
-    if (gameState.squad.length >= CONFIG.maxSquad) {
+    if (Selectors.squadFull()) {
       Engine.addLog('🌱 Junior ze szkółki musi poczekać – w szatni nie ma wolnego haczyka (kadra ' + CONFIG.maxSquad + '/' + CONFIG.maxSquad + ').', 'event');
       return null;
     }
@@ -10020,7 +10045,7 @@ const Selectors = {
   squadRoles: () => {
     const key = gameState.calendar.season + ':' + gameState.calendar.week + ':' + gameState.squad.map((p) => p.id + '/' + p.skill + '/' + (p.seasonApps || 0) + '/' + (p.u19Dev ? 1 : 0)).join(',') + ':' + gameState.coach.id + ':' + gameState.star.playerId;
     if (Selectors._rolesKey === key) return Selectors._roles;
-    const pool = gameState.squad.filter((p) => !p.exiled && !p.u19Dev);
+    const pool = gameState.squad.filter((p) => !p.exiled && !p.u19Dev && !p.unreg);
     const v = (p) => { const a = Selectors.avgRating(p); return Selectors.ovr({ ...p, formHistory: [] }) + (a != null && (p.seasonRatingCount || 0) >= 3 ? (a - 6.5) * 2 : 0); };
     // najmocniejsza XI w ustawieniu trenera – bez względu na chwilowe kontuzje i kartki (rola nie znika przez uraz)
     const f = DATA.styles[Selectors.coach().style].formation;
@@ -10094,6 +10119,11 @@ const Selectors = {
     if (t && t.p >= 6) return Selectors.ourPosition() <= Math.max(2, Math.ceil(Selectors.leagueSize() / 5));
     return !!(gameState.lastSeason && ['promo', 'title', 'euro', 'podium'].includes(gameState.lastSeason.outcome));
   },
+  // 14.x: rejestracja kadry – limit dotyczy zarejestrowanych (odesłani do U19 i niezarejestrowani się nie liczą)
+  regCount: () => gameState.squad.filter((p) => !p.unreg && !p.u19Dev).length,
+  squadFull: () => Selectors.regCount() >= CONFIG.maxSquad,
+  overLimit: () => Math.max(0, Selectors.regCount() - CONFIG.maxSquad),
+  unregList: () => gameState.squad.filter((p) => p.unreg),
   avgRating: (p) => (p.seasonRatingCount ? Math.round(p.seasonRatingSum / p.seasonRatingCount * 10) / 10 : null),
   careerRating: (p) => (p.careerRatingCount ? Math.round(p.careerRatingSum / p.careerRatingCount * 10) / 10 : null),
   ratingText: (r) => (r == null ? '–' : r.toFixed(1)),
@@ -10800,7 +10830,8 @@ const UI = {
             ${u19View ? stat('U19 mecze', p.u19Apps || 0) + stat('U19 gole', p.u19Goals || 0) + stat('U19 asysty', p.u19Assists || 0) + stat('U19 nota', p.u19RatingN ? (p.u19RatingSum / p.u19RatingN).toFixed(1) : '–')
               : stat('Mecze', p.seasonApps || 0) + stat('Gole', p.seasonGoals || 0) + stat('Asysty', p.seasonAssists || 0) + stat('Klub M/G/A', (p.apps || 0) + '/' + (p.goals || 0) + '/' + (p.assists || 0))}
           </div>
-          ${found.where === 'u19' && !p.filler && p.age < 19 ? `<button data-action="u19-promote" data-id="${p.id}" ${gameState.squad.length >= CONFIG.maxSquad || gameState.finance.budget < Selectors.proContractFee(p) ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold disabled:opacity-60">✍️ Profesjonalny kontrakt i do 1. drużyny (${Utils.formatMoney(Selectors.gradWage(p))}/tydz.${Selectors.proContractFee(p) ? ', podpis ' + Utils.formatMoney(Selectors.proContractFee(p)) : ''})</button>` : ''}
+          ${found.where === 'u19' && !p.filler && p.age < 19 ? `<button data-action="u19-promote" data-id="${p.id}" ${Selectors.squadFull() || gameState.finance.budget < Selectors.proContractFee(p) ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold disabled:opacity-60">✍️ Profesjonalny kontrakt i do 1. drużyny (${Utils.formatMoney(Selectors.gradWage(p))}/tydz.${Selectors.proContractFee(p) ? ', podpis ' + Utils.formatMoney(Selectors.proContractFee(p)) : ''})</button>` : ''}
+          ${inSquad && !p.loan && !p.u19Dev && gameState.transfer && gameState.transfer.open && (p.unreg || Selectors.overLimit()) ? `<button data-action="toggle-reg" data-id="${p.id}" ${p.unreg && Selectors.squadFull() ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold disabled:opacity-60 ${p.unreg ? 'bg-grass text-white' : 'bg-ink-900 text-paper-100'}">${p.unreg ? '✅ Zarejestruj do rozgrywek' : '📵 Nie rejestruj (nadmiar ' + Selectors.overLimit() + ')'}</button>` : p.unreg ? '<p class="text-[11.5px] text-stamp font-bold mt-1.5">📵 Poza rejestracją – zagra po rejestracji w najbliższym oknie.</p>' : ''}
           ${!inSquad || p.loan ? '' : p.u19Dev ? `<button data-action="u19-recall" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold">⬆️ Wróć z U19 do pierwszej drużyny (${p.u19Apps || 0} m. w U19)</button>`
             : p.exiled ? '' : (() => { const why = Selectors.u19SendBlock(p); return `<button data-action="u19-send" data-id="${p.id}" ${why ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold ${why ? 'bg-paper-300 text-ink-700 opacity-70' : 'bg-ink-900 text-paper-100'}">⬇️ Do U19 na rozwój${why ? ' – ' + why : ' (gra z juniorami, pensja bez zmian)'}</button>`; })()}
           <div class="text-[11.5px] text-ink-700 mt-1.5">Pensja: <b class="text-ink-900">${Utils.formatMoney(p.wage)}/tydz.</b> (${Selectors.wageLabel(p.wage)}) · pasuje do: ${DATA.profiles[p.profile].label}${p.loan || !inSquad ? '' : ' · cena sprzedaży: <b class="text-ink-900">' + Utils.formatMoney(star ? Selectors.starFee(p) : Selectors.sellPrice(p)) + '</b> · 📈 wartość: <b class="text-ink-900">' + Utils.formatValue(Selectors.marketValue(p)) + '</b>'}</div>
@@ -10990,7 +11021,7 @@ const UI = {
 
   // Selekcja w szkółce: wybierz jednego młodzika (pozycja, OVR, sufit, plusy i minusy)
   youthPickOverlay(yp) {
-    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const full = Selectors.squadFull();
     const A = Selectors.academy();
     const cards = yp.cands.map((p) => `
       <div class="rounded-xl bg-desk-800 border border-desk-600 px-3 py-2">
@@ -11113,7 +11144,7 @@ const UI = {
     const view = gameState.ui.transferView === 'foreign' ? 'buy' : (gameState.ui.transferView || 'buy');   // dawna zakładka „Świat” jest teraz w „Kupuj”
     const budget = gameState.finance.budget;
     const banned = Selectors.transferBanned();
-    const full = gameState.squad.length >= CONFIG.maxSquad || banned;
+    const full = Selectors.squadFull() || banned;
     const banNote = banned ? `<div class="rounded-xl bg-stamp/20 border border-stamp/50 px-3 py-2 mt-2 text-[12px] text-paper-100 leading-snug">⛔ <b>BAN TRANSFEROWY</b> – Związek zakazał rejestracji nowych zawodników (do sezonu ${gameState.transferBan.until}). Możesz tylko sprzedawać i wypożyczać swoich.</div>` : '';
     const folds = gameState.ui.folds || {};
     const seg = (v, label) => `<button data-action="transfer-view" data-value="${v}" class="btn-press flex-1 h-9 rounded-md text-[12px] truncate px-1 ${view === v ? 'bg-desk-600 text-paper-100 font-semibold' : 'text-paper-400 font-medium'}">${label}</button>`;
@@ -11198,15 +11229,18 @@ const UI = {
         + (gameState.loansOut.length ? `<div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-3">Nasi na wypożyczeniu</div>` + gameState.loansOut.map((l) => `<div class="text-[12px] py-1 text-paper-300">📤 ${Utils.escape(Selectors.playerName(l.player))} → ${Utils.escape(l.club)} (wraca po sezonie ${l.until})</div>`).join('') : '');
     } else {
       const canGo = gameState.squad.length > CONFIG.minSquad;
-      rows = gameState.squad.slice().sort((a, b) => (b.listed ? 1 : 0) - (a.listed ? 1 : 0) || DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill).map((p) => {
+      const over = Selectors.overLimit(), unr = Selectors.unregList().length;
+      const regNote = over || unr ? `<div class="rounded-xl ${over ? 'bg-stamp/20 border border-stamp/50' : 'bg-desk-800'} px-3 py-2 mt-2 text-[12px] text-paper-100 leading-snug">📵 <b>Rejestracja: ${Selectors.regCount()}/${CONFIG.maxSquad}</b>${over ? ` – nadmiar ${over}. Wybierz niezarejestrowanych albo sprzedaj, wypożycz lub odeślij do U19. Po zamknięciu okna Związek sam skreśli najsłabszych.` : ''}${unr ? ` Poza rejestracją: ${unr} (nie grają, pensja leci).` : ''}</div>` : '';
+      rows = regNote + gameState.squad.slice().sort((a, b) => (b.unreg ? 1 : 0) - (a.unreg ? 1 : 0) || (b.listed ? 1 : 0) - (a.listed ? 1 : 0) || DATA.positions[a.pos].order - DATA.positions[b.pos].order || b.skill - a.skill).map((p) => {
         const star = p.id === gameState.star.playerId;
         const price = star ? Selectors.starFee(p) : Selectors.sellPrice(p);
         if (p.loan) return card(p, '🔁', 'wypożyczony', '');
-        return card(p, Utils.formatMoney(price), star ? (gameState.star.promised ? '🌟 obiecany transfer' : '🔥 buntownik') : (p.listed ? '📋 na liście · ' : '') + Utils.formatMoney(p.wage) + '/tydz.',
+        return card(p, Utils.formatMoney(price), star ? (gameState.star.promised ? '🌟 obiecany transfer' : '🔥 buntownik') : (p.unreg ? '📵 niezarejestrowany · ' : '') + (p.listed ? '📋 na liście · ' : '') + Utils.formatMoney(p.wage) + '/tydz.',
           (star ? '' : btn('loan-out', p.id, (p.age <= 23 && Selectors.potential(p) > p.skill ? '📈 Wypożycz na rozwój +' : 'Wypożycz +') + Utils.formatMoney(Selectors.loanOutFee(p)), !canGo, 'bg-desk-600 text-paper-100'))
           + btn('sell-transfer', p.id, 'Sprzedaj ' + Utils.formatMoney(price), !canGo, 'bg-stamp text-white')
           + (star ? '' : btn('toggle-list', p.id, p.listed ? '✖ Z listy' : '📋 Na listę (+15%)', false, 'bg-desk-600 text-paper-100'))
           + (Selectors.academyOpen() && !p.exiled ? (p.u19Dev ? btn('u19-recall', p.id, '⬆️ Wróć z U19', false, 'bg-grass text-white') : btn('u19-send', p.id, '⬇️ Do U19 (zamiast wypożyczenia)', !!Selectors.u19SendBlock(p), 'bg-desk-600 text-paper-100')) : '')
+          + (p.u19Dev ? '' : p.unreg ? btn('toggle-reg', p.id, '✅ Zarejestruj', Selectors.squadFull(), 'bg-grass text-white') : (over || unr) && !star ? btn('toggle-reg', p.id, '📵 Nie rejestruj', false, 'bg-desk-600 text-paper-100') : '')
           + btn('release-player', p.id, 'Podziękuj za grę', !canGo, 'bg-desk-700 text-paper-300'));
       }).join('');
     }
@@ -11217,7 +11251,7 @@ const UI = {
         <p class="text-center text-[10.5px] text-paper-400">${Selectors.leagueName()}: typowy OVR ${Selectors.leagueOvrRange().join('–')}</p>
         <div class="grid grid-cols-3 gap-1.5 mt-2 text-center">
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kasa</div><b class="text-[14px] ${budget < 0 ? 'text-stamp' : ''}">${Utils.formatMoney(budget)}</b></div>
-          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px]">${gameState.squad.length}/${CONFIG.maxSquad}</b></div>
+          <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Kadra</div><b class="text-[14px] ${Selectors.overLimit() ? 'text-stamp' : ''}">${Selectors.regCount()}/${CONFIG.maxSquad}</b></div>
           <div class="rounded-xl bg-desk-800 py-1.5"><div class="text-[10px] uppercase text-paper-400">Przyszło / odeszło</div><b class="text-[14px]">${t.bought} / ${t.sold}</b></div>
         </div>
         <div class="flex gap-1 p-0.5 mt-2 rounded-lg bg-desk-800">${seg('offers', '📨 Oferty' + (offers.length ? ' (' + offers.length + ')' : ''))}${seg('buy', '🛒 Kupuj')}${seg('loan', (gameState.loanBuyouts || []).length ? '🤝 Wypoż. (' + gameState.loanBuyouts.length + ')' : '🤝 Wypożycz')}${seg('sell', '💸 Sprzedaj')}</div>
@@ -11741,7 +11775,7 @@ const UI = {
       UI.tile('Bilans tyg.', rep ? Utils.signedMoney(rep.total) : '–', 'wypłaty ' + Utils.formatMoney(Selectors.weeklyPayroll()), rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
       UI.tile('Mecze W-R-P', row.w + '-' + row.d + '-' + row.l, UI.formDots() || 'jeszcze bez formy'),
       UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
-      UI.tile('Kadra', s.squad.length + '/' + CONFIG.maxSquad, 'baza szatni ' + Selectors.lockerBaseline() + '%'),
+      UI.tile('Kadra', Selectors.regCount() + '/' + CONFIG.maxSquad + (Selectors.unregList().length ? ' +' + Selectors.unregList().length + '📵' : ''), 'baza szatni ' + Selectors.lockerBaseline() + '%'),
       UI.tile('Murawa', s.stadium.pitch + '%', Selectors.pitchLabel(s.stadium.pitch)),
       UI.tile('Prognoza', Selectors.seasonPreview().pos + '. msc', '★'.repeat(Selectors.seasonPreview().stars) + '☆'.repeat(5 - Selectors.seasonPreview().stars) + ' media'),
       UI.tile('Sponsor', sp ? Utils.formatMoney(Selectors.sponsorWeekly(sp)) : 'brak', sp ? Utils.escape(sp.name) : 'nikt nie płaci'),
@@ -11808,7 +11842,7 @@ const UI = {
         ${staffGroup('coach', '🧑‍🏫 Trener juniorów', 'Szybszy rozwój juniorów i lepsze wyniki U19.')}
         ${staffGroup('recruiter', '🔭 Rekruter talentów', 'Większy nabór i więcej perełek; ostrzega, gdy łowcy z innych klubów obserwują naszych juniorów (bez niego dowiesz się dopiero po fakcie).')}`);
     }
-    const full = gameState.squad.length >= CONFIG.maxSquad;
+    const full = Selectors.squadFull();
     const ni = u.intake;
     const rows = u.squad.slice().sort((a, b) => (a.filler ? 1 : 0) - (b.filler ? 1 : 0) || b.age - a.age || b.skill - a.skill).map((p) => {
       if (p.filler) return `<div class="flex items-center gap-1.5 py-[2px] border-b border-paper-300 last:border-0 opacity-60">${UI.ovrBadge(p)}<div class="min-w-0 flex-1"><div class="text-[11.5px] truncate leading-tight">${UI.pLink(p, Utils.escape(p.nick))}</div><div class="text-[10px] text-ink-700 truncate leading-tight">${DATA.positions[p.pos].icon} ${p.age} l. · zapychacz – do najbliższego naboru</div></div></div>`;
@@ -12541,7 +12575,7 @@ const UI = {
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
     const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
-    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '') + (p.u19Dev ? ' 🎓U19' : '');
+    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.unreg ? ' 📵' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '') + (p.u19Dev ? ' 🎓U19' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
     const rows = squad.map((p) => {
@@ -12561,7 +12595,7 @@ const UI = {
 
     return UI.tiles([
       UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
-      UI.tile('Kadra', gameState.squad.length + '/' + CONFIG.maxSquad, 'OVR ' + Selectors.teamOvr() + ' · 📈 ' + Utils.formatValue(Selectors.squadValue())),
+      UI.tile('Kadra', Selectors.regCount() + '/' + CONFIG.maxSquad + (Selectors.unregList().length ? ' +' + Selectors.unregList().length + '📵' : ''), 'OVR ' + Selectors.teamOvr() + ' · 📈 ' + Utils.formatValue(Selectors.squadValue())),
       UI.tile('Koszt', Utils.formatMoney(Selectors.squadWages()), 'na tydzień'),
       UI.tile('Baza szatni', Selectors.lockerBaseline() + '%', 'legendy, sztab, bojler'),
     ], 4)
@@ -13232,6 +13266,7 @@ const Actions = {
   'u19-recall'(el) { Engine.u19Recall(el.dataset.id); App.commit(); },
   'u19-promote'(el) { Engine.u19Promote(el.dataset.id); App.commit(); },
   'loan-buyout'(el) { Engine.loanBuyout(el.dataset.id); App.commit(); },
+  'toggle-reg'(el) { Engine.toggleReg(el.dataset.id); App.commit(); },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
