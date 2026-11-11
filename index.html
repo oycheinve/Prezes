@@ -207,11 +207,11 @@ const DATA = {
     // teams – liczba drużyn; up – bezpośredni awans; upPO – miejsca barażowe o awans; down – bezpośredni spadek;
     // downPO – miejsce barażowe o utrzymanie; euro – miejsca w europejskich pucharach (Ekstraklasa)
     { name: 'B-klasa',        econ: 1,   rivalBase: 1.25, skillBonus: 0, teams: 10, up: 1, upPO: [2], down: 0, downPO: null, pool: null },
-    { name: 'A-klasa',        econ: 1.6, rivalBase: 1.46, skillBonus: 1, teams: 14, up: 1, upPO: [2], down: 2, downPO: 12,
+    { name: 'A-klasa',        econ: 1.6, rivalBase: 1.50, skillBonus: 1, teams: 14, up: 1, upPO: [2], down: 2, downPO: 12,
       pool: ['Strażak Remizowo', 'Lotnik Kukurydzowo', 'Fala Stawki', 'Start Wólka Dolna', 'Sparta Kurzawa', 'Polonia Bździszewo Wielkie', 'Wisłoka Psie Pole', 'Promień Kozia Górka', 'Zryw Kąkolew', 'Unia Pniewo', 'Błękitni Zabłocie Wielkie', 'Ruch Krowiarki', 'Iskra Stara Wieś', 'Granica Kamionka', 'Kłos Zgniłocha'] },
-    { name: 'Klasa Okręgowa', econ: 2.5, rivalBase: 1.68, skillBonus: 2, teams: 16, up: 1, upPO: [2], down: 3, downPO: 13,
+    { name: 'Klasa Okręgowa', econ: 2.5, rivalBase: 1.77, skillBonus: 2, teams: 16, up: 1, upPO: [2], down: 3, downPO: 13,
       pool: ['Jedność Spółdzielcza', 'Sparta Mleczarnia', 'Płomień Tartaczny', 'Ogniwo Kombinat', 'Rolnik Żytnie Pole', 'Stal Gminne Zakłady', 'Orlęta Rynkowo', 'Tur Wielkopole', 'KS Cukrownia Kąty', 'Włókniarz Przędzalnia', 'Ruch Kolejowo', 'GKS Kopalnia Węglowo', 'Victoria Starościn', 'Pogoń Nadrzecze', 'Warta Brzegowo', 'LZS Piekarnia Chlebowo', 'Czarni Smolno'] },
-    { name: 'IV Liga',        econ: 4,   rivalBase: 1.93, skillBonus: 4, teams: 18, up: 1, upPO: [2], down: 4, downPO: null,
+    { name: 'IV Liga',        econ: 4,   rivalBase: 2.07, skillBonus: 4, teams: 18, up: 1, upPO: [2], down: 4, downPO: null,
       pool: ['Unia Powiatowa', 'Polonia Starostwo', 'Pilica Nadrzeczna', 'Wisła Brzeżna', 'Start Miasteczko', 'Orlęta Garnizonowe', 'Lechia Powiatowa', 'KS Gród Wojewódzki', 'Olimpia Grudziądzkowo', 'Gwardia Koszarowo', 'Chemik Fabryczno', 'Avia Lotniskowo', 'Sokół Wieżyca', 'Mazur Jeziorany', 'Zagłębie Hutnicze', 'Garbarnia Skórzewo', 'Hutnik Piecowo', 'Resovia Rzeczna'],
       // 13.65–13.66: prawdziwe kluby IV ligi we wszystkich 16 województwach (indeks jak w cupRegions), kolejność wg tabeli; pula fikcyjna tylko awaryjnie
       regions: {
@@ -232,23 +232,23 @@ const DATA = {
         14: ['Odra II Opole', 'LZS Starowice Dolne', 'LZS Starościn', 'Ruch Zdzieszowice', 'LZS Domaszkowice', 'Start Namysłów', 'LKS Kadłub', 'Małapanew Ozimek', 'Porawie Większyce', 'Stal Zawadzkie', 'MKS Gogolin', 'Victoria Żyrowa', 'Fortuna Głogówek', 'Śląsk Łubniany'],   // opolskie
         15: ['Victoria Szczaniec', 'Polonia Słubice', 'Korona Kożuchów', 'Czarni Żagań', 'Piast Karnin', 'Pogoń Świebodzin', 'Celuloza Kostrzyn nad Odrą', 'Lechia II Zielona Góra', 'Odra Nietków', 'Ilanka Rzepin', 'KP Piast Iłowa', 'Róża Różanki', 'Promień Żary', 'Pogoń Skwierzyna', 'Dozamet Nowa Sól', 'Sprotavia Szprotawa', 'Stal Sulęcin', 'Łucznik Strzelce Krajeńskie'],   // lubuskie
       } },
-    { name: 'III Liga',       econ: 6.5, rivalBase: 2.16, skillBonus: 5, teams: 18, up: 1, upPO: [2], down: 3, downPO: null,   // 4 grupy regionalne: mistrz awansuje, wicemistrz gra baraż z 14. drużyną II ligi
+    { name: 'III Liga',       econ: 6.5, rivalBase: 2.40, skillBonus: 5, teams: 18, up: 1, upPO: [2], down: 3, downPO: null,   // 4 grupy regionalne: mistrz awansuje, wicemistrz gra baraż z 14. drużyną II ligi
       pool: ['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża', 'Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik', 'Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa', 'Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica'],
       groups: [['KTS Weszło', 'Wigry Suwałki', 'Świt Nowy Dwór', 'Pelikan Łowicz', 'Mazovia Mińsk Mazowiecki', 'Ząbkovia Ząbki', 'Warta Sieradz', 'Wisła Płock II', 'Olimpia Zambrów', 'Olimpia Elbląg', 'Jagiellonia Białystok II', 'Widzew Łódź II', 'Polonia Lidzbark Warmiński', 'ŁKS Łódź II', 'Lechia Tomaszów Mazowiecki', 'Mławianka Mława', 'Troszyn', 'ŁKS Łomża'],
         ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
         ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
         ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
-    { name: 'II Liga',        econ: 26, econ0: 22,  rivalBase: 2.40, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+    { name: 'II Liga',        econ: 26, econ0: 22,  rivalBase: 2.86, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
       pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
-    { name: 'I Liga',         econ: 70, econ0: 40,  rivalBase: 2.63, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
+    { name: 'I Liga',         econ: 70, econ0: 40,  rivalBase: 3.16, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
       pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
-    { name: 'Ekstraklasa',    econ: 220, econ0: 100,  rivalBase: 2.88, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
+    { name: 'Ekstraklasa',    econ: 220, econ0: 100,  rivalBase: 3.42, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
   // 13.68: V liga – szczebel między Klasą Okręgową a IV ligą, TYLKO w 4 województwach (małopolskie, mazowieckie, śląskie, wielkopolskie).
   // Wewnętrznie poziom 3.5 (wszystkie progi liczbowe gry traktują ją jak „okręgówkę+”); kluby z 90minut.pl w kolejności tabel.
-  vLiga: { name: 'V Liga', econ: 3.2, rivalBase: 1.80, skillBonus: 3, teams: 16, up: 1, upPO: [2], down: 3, downPO: null,
+  vLiga: { name: 'V Liga', econ: 3.2, rivalBase: 1.92, skillBonus: 3, teams: 16, up: 1, upPO: [2], down: 3, downPO: null,
     vgroups: {
       1: [   // mazowieckie
         { name: 'Grupa I', clubs: ['Narew Ostrołęka', 'Ożarowianka Ożarów Mazowiecki', 'Huragan Wołomin', 'Drukarz Warszawa', 'Marcovia Marki', 'PAF Płońsk', 'Bug Wyszków', 'Sokół Serock', 'Znicz II Pruszków', 'Kasztelan Sierpc', 'Wicher Kobyłka', 'Białe Orły Warszawa', 'Naprzód Zielonki', 'Błękitni Gąbin', 'Gladiator Słoszewo', 'Żbik Nasielsk'] },
@@ -5002,7 +5002,7 @@ const Engine = {
     s *= 0.88 + chem * 0.0025;
     s *= 0.94 + gameState.morale.lockerRoom * 0.0012;
     // asystent mnoży jakość trenera i sam dokłada swoje; kurs podnosi warsztat
-    s *= 1 + Selectors.coach().quality * Selectors.assistantMult() + Selectors.staffLevel('asystent') * 0.02 + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;
+    s *= 1 + Selectors.coachQuality() * Selectors.assistantMult() + Selectors.staffLevel('asystent') * 0.02 + Math.max(0, Selectors.coachLicense() - (Selectors.coach().license || 0)) * 0.02;
     s *= 1 - Selectors.fatiguePenalty();
     if (Selectors.coachTrait('hardTraining')) s *= 1.04;
     if (Selectors.coachTrait('discipline')) s *= 1.03;
@@ -5552,6 +5552,7 @@ const Engine = {
       const prevTop = gameState.stats.topLevel;
       gameState.stats.topLevel = Math.max(gameState.stats.topLevel, newLevel);
       const outdated = Object.keys(DATA.staffSlots).filter((k) => { const r = Selectors.staffRawLevel(k); return r > 0 && r < Selectors.staffStandard(newLevel); });
+      { const c = Selectors.coach(); if (c.quality > 0 && c.levels && newLevel > c.levels[1]) Engine.alert('🔻', 'Trener nie dorasta do ligi', c.name + ' to poziom co najwyżej ' + DATA.leagueLevels[c.levels[1]].name + '. W lidze ' + DATA.leagueLevels[newLevel].name + ' jego warsztat działa w połowie – rozważ lepszego trenera (Sztab → Trener).', 'bad'); }
       if (outdated.length) Engine.addLog('🔻 Sztab odstaje od nowej ligi: ' + outdated.map((k) => DATA.staffSlots[k].label + ' (' + gameState.staff[k].name + ')').join(', ') + '. Ich efekt spada o połowę – czas na lepszych fachowców (Sztab → Sztab).', 'system');
       // 13.96: za mały stadion – wynajem albo rezygnacja z awansu (decyzja po ogłoszeniu terminarza)
       const needCap = DATA.licenseCapacity[newLevel] || 0;
@@ -9204,6 +9205,9 @@ const Selectors = {
   rival: (name) => gameState.league.rivals.find((r) => r.name === name) || DATA.rivals.find((r) => r.name === name) || { name, strength: 1.3, derby: false },
   teamName: (id) => (id === US ? Selectors.clubDisplayName() : id),
   coach: () => Selectors.coachDef(gameState.coach.id) || DATA.coaches.mirek,
+  // 14.x: trener ponad swój poziom (powyżej górnej granicy jego lig) traci połowę warsztatu – awans po awansie wymaga lepszego trenera
+  coachOutdated: () => { const c = Selectors.coach(); return !!(c.quality > 0 && c.levels && gameState.club.leagueLevel > c.levels[1]); },
+  coachQuality: () => { const q = Selectors.coach().quality || 0; return Selectors.coachOutdated() ? q * 0.5 : q; },
   // Trener z danych albo wygenerowany na giełdzie (zapisany razem z klubem)
   coachDef: (id) => DATA.coaches[id] || (gameState.coach.custom && gameState.coach.custom.id === id ? gameState.coach.custom : null)
     || ((gameState.coachMarket && gameState.coachMarket.list) || []).find((c) => c.id === id) || null,
@@ -9386,8 +9390,8 @@ const Selectors = {
     const need = { 1: 0, 2: 1, 3: 1, 3.5: 2, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6 }[lvl] || 0;
     const have = ['roller', 'boiler', 'gym', 'clubhouse', 'irrigation', 'training', 'academyHall'].filter((k) => gameState.stadium.upgrades[k]).length;
     const fac = Math.max(0, need - have) * 0.02;
-    const rookie = lvl >= 2 && gameState.club.levelSince === gameState.calendar.season ? 0.03 : 0;
-    const total = Math.min(0.15, staff + fac + rookie);
+    const rookie = lvl >= 2 && gameState.club.levelSince === gameState.calendar.season ? 0.07 : 0;   // 14.x: beniaminek mocniej odczuwa skok poziomu
+    const total = Math.min(0.2, staff + fac + rookie);
     return { total, staff, fac, rookie, need, have };
   },
   carpetTarget: () => {   // 13.93: zbuntowana gwiazda albo trener
@@ -9997,7 +10001,7 @@ const Selectors = {
     c += p.favorite ? 0.12 : 0;
     c += p.legend ? 0.1 : 0;
     c += p.age >= 30 ? 0.1 : p.age <= 22 ? -0.08 : 0;
-    c += Selectors.coach().quality * 0.8;
+    c += Selectors.coachQuality() * 0.8;
     c -= Math.max(0, Selectors.ovr(p) - Selectors.teamOvr() - 7) * 0.02;   // im bardziej przerasta klub, tym trudniej
     c -= gameState.club.leagueLevel >= 7 ? 0 : 0.03;                         // z niższej ligi łatwiej uciec
     c += Selectors.euroThisSeason() ? 0.15 : 0;                               // kto by uciekał z pucharów?
@@ -12564,6 +12568,7 @@ const UI = {
       UI.tile('Chemia', chem + '%', Selectors.chemLabel(chem)),
     ]) + UI.panel('Trener: ' + Utils.escape(coach.name), Utils.escape(coach.title) + ', ' + coach.age + ' l. · w klubie od Tygodnia ' + c.hiredWeek, `
       <p class="text-[12px] leading-snug mb-1">${Utils.escape(coach.desc)}</p>
+      ${Selectors.coachOutdated() ? `<p class="text-[11.5px] leading-snug mb-1 text-stamp font-semibold">🔻 Trener ponad swój poziom (max ${DATA.leagueLevels[coach.levels[1]].name}) – jego warsztat działa w połowie.</p>` : ''}
       <p class="text-[11px] leading-snug mb-1">⚽ ${style.label}: ${style.effect}${(coach.traits || []).length ? ' · ' + coach.traits.map((t) => DATA.coachTraits[t].label).join(', ') : ''}</p>
       <p class="text-[11px] text-ink-700 mb-1.5">„${style.motto}” · ${coach.prefers === 'veterans' ? 'Faworyzuje starych wyjadaczy' : coach.prefers === 'youth' ? 'Stawia na młodzież' : 'Wybiera po umiejętnościach'}</p>
       <p class="text-[11.5px] mb-1.5">📜 Licencja: <b>${DATA.coachLicenses[Selectors.coachLicense()]}</b> · wymagana w lidze: <b>${DATA.coachLicenses[Selectors.coachLicenseReq()]}</b>${Selectors.coachLicenseOk() ? ' <span class="text-grass font-bold">✓</span>' : ' <span class="text-stamp font-bold">brak!</span>'}${gameState.coach.figurehead ? ' · figurant: ' + DATA.coachLicenses[gameState.coach.figurehead.license] : ''}${!Selectors.coachLicenseOk() && gameState.coach.id !== 'mirek' ? ' ' + UI.smallBtn('coach-course', '', '🎓 Kurs ' + DATA.coachLicenses[Selectors.coachLicenseReq()] + ' (' + Utils.formatMoney(Selectors.courseCost(Selectors.coachLicenseReq())) + ')', gameState.finance.budget < Selectors.courseCost(Selectors.coachLicenseReq())) : ''}</p>
