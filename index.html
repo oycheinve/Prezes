@@ -929,7 +929,7 @@ const DATA = {
     roof:   { label: 'Zadaszenie na 30 krzesełek', cost: 1500, licenseLevel: 4, desc: 'Wiata z blachy falistej. Chroni do 30 widzów przed deszczem – mniejszy spadek frekwencji w ulewę.' },
     lights:     { label: 'Oświetlenie z demobilu (4 maszty)', cost: 6000, licenseLevel: 5, attendance: 1.1, desc: 'Maszty po starym lotnisku wojskowym. Mecze wieczorem, +10% widzów. Rachunek za prąd pani Halinka ukrywa.' },
     stand:      { label: 'Trybuna na 500 krzesełek', cost: 15000, licenseLevel: 6, attendance: 1.2, desc: 'Prawdziwa trybuna z krzesełkami w barwach klubu (dwa kolory, bo trzeciego zabrakło). +20% widzów.' },
-    var:        { label: 'System VAR (wóz i monitory)', cost: 90000, licenseLevel: 7, blocksPromotion: true, desc: 'Wóz z powtórkami, monitor przy linii i sędzia w słuchawkach. Od I ligi obowiązkowy – bez niego Związek nie da licencji na awans.' },
+    var:        { label: 'System VAR (wóz i monitory)', cost: 90000, licenseLevel: 7, desc: 'Wóz z powtórkami, monitor przy linii i sędzia w słuchawkach. Od I ligi obowiązkowy – bez niego tylko warunkowa licencja (kara i nakaz montażu).' },
     monitoring: { label: 'Monitoring i bramki obrotowe', cost: 40000, licenseLevel: 7, attendance: 1.1, desc: 'Kamery, kołowrotki, identyfikatory. Zadym już nie ma – nawet na derbach. +10% widzów (lubią czuć się ważni).' },
     // Rozbudowa klubu na lata (bez wymogów licencyjnych)
     toilets:    { group: 'fans', label: 'Toi-toi ×4 zamiast krzaków', cost: 500, attendance: 1.03, promo: 2, desc: 'Koniec z biegami w pokrzywy. Rodziny z dziećmi wreszcie przychodzą.' },
@@ -5504,7 +5504,7 @@ const Engine = {
       Engine.addLog('⚖️ PRZYMUSOWA DEGRADACJA! Wydział Dyscypliny za aferę korupcyjną zsyła klub do ligi niżej: ' + DATA.leagueLevels[newLevel].name + '.', 'system');
       Engine.xPost('portal', club + ' zdegradowany za korupcję! Czarny Passat odjechał, a klub razem z nim – ligę niżej. 🚗💨');
     } else if (promoted && level < maxLevel) {
-      if (newLevel === level && Selectors.nextLevel(level) >= DATA.upgrades.var.licenseLevel && !gameState.stadium.upgrades.var && !gameState.season.promotionBan) {
+      if (false) {   // 14.x: brak infrastruktury (np. VAR) nie blokuje awansu – warunkowa licencja z karą (checkLicense)
         outcome = 'licBlock';   // brak VAR – licencja na I ligę i wyżej nie zostanie przyznana
         Engine.addLog('🚫 Awans wywalczony na boisku, ale bez systemu VAR Związek odmawia licencji na ' + DATA.leagueLevels[Selectors.nextLevel(level)].name + '. Zostajemy w lidze: ' + leagueName + '.', 'system');
         Engine.xPost('portal', 'Awans bez VAR-u? Nie w tym kraju. ' + club + ' zostaje w ' + leagueName + ' przez brak wozu z powtórkami. 📺🚫');
