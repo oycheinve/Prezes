@@ -793,6 +793,10 @@ const DATA = {
       F:   { label: 'FINAŁ',                kolejka: 33, add: 1.0,  tie: false, reach: 40000 },
     },
     order: ['Q2', 'Q3', 'PO', 'LP', 'KPO', 'R16', 'QF', 'SF', 'F'],
+    // 14.x: realny poziom klubów – średni OVR podstawowego składu (skala jak w grach piłkarskich; Ekstraklasa ok. 66–70)
+    // kluby z pięciu najmocniejszych lig – w pucharach zaczynają od fazy ligowej (nie grają eliminacji)
+    top5: ['Paris Saint-Germain', 'Real Madryt', 'Bayern Monachium', 'Arsenal FC', 'Manchester City', 'Liverpool FC', 'FC Barcelona', 'Inter Mediolan', 'Chelsea FC', 'AC Milan', 'Juventus Turyn', 'Atlético Madryt', 'Borussia Dortmund', 'Bayer Leverkusen', 'SSC Napoli', 'Tottenham Hotspur', 'Newcastle United', 'Atalanta Bergamo', 'Olympique Marsylia', 'AS Monaco', 'Eintracht Frankfurt', 'Athletic Bilbao', 'Villarreal CF', 'AS Roma', 'Aston Villa', 'Olympique Lyon', 'Nottingham Forest', 'Real Betis', 'Lille OSC', 'OGC Nice', 'Bologna FC', 'VfB Stuttgart', 'SC Freiburg', 'Celta Vigo', 'RC Strasbourg', 'Crystal Palace', 'ACF Fiorentina', 'Rayo Vallecano', 'FSV Mainz 05', 'Lazio Rzym'],
+    rating: { 'Real Madryt': 86, 'Manchester City': 85, 'Paris Saint-Germain': 84, 'Bayern Monachium': 85, 'Liverpool FC': 85, 'Arsenal FC': 85, 'FC Barcelona': 84, 'Inter Mediolan': 84, 'Chelsea FC': 82, 'AC Milan': 81, 'Juventus Turyn': 81, 'Atlético Madryt': 82, 'Borussia Dortmund': 80, 'Bayer Leverkusen': 81, 'SSC Napoli': 81, 'Tottenham Hotspur': 80, 'Newcastle United': 80, 'Aston Villa': 80, 'Atalanta Bergamo': 80, 'Benfica Lizbona': 78, 'Sporting CP': 78, 'FC Porto': 77, 'Olympique Marsylia': 78, 'AS Roma': 79, 'Lazio Rzym': 78, 'Athletic Bilbao': 79, 'Villarreal CF': 78, 'Real Betis': 78, 'Nottingham Forest': 78, 'Crystal Palace': 77, 'Eintracht Frankfurt': 78, 'VfB Stuttgart': 78, 'SC Freiburg': 77, 'AS Monaco': 78, 'Olympique Lyon': 78, 'Lille OSC': 77, 'OGC Nice': 76, 'Bologna FC': 77, 'ACF Fiorentina': 78, 'Celta Vigo': 76, 'Rayo Vallecano': 75, 'FSV Mainz 05': 76, 'RC Strasbourg': 75, 'Galatasaray Stambuł': 78, 'Fenerbahçe Stambuł': 78, 'PSV Eindhoven': 77, 'Ajax Amsterdam': 76, 'Feyenoord Rotterdam': 76, 'AZ Alkmaar': 74, 'FC Utrecht': 72, 'Go Ahead Eagles': 70, 'Club Brugge': 76, 'Union Saint-Gilloise': 74, 'KRC Genk': 73, 'KAA Gent': 72, 'Olympiakos Pireus': 75, 'Panathinaikos Ateny': 73, 'AEK Ateny': 73, 'PAOK Saloniki': 74, 'Celtic Glasgow': 74, 'Rangers FC': 73, 'Aberdeen FC': 67, 'SC Braga': 75, 'Szachtar Donieck': 74, 'Dynamo Kijów': 72, 'Slavia Praga': 73, 'Sparta Praga': 72, 'Viktoria Pilzno': 71, 'Sigma Ołomuniec': 66, 'RB Salzburg': 74, 'Sturm Graz': 71, 'Rapid Wiedeń': 70, 'FC Basel': 72, 'Young Boys Berno': 72, 'Lausanne-Sport': 68, 'FC Kopenhaga': 73, 'FC Midtjylland': 72, 'Bodø/Glimt': 73, 'SK Brann': 70, 'Molde FK': 69, 'Malmö FF': 70, 'BK Häcken': 67, 'Crvena Zvezda Belgrad': 73, 'Partizan Belgrad': 69, 'Dinamo Zagrzeb': 73, 'HNK Rijeka': 68, 'Ferencváros Budapeszt': 71, 'Qarabağ Ağdam': 71, 'Pafos FC': 69, 'Omonia Nikozja': 67, 'AEK Larnaka': 67, 'Maccabi Tel Awiw': 70, 'Maccabi Hajfa': 69, 'Ludogorec Razgrad': 70, 'FCSB Bukareszt': 69, 'Universitatea Craiova': 68, 'Samsunspor': 72, 'Slovan Bratysława': 68, 'NK Celje': 66, 'Zrinjski Mostar': 64, 'Raków Częstochowa': 69, 'Jagiellonia Białystok': 68, 'Lech Poznań': 69, 'Legia Warszawa': 69, 'Shamrock Rovers': 62, 'Shelbourne FC': 60, 'KuPS Kuopio': 60, 'Breiðablik': 59, 'FC Drita': 60, 'Hamrun Spartans': 59, 'Lincoln Red Imps': 57, 'FC Noah': 63, 'Shkëndija Tetowo': 61, 'Flora Tallinn': 60, 'Žalgiris Wilno': 61, 'Sheriff Tyraspol': 64, 'Dinamo Mińsk': 62, 'Riga FC': 62, 'The New Saints': 58, 'Linfield FC': 57, 'Iberia 1999 Tbilisi': 61 },
     // 13.74: prawdziwe kluby faz ligowych 2025/26 (od najmocniejszego); nasz klub zastępuje jedną drużynę z dołu stawki
     lp: {
       UCL: ['Paris Saint-Germain', 'Real Madryt', 'Bayern Monachium', 'Arsenal FC', 'Manchester City', 'Liverpool FC', 'FC Barcelona', 'Inter Mediolan', 'Chelsea FC', 'AC Milan', 'Juventus Turyn', 'Atlético Madryt', 'Borussia Dortmund', 'Bayer Leverkusen', 'SSC Napoli', 'Tottenham Hotspur', 'Newcastle United', 'Benfica Lizbona', 'Sporting CP', 'PSV Eindhoven', 'Atalanta Bergamo', 'Olympique Marsylia', 'Ajax Amsterdam', 'Club Brugge', 'Galatasaray Stambuł', 'AS Monaco', 'Eintracht Frankfurt', 'Athletic Bilbao', 'Villarreal CF', 'Olympiakos Pireus', 'Slavia Praga', 'Bodø/Glimt', 'FC Kopenhaga', 'Union Saint-Gilloise', 'Qarabağ Ağdam', 'Pafos FC'],
@@ -6320,7 +6324,8 @@ const Engine = {
     if (!c) {
       const eu = gameState.euro || {};
       const s = str || ((eu.lpTable || {})[team] || {}).s || ((eu.history || []).find((h) => h.opp === team) || {}).s || (DATA.euro.comps[eu.comp || 'UECL'] || DATA.euro.comps.UECL).base;
-      const center = Utils.clamp(13 + (s - 3.7) * 4.5, 11, 18.5);
+      const ro = Selectors.euroRating(team);   // 14.x: zawodnicy wokół realnego OVR klubu
+      const center = ro ? (ro - 16) / 4 : Utils.clamp(13 + (s - 3.25) * 6, 9, 18.5);
       const region = ['iber', 'balk', 'north'][[...team].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 3];
       const P = DATA.proNames[region];
       const pos = ['GK', 'GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
@@ -6391,11 +6396,20 @@ const Engine = {
   },
   euroOpponent(stage) {
     const eu = gameState.euro;
-    const s = Math.round((DATA.euro.comps[eu.comp].base + DATA.euro.stages[stage].add + Utils.randRange(-0.15, 0.15)) * 100) / 100;
-    const tier = s < 4.15 ? 0 : s < 4.55 ? 1 : s < 5 ? 2 : 3;   // 14.x: Europa wyraźnie mocniejsza od Ekstraklasy
+    // 14.x: rywale eliminacji jak w rzeczywistości – realne kluby z poziomu typowego dla danych rozgrywek i rundy (OVR składu)
+    const win = { UCL: { Q2: [69, 74], Q3: [70, 75], PO: [71, 77] }, UEL: { Q2: [66, 72], Q3: [67, 73], PO: [69, 75] }, UECL: { Q2: [59, 68], Q3: [62, 70], PO: [65, 73] } }[eu.comp] || {};
+    const [lo, hi] = win[stage] || [66, 74];
     const used = eu.history.map((x) => x.opp);
-    const pool = DATA.euro.clubs[tier].filter((n) => !used.includes(n));
-    return { name: Utils.rand(pool.length ? pool : DATA.euro.clubs[tier]), s, tier };
+    const home = new Set([US].concat(gameState.league.rivals.map((x) => x.name)));
+    const R = DATA.euro.rating || {};
+    const top5 = new Set(DATA.euro.top5 || []);
+    let pool = Object.keys(R).filter((n) => R[n] >= lo && R[n] <= hi && !used.includes(n) && !home.has(n) && !top5.has(n));
+    if (!pool.length) pool = Object.keys(R).filter((n) => !used.includes(n) && !home.has(n) && !top5.has(n)).sort((a, b) => Math.abs(R[a] - (lo + hi) / 2) - Math.abs(R[b] - (lo + hi) / 2)).slice(0, 6);
+    const name = Utils.rand(pool);
+    const ovr = R[name] || (lo + hi) / 2;
+    const s = Math.round(Selectors.euroStrOvr(ovr) * Utils.randRange(0.97, 1.03) * 100) / 100;
+    const tier = ovr < 66 ? 0 : ovr < 74 ? 1 : ovr < 80 ? 2 : 3;
+    return { name, s, tier };
   },
   // 13.73: mecz europejski na pełnym silniku meczowym (jak liga i Puchar Polski): skład, zmęczenie, kartki, asysty, noty, MVP, bilety i gastro
   // 13.74: tabela fazy ligowej – 35 prawdziwych klubów + my; siła wg pozycji na liście
@@ -6406,7 +6420,7 @@ const Engine = {
     list.splice(Utils.randInt(24, 35), 1);   // zwalniamy miejsce z dołu stawki
     const base = C.base + DATA.euro.stages.LP.add;
     eu.lpTable = {};
-    list.forEach((name, i) => { eu.lpTable[name] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: Math.round((base + 0.38 - 0.76 * i / (list.length - 1) + 0.45 * Math.pow(Math.max(0, 1 - i / 12), 1.5) * ({ UCL: 1, UEL: 0.5 }[eu.comp] || 0)) * 100) / 100 }; });   // giganci: ściana (najmocniej w LM)
+    list.forEach((name, i) => { const real = Selectors.euroStr(name); eu.lpTable[name] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: real ? Math.round(real * Utils.randRange(0.97, 1.03) * 100) / 100 : Math.round((base + 0.38 - 0.76 * i / (list.length - 1)) * 100) / 100 }; });   // 14.x: realny poziom klubu (OVR) z lekką formą sezonu   // giganci: ściana (najmocniej w LM)
     eu.lpTable[US] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, s: 0 };
     eu.lpPlayed = [];
   },
@@ -6419,7 +6433,7 @@ const Engine = {
     for (let i = 0; i < 8; i++) eu.ko.KPO.push(Engine.euroKoTie(st[8 + i], st[23 - i]));
     for (let i = 0; i < 8; i++) eu.ko.R16.push(Engine.euroKoTie(st[i], null, 7 - i));   // rywal: zwycięzca baraży (pary 9/24 → 1. miejsce itd.)
   },
-  euroKoStr: (name) => { const T = gameState.euro.lpTable || {}; return (T[name] && T[name].s) || 4.7; },
+  euroKoStr: (name) => { const T = gameState.euro.lpTable || {}; return (T[name] && T[name].s) || Selectors.euroStr(name) || 3.6; },
   // Mecz cudzej pary: poisson wg siły, gospodarz z lekką przewagą
   euroKoLeg(t, leg, neutral) {
     const sa = Engine.euroKoStr(t.a), sb = Engine.euroKoStr(t.b), r = sa / sb;
@@ -6540,14 +6554,14 @@ const Engine = {
         opp = { name, s: T[name].s, tier: T[name].s >= 3.3 ? 3 : T[name].s >= 3 ? 2 : 1 };
       } else if (eu.ko && Engine.euroKoOur()) {
         const t = Engine.euroKoOur();
-        if (t.b) opp = { name: t.b, s: Math.round((Engine.euroKoStr(t.b) + DATA.euro.stages[eu.stage].add - DATA.euro.stages.LP.add) * 100) / 100, tier: 3 };
+        if (t.b) opp = { name: t.b, s: Math.round(Engine.euroKoStr(t.b) * 100) / 100, tier: Selectors.euroTier(t.b) };
         else return { name: 'zwycięzca baraży', s: 3.3, tier: 2 };   // para jeszcze nieznana – nie zapamiętujemy
       } else if (T && ['KPO', 'R16', 'QF', 'SF', 'F'].includes(eu.stage)) {
         // faza pucharowa: rywale z tabeli fazy ligowej (baraż – miejsca 9–24, dalej czołówka)
         const order = Selectors.euroLpStandings().map((r) => r.team).filter((n) => n !== US && !eu.history.some((h) => h.opp === n && h.stage !== 'LP'));
         const pool = eu.stage === 'KPO' ? order.slice(8, 24) : order.slice(0, eu.stage === 'R16' ? 16 : 8);
         const name = Utils.rand(pool.length ? pool : order);
-        opp = { name, s: Math.round((T[name].s + DATA.euro.stages[eu.stage].add - DATA.euro.stages.LP.add) * 100) / 100, tier: 3 };
+        opp = { name, s: Math.round(T[name].s * 100) / 100, tier: Selectors.euroTier(name) };
       }
       eu.nextOpp = { key, opp: opp || Engine.euroOpponent(eu.stage) };
     }
@@ -9600,7 +9614,14 @@ const Selectors = {
   leagueSkillCap: () => (Selectors.euroThisSeason() ? 18 : Math.min(CONFIG.domesticMaxSkill, 9 + Selectors.levelSkillBonus())),
   ovrOf: (skill) => 16 + skill * 4,   // umiejętność → OVR (bez formy)
   // Skala europejska: siła klubu z pucharów → OVR (skromny mistrz ok. 68–72, czołówka ok. 80–85, giganci 85–92)
-  euroOvr: (s) => Math.round(Utils.clamp(68 + (s - 2.4) * 18.5, 60, 94)),
+  euroOvr: (s) => Math.round(Utils.clamp(16 + 4 * (((s / Selectors.euroPedigree(80)) * 2.14 / 3.25 - 0.45) / 0.13), 50, 94)),   // siła → OVR (odwrotność euroStrOvr, przybliżona)
+  // 14.x: realny poziom klubów z pucharów: OVR składu → siła w tej samej skali co nasza drużyna (OVR 68 + dobry sztab ≈ 3,25 = przeciętny klub Ekstraklasy);
+  // uznane marki dostają lekką premię za doświadczenie (sztab, rutyna w Europie)
+  euroPedigree: (ovr) => 1 + Math.max(0, ovr - 78) * 0.01,
+  euroStrOvr: (ovr) => Math.round(3.25 * (0.45 + 0.13 * (ovr - 16) / 4) / (0.45 + 0.13 * 13) * Selectors.euroPedigree(ovr) * 100) / 100,
+  euroTier: (name) => { const o = Selectors.euroRating(name) || 74; return o < 66 ? 0 : o < 74 ? 1 : o < 80 ? 2 : 3; },
+  euroRating: (name) => (DATA.euro.rating || {})[name] || null,
+  euroStr: (name) => { const o = Selectors.euroRating(name); return o ? Selectors.euroStrOvr(o) : null; },
   giants: () => DATA.euro.lp.UCL.slice(0, 16),
   // Premia transferowa za markę klubu sprzedającego: mniejsze ligi +5%, solidne kluby +20%, top 5 lig / uznane marki +40%, giganci +65%
   clubPremium: (tier) => [1.05, 1.2, 1.4, 1.65][tier] || 1.2,
@@ -12295,7 +12316,7 @@ const UI = {
     const eu = gameState.euro;
     const T = eu.lpTable || {};
     const s = T[eur.opp] ? T[eur.opp].s : (eu.nextOpp && eu.nextOpp.opp && eu.nextOpp.opp.name === eur.opp ? eu.nextOpp.opp.s : null);
-    const level = s == null ? 'rywal poznamy w losowaniu' : s >= 5.1 ? 'gigant Europy' : s >= 4.75 ? 'europejska czołówka' : s >= 4.4 ? 'solidny europejski klub' : 'skromny mistrz małej ligi';
+    const level = s == null ? 'rywal poznamy w losowaniu' : (() => { const o = Selectors.euroRating(eur.opp) || Selectors.euroOvr(s); return o >= 83 ? 'gigant Europy' : o >= 78 ? 'europejska czołówka' : o >= 72 ? 'solidny europejski klub' : o >= 66 ? 'średniak z mocnej ligi' : 'skromny mistrz małej ligi'; })();
     const inj = gameState.squad.filter((p) => !p.loan && p.injured > 0);
     const sus = gameState.squad.filter((p) => !p.loan && p.suspended > 0);
     const risk = gameState.squad.filter((p) => !p.loan && (p.yellows || 0) % 4 === 3);
@@ -12303,7 +12324,7 @@ const UI = {
     const pre = i === gameState.calendar.round && !Selectors.isMatchWeek();
     return `<li class="-mx-1 px-2 py-1.5 rounded-md bg-paper-200 border border-sky-500/40 text-[11.5px] leading-snug space-y-0.5">
       <div><b>${eur.C.icon} ${Utils.escape(eur.C.name)}</b> · ${Utils.escape(eur.label)} · tydzień ${eur.k}. kolejki</div>
-      <div>⚔️ ${Utils.escape(eur.opp)} – ${level}${s != null ? ' · <b>OVR ~' + Selectors.euroOvr(s) + '</b> (nasza XI: ' + Selectors.teamOvr() + ')' : ''}${eur.where === 'finał' ? ' · neutralny stadion' : ''}</div>
+      <div>⚔️ ${Utils.escape(eur.opp)} – ${level}${s != null ? ' · <b>OVR ~' + (Selectors.euroRating(eur.opp) || Selectors.euroOvr(s)) + '</b> (nasza XI: ' + Selectors.teamOvr() + ')' : ''}${eur.where === 'finał' ? ' · neutralny stadion' : ''}</div>
       <div>🚑 Kontuzje: ${inj.length ? nm(inj) : 'brak'} · 🟥 Pauzy: ${sus.length ? nm(sus) : 'brak'}</div>
       ${risk.length ? `<div class="text-amber-700">🟨 Na granicy pauzy (3 żółte): ${nm(risk)}</div>` : ''}
       <div class="text-ink-700">Mecz w środku tygodnia męczy kadrę – dobry fizjoterapeuta skraca regenerację.</div>
