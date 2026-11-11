@@ -603,6 +603,11 @@ const DATA = {
   // 13.88: zawodowcy (od II ligi): realistyczne, zmyślone nazwiska bez ksywek, obcokrajowcy, profesjonalne cechy.
   // Celowo żadnych prawdziwych piłkarzy – gra wplata zawodników w afery i scenki, a to nie może dotyczyć realnych ludzi.
   proNames: {
+    en: { first: ['Harry', 'Jack', 'Oliver', 'James', 'Callum', 'Jordan', 'Mason', 'Declan', 'Jamie', 'Tom', 'Ben', 'Luke', 'Reece', 'Conor', 'Kyle'], last: ['Smith', 'Walker', 'Taylor', 'Brown', 'Wilson', 'Evans', 'Wright', 'Robinson', 'Hughes', 'Clarke', 'Hall', 'Wood', 'Ward', 'Turner', 'Cooper', 'Morgan', 'Bennett', 'Barnes'] },
+    de: { first: ['Lukas', 'Leon', 'Jonas', 'Felix', 'Maximilian', 'Niklas', 'Florian', 'Tim', 'Jan', 'Kai', 'Julian', 'Moritz', 'Tobias', 'Philipp'], last: ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Wagner', 'Becker', 'Hoffmann', 'Schulz', 'Koch', 'Richter', 'Klein', 'Wolf', 'Neumann', 'Krüger', 'Brandt'] },
+    it: { first: ['Lorenzo', 'Matteo', 'Alessandro', 'Federico', 'Nicolò', 'Davide', 'Giacomo', 'Andrea', 'Francesco', 'Riccardo', 'Gianluca', 'Simone', 'Marco'], last: ['Rossi', 'Russo', 'Ferrari', 'Esposito', 'Bianchi', 'Romano', 'Colombo', 'Ricci', 'Marino', 'Greco', 'Bruno', 'Gallo', 'Conti', 'De Luca', 'Barella', 'Mancini'] },
+    fr: { first: ['Lucas', 'Hugo', 'Théo', 'Antoine', 'Kylian', 'Mathis', 'Enzo', 'Adrien', 'Maxime', 'Jules', 'Bastien', 'Rayan', 'Clément'], last: ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefèvre', 'Fontaine', 'Girard', 'Mbemba'] },
+    nl: { first: ['Daan', 'Sem', 'Luuk', 'Jesse', 'Thijs', 'Bram', 'Milan', 'Ruben', 'Stijn', 'Jurriën', 'Teun', 'Joey', 'Wout'], last: ['de Jong', 'Jansen', 'de Vries', 'van den Berg', 'van Dijk', 'Bakker', 'Visser', 'Smit', 'Meijer', 'de Boer', 'Mulder', 'Bos', 'Vos', 'Peters', 'Hendriks', 'Dekker'] },
     pl: { first: ['Jakub', 'Kacper', 'Mateusz', 'Bartosz', 'Michał', 'Kamil', 'Szymon', 'Patryk', 'Dawid', 'Filip', 'Piotr', 'Adrian', 'Damian', 'Tomasz', 'Łukasz', 'Karol', 'Paweł', 'Wiktor', 'Oskar', 'Sebastian', 'Hubert', 'Igor', 'Marcel', 'Krystian', 'Dominik'],
       last: ['Nowak', 'Kowalczyk', 'Wiśniewski', 'Wójcik', 'Woźniak', 'Dąbrowski', 'Kozłowski', 'Jankowski', 'Mazur', 'Kwiatkowski', 'Krawczyk', 'Grabowski', 'Pawłowski', 'Michalski', 'Król', 'Wieczorek', 'Jabłoński', 'Wróbel', 'Majewski', 'Olszewski', 'Stępień', 'Malinowski', 'Jaworski', 'Adamczyk', 'Nowicki', 'Pawlak', 'Górski', 'Witkowski', 'Walczak', 'Sikora', 'Baran', 'Rutkowski', 'Michalak', 'Szewczyk', 'Ostrowski', 'Tomaszewski', 'Pietrzak', 'Marciniak', 'Jakubowski', 'Jasiński', 'Sadowski', 'Duda', 'Wilk', 'Laskowski', 'Kubiak', 'Czarnecki', 'Kalinowski', 'Sobczak', 'Urbański', 'Lis'] },
     iber: { first: ['Marcos', 'Pedro', 'João', 'Diego', 'Rafael', 'Bruno', 'Tiago', 'Luis', 'Iván', 'Pablo', 'Rúben', 'Álvaro'], last: ['Silva', 'Pereira', 'Fernández', 'Gómez', 'Santos', 'Ramírez', 'Costa', 'Moreno', 'Herrera', 'Duarte', 'Navarro', 'Lopes'] },
@@ -812,6 +817,29 @@ const DATA = {
     ],
   },
 
+
+  // 14.x: kariera za granicą – po sprzedaży klubu prezes kupuje klub w jednym z tych krajów; gra przebudowuje 2 najwyższe ligi
+  // (avg = średni OVR składów; econ = skala finansów jak w DATA.leagueLevels; names = pula nazwisk miejscowych zawodników)
+  countries: {
+    ENG: { name: 'Anglia', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', names: 'en', cup: 'Puchar Anglii (FA Cup)', final: 'Wembley, Londyn', fed: 'FA',
+      top: { name: 'Premier League', avg: 79, econ: 1500, clubs: ['Arsenal FC', 'Manchester City', 'Liverpool FC', 'Chelsea FC', 'Manchester United', 'Tottenham Hotspur', 'Newcastle United', 'Aston Villa', 'Brighton & Hove Albion', 'Nottingham Forest', 'Crystal Palace', 'Brentford FC', 'Fulham FC', 'AFC Bournemouth', 'West Ham United', 'Everton FC', 'Wolverhampton Wanderers', 'Leeds United'] },
+      second: { name: 'Championship', avg: 71, econ: 400, clubs: ['Leicester City', 'Ipswich Town', 'Southampton FC', 'Sheffield United', 'West Bromwich Albion', 'Middlesbrough FC', 'Norwich City', 'Coventry City', 'Watford FC', 'Hull City', 'Stoke City', 'Bristol City', 'Millwall FC', 'Blackburn Rovers', 'Swansea City', 'Derby County', 'Preston North End', 'Queens Park Rangers'] } },
+    ESP: { name: 'Hiszpania', flag: '🇪🇸', names: 'iber', cup: 'Puchar Króla (Copa del Rey)', final: 'La Cartuja, Sewilla', fed: 'RFEF',
+      top: { name: 'LaLiga', avg: 77, econ: 900, clubs: ['Real Madryt', 'FC Barcelona', 'Atlético Madryt', 'Athletic Bilbao', 'Villarreal CF', 'Real Betis', 'Real Sociedad', 'Celta Vigo', 'Sevilla FC', 'Valencia CF', 'Girona FC', 'Rayo Vallecano', 'CA Osasuna', 'RCD Mallorca', 'Getafe CF', 'Espanyol Barcelona', 'Deportivo Alavés', 'Elche CF'] },
+      second: { name: 'LaLiga Hypermotion', avg: 69, econ: 200, clubs: ['UD Las Palmas', 'Real Valladolid', 'CD Leganés', 'Sporting Gijón', 'Real Zaragoza', 'Racing Santander', 'Deportivo La Coruña', 'Granada CF', 'Cádiz CF', 'SD Eibar', 'UD Almería', 'Málaga CF', 'Albacete Balompié', 'SD Huesca', 'Burgos CF', 'CD Castellón', 'Córdoba CF', 'CD Mirandés'] } },
+    GER: { name: 'Niemcy', flag: '🇩🇪', names: 'de', cup: 'Puchar Niemiec (DFB-Pokal)', final: 'Olympiastadion, Berlin', fed: 'DFB',
+      top: { name: 'Bundesliga', avg: 77, econ: 900, clubs: ['Bayern Monachium', 'Bayer Leverkusen', 'Borussia Dortmund', 'RB Lipsk', 'Eintracht Frankfurt', 'VfB Stuttgart', 'SC Freiburg', 'VfL Wolfsburg', 'Borussia Mönchengladbach', 'FSV Mainz 05', 'TSG Hoffenheim', 'Werder Brema', '1. FC Union Berlin', 'FC Augsburg', '1. FC Köln', 'Hamburger SV', '1. FC Heidenheim', 'FC St. Pauli'] },
+      second: { name: '2. Bundesliga', avg: 69, econ: 220, clubs: ['VfL Bochum', 'Holstein Kiel', 'FC Schalke 04', 'Hertha BSC', 'Fortuna Düsseldorf', 'Hannover 96', '1. FC Kaiserslautern', '1. FC Nürnberg', 'Karlsruher SC', 'SC Paderborn', 'SV Darmstadt 98', 'Eintracht Brunszwik', 'SpVgg Greuther Fürth', 'Arminia Bielefeld', 'Dynamo Drezno', 'Preußen Münster', '1. FC Magdeburg', 'SV Elversberg'] } },
+    ITA: { name: 'Włochy', flag: '🇮🇹', names: 'it', cup: 'Puchar Włoch (Coppa Italia)', final: 'Stadio Olimpico, Rzym', fed: 'FIGC',
+      top: { name: 'Serie A', avg: 77, econ: 800, clubs: ['Inter Mediolan', 'SSC Napoli', 'Juventus Turyn', 'AC Milan', 'Atalanta Bergamo', 'AS Roma', 'Lazio Rzym', 'ACF Fiorentina', 'Bologna FC', 'Como 1907', 'Torino FC', 'Udinese Calcio', 'Genoa CFC', 'Cagliari Calcio', 'Parma Calcio', 'US Lecce', 'Hellas Verona', 'US Sassuolo'] },
+      second: { name: 'Serie B', avg: 68, econ: 170, clubs: ['Empoli FC', 'AC Monza', 'Venezia FC', 'Palermo FC', 'Sampdoria Genua', 'Spezia Calcio', 'US Cremonese', 'Frosinone Calcio', 'SSC Bari', 'Modena FC', 'Cesena FC', 'US Catanzaro', 'AC Reggiana', 'FC Südtirol', 'Pisa SC', 'Carrarese Calcio', 'SS Juve Stabia', 'Calcio Padova'] } },
+    FRA: { name: 'Francja', flag: '🇫🇷', names: 'fr', cup: 'Puchar Francji (Coupe de France)', final: 'Stade de France, Paryż', fed: 'FFF',
+      top: { name: 'Ligue 1', avg: 75, econ: 650, clubs: ['Paris Saint-Germain', 'Olympique Marsylia', 'AS Monaco', 'OGC Nice', 'Lille OSC', 'Olympique Lyon', 'RC Strasbourg', 'RC Lens', 'Stade Brestois', 'Stade Rennais', 'Toulouse FC', 'AJ Auxerre', 'Angers SCO', 'Le Havre AC', 'FC Nantes', 'FC Lorient', 'Paris FC', 'FC Metz'] },
+      second: { name: 'Ligue 2', avg: 67, econ: 150, clubs: ['AS Saint-Étienne', 'Montpellier HSC', 'Stade de Reims', 'SM Caen', 'EA Guingamp', 'Grenoble Foot 38', 'Amiens SC', 'FC Annecy', 'Clermont Foot', 'ES Troyes AC', 'Pau FC', 'Red Star FC', 'Rodez AF', 'USL Dunkerque', 'Stade Lavallois', 'SC Bastia', 'Le Mans FC', 'AS Nancy'] } },
+    NED: { name: 'Holandia', flag: '🇳🇱', names: 'nl', cup: 'Puchar Holandii (KNVB Beker)', final: 'De Kuip, Rotterdam', fed: 'KNVB',
+      top: { name: 'Eredivisie', avg: 71, econ: 300, clubs: ['PSV Eindhoven', 'Ajax Amsterdam', 'Feyenoord Rotterdam', 'AZ Alkmaar', 'FC Twente', 'FC Utrecht', 'Go Ahead Eagles', 'NEC Nijmegen', 'SC Heerenveen', 'Sparta Rotterdam', 'Fortuna Sittard', 'PEC Zwolle', 'Heracles Almelo', 'NAC Breda', 'FC Groningen', 'Excelsior Rotterdam', 'FC Volendam', 'SC Telstar'] },
+      second: { name: 'Eerste Divisie', avg: 62, econ: 60, clubs: ['Willem II', 'RKC Waalwijk', 'Almere City', 'De Graafschap', 'Roda JC', 'ADO Den Haag', 'SC Cambuur', 'FC Den Bosch', 'FC Emmen', 'VVV-Venlo', 'Helmond Sport', 'FC Dordrecht', 'MVV Maastricht', 'TOP Oss', 'Vitesse Arnhem', 'Achilles 29', 'FC Eindhoven', 'Quick Boys'] } },
+  },
   // Akademia U19: trener juniorów (rozwój) i rekruter talentów (nabór, wykrywanie łowców perełek)
   u19Staff: {
     coach: [
@@ -2937,6 +2965,18 @@ const DATA = {
       ],
     },
 
+    // 14.x: oferta kupna klubu – po sprzedaży prezes wybiera: emerytura albo klub za granicą
+    clubSale: {
+      id: 'clubSale',
+      cutscene: { icon: '💼', place: 'Gabinet prezesa · teczka z ofertą', scripted: true },
+      from: () => (gameState.clubSale || {}).buyer || 'Inwestor',
+      title: () => 'Oferta kupna klubu: ' + Utils.formatMoney((gameState.clubSale || {}).price || 0),
+      body: () => { const c = gameState.clubSale || {}; return (c.manual ? 'Ogłoszenie o sprzedaży klubu poszło w świat. Pierwszy poważny chętny: ' : 'Do gabinetu wchodzi pan w drogim garniturze: ') + c.buyer + '. „Chcemy przejąć ' + gameState.club.name + ' – razem z kadrą, stadionem i długami. Oferujemy ' + Utils.formatMoney(c.price || 0) + ' (wycena klubu: ' + Utils.formatMoney(Selectors.clubValue()) + '). Pan może zakończyć karierę jak król… albo kupić sobie klub za granicą.”'; },
+      options: [
+        { label: 'Sprzedać klub', hint: 'Kariera w tym klubie się kończy – potem wybór: emerytura albo klub za granicą', effects: {}, log: 'Prezes podpisuje umowę sprzedaży.', onChoose: () => Engine.sellClub() },
+        { label: 'Odrzucić – to mój klub', hint: 'Kibice +3%', effects: { fans: +3 }, log: 'Prezes wyrzuca inwestora za drzwi: „Klub nie jest na sprzedaż!”.', onChoose: () => { gameState.clubSale = null; } },
+      ],
+    },
     // 14.x: zawodnik wyraźnie ponad poziom ligi – klub z wyższej półki składa ofertę, a on chce iść
     outgrown: {
       id: 'outgrown',
@@ -3927,6 +3967,7 @@ const Utils = {
 const Engine = {
   // Przyjmuje dane z Karty Rejestracyjnej albo samą nazwę (testy, stare wywołania).
   startGame(card) {
+    Engine.applyCountry(null);   // 14.x: nowa kariera zawsze w Polsce
     if (typeof card === 'string') {
       const words = card.trim().split(/\s+/);
       card = { name: card, town: words.length > 1 ? words.slice(1).join(' ') : card, character: null, colors: null, stadium: '', president: '' };
@@ -5594,7 +5635,7 @@ const Engine = {
     } else if (pos === 1 && level === maxLevel) {
       outcome = 'title';
       gameState.stats.titles++;
-      Engine.addLog('🏆 MISTRZ POLSKI!!! ' + club + ' – klub spod remizy na szczycie Ekstraklasy! Krowy pana Zdzicha dostają dzień wolny.', 'system');
+      Engine.addLog(gameState.abroad ? '🏆 MISTRZ ' + Selectors.country().name.toUpperCase() + '!!! ' + club + ' na szczycie ligi ' + Selectors.leagueName() + '! Polski prezes podbija ' + Selectors.country().name + '.' : '🏆 MISTRZ POLSKI!!! ' + club + ' – klub spod remizy na szczycie Ekstraklasy! Krowy pana Zdzicha dostają dzień wolny.', 'system');
       Engine.xPost('portal', 'SENSACJA STULECIA: ' + club + ' MISTRZEM POLSKI! Od B-klasy do tytułu. Pan Zenek: „To wszystko dzięki gięte z cebulką”. 🏆');
     } else if (zone === 'euro') {
       outcome = 'euro';
@@ -6232,6 +6273,7 @@ const Engine = {
     const lvl = gameState.club.leagueLevel;
     const fl = Math.floor(lvl);
     let oppLvl = Utils.clamp(Utils.randInt(Math.max(R.opp[0], fl - 2), Math.min(R.opp[1], Math.max(R.opp[0], fl + 2))), 1, 8);
+    if (gameState.abroad) oppLvl = Math.max(7, oppLvl);   // 14.x: za granicą – kluby z dwóch lig tego kraju
     if (oppLvl === 3 && Selectors.hasVLiga() && Math.random() < 0.5) oppLvl = 3.5;   // w województwach z V ligą także jej kluby
     const L = DATA.leagueLevels[oppLvl];
     const P = Selectors.leaguePool(oppLvl);   // szczebel regionalny: kluby z własnego województwa / grupy
@@ -6250,7 +6292,7 @@ const Engine = {
     const lvl = gameState.club.leagueLevel;
     const regional = c.path === 'regional';
     const cname = Selectors.cupName(c);
-    const venue = R.venue === 'narodowy' ? { name: 'PGE Narodowy, Warszawa', att: [40000, 58000] } : R.venue === 'region' ? { name: Selectors.cupRegion()[1], att: [3000, 9000] } : null;
+    const venue = R.venue === 'narodowy' ? { name: gameState.abroad ? DATA.countries[gameState.abroad.country].final : 'PGE Narodowy, Warszawa', att: [40000, 58000] } : R.venue === 'region' ? { name: Selectors.cupRegion()[1], att: [3000, 9000] } : null;
     const nx = c.next && c.next.idx === c.idx ? c.next : Engine.cupDraw();   // rywal wylosowany wcześniej – widoczny w terminarzu
     const { opp, oppLvl, oppS, final, home } = nx;
     gameState.midweekWeek = gameState.calendar.week;   // zmęczenie po meczu w środku tygodnia
@@ -6416,7 +6458,7 @@ const Engine = {
   euroBuildLp() {
     const eu = gameState.euro;
     const C = DATA.euro.comps[eu.comp];
-    const list = DATA.euro.lp[eu.comp].slice();
+    const list = DATA.euro.lp[eu.comp].filter((n) => n !== gameState.club.name);   // 14.x: nasz (zagraniczny) klub nie gra sam ze sobą
     list.splice(Utils.randInt(24, 35), 1);   // zwalniamy miejsce z dołu stawki
     const base = C.base + DATA.euro.stages.LP.add;
     eu.lpTable = {};
@@ -6937,7 +6979,8 @@ const Engine = {
       const derbies = Utils.shuffle(names.slice(3)).slice(0, 2);
       gameState.league.rivals = names.map((name, i) => ({
         name, derby: derbies.includes(name),
-        strength: Math.round(L.rivalBase * (1.13 - (i / Math.max(1, n - 1)) * 0.26) * Utils.randRange(0.97, 1.03) * 100) / 100,
+        strength: L.abroad && Selectors.euroStr(name) ? Math.round(Selectors.euroStr(name) * Utils.randRange(0.97, 1.03) * 100) / 100   // 14.x: realny poziom klubu
+          : Math.round(L.rivalBase * (1.13 - (i / Math.max(1, n - 1)) * 0.26) * Utils.randRange(0.97, 1.03) * 100) / 100,
       }));
     } else gameState.league.rivals = Utils.shuffle(pool).slice(0, (L.teams || 10) - 1).map((name, i) => ({
         name, derby: i < 2,
@@ -7043,6 +7086,104 @@ const Engine = {
     }
   },
 
+
+  /* ----- 14.x: sprzedaż klubu i kariera za granicą ----- */
+  // Dwa najwyższe poziomy gry (7 i 8) przejmują ligi wybranego kraju; po powrocie do Polski (nowa gra) – oryginalne ligi
+  applyCountry(state) {
+    if (!DATA._plLevels) DATA._plLevels = { 7: { ...DATA.leagueLevels[7] }, 8: { ...DATA.leagueLevels[8] } };
+    const c = state && state.abroad && DATA.countries[state.abroad.country];
+    if (!c) { DATA.leagueLevels[7] = { ...DATA._plLevels[7] }; DATA.leagueLevels[8] = { ...DATA._plLevels[8] }; return; }
+    const lv = (L, base, top) => ({ ...base, name: L.name, econ: L.econ, econ0: L.econ, rivalBase: Selectors.euroStrOvr(L.avg), skillBonus: Math.round((L.avg - 16) / 4 - 5),
+      teams: 18, pool: L.clubs.slice(), ordered: true, up: top ? 0 : 2, upPO: top ? null : [3, 4, 5, 6], down: top ? 3 : 0, downPO: null, euro: top ? [2, 3, 4] : undefined, abroad: true });
+    DATA.leagueLevels[7] = lv(c.second, DATA._plLevels[7], false);
+    DATA.leagueLevels[8] = lv(c.top, DATA._plLevels[8], true);
+  },
+  // Oferta kupna klubu (inwestor) – po sezonach stabilizacji albo na żądanie prezesa (wystawienie na sprzedaż)
+  offerClubSale(manual) {
+    const v = Selectors.clubValue();
+    const buyers = ['Fundusz inwestycyjny z Londynu', 'Konsorcjum z Kataru', 'Amerykański miliarder (kupił już drużynę NFL)', 'Lokalny potentat budowlany', 'Grupa medialna z Warszawy', 'Biznesmen od paliw z Płocka'];
+    gameState.clubSale = { buyer: Utils.rand(buyers), price: Math.max(1000, Math.round(v * (manual ? Utils.randRange(0.85, 1.0) : Utils.randRange(0.95, 1.2)) / 1000) * 1000), season: gameState.calendar.season, manual: !!manual };
+    if (manual) gameState.clubSaleListed = gameState.calendar.season;
+    Engine.pushDecision('clubSale');
+  },
+  maybeClubSaleOffer() {
+    const lvl = gameState.club.leagueLevel;
+    if (lvl < 5 || (gameState.stats.seasons || 0) < 3 || gameState.clubSale || (gameState.abroad && gameState.abroad.since >= gameState.calendar.season - 1)) return;
+    if (Math.random() < 0.18 + (gameState.stats.titles || 0) * 0.05) Engine.offerClubSale(false);
+  },
+  // Sprzedaż: pieniądze trafiają do prezesa; do wyboru koniec kariery albo zakup klubu za granicą (lista ofert)
+  sellClub() {
+    const cs = gameState.clubSale;
+    if (!cs) return;
+    gameState.saleProceeds = cs.price;
+    gameState.soldTo = cs.buyer;
+    const cids = Utils.shuffle(Object.keys(DATA.countries));
+    const offers = [];
+    // tani klub w tarapatach (zawsze w zasięgu), 2 kluby z drugiej ligi, 1–2 z najwyższej
+    const make = (cid, top, troubled) => {
+      const C = DATA.countries[cid], L = top ? C.top : C.second;
+      const idx = troubled ? Utils.randInt(13, 17) : Utils.randInt(top ? 6 : 2, 16);
+      const club = L.clubs[idx];
+      const ovr = Math.round(L.avg + (8.5 - idx) * 0.45 + (troubled ? -2 : 0));
+      // cena w tej samej skali co wycena naszego klubu (klub Ekstraklasy ≈ 30 mln zł przy econ 220)
+      let price = Math.round(L.econ * Utils.randRange(110000, 160000) * (1 + (8.5 - idx) * 0.04) / 1000) * 1000;
+      if (troubled) price = Math.min(price, Math.round(cs.price * Utils.randRange(0.55, 0.85) / 1000) * 1000);   // zadłużony – oddadzą za ułamek
+      return { country: cid, club, level: top ? 8 : 7, league: L.name, ovr, price, troubled: !!troubled };
+    };
+    const cheap = Object.keys(DATA.countries).sort((a, b) => DATA.countries[a].second.econ - DATA.countries[b].second.econ)[Utils.randInt(0, 1)];
+    offers.push(make(cheap, false, true));
+    const rest = cids.filter((c) => c !== cheap);
+    offers.push(make(rest[0], false, false));
+    offers.push(make(rest[1], Math.random() < 0.5, false));
+    offers.push(make(rest[2], true, false));
+    gameState.saleOffers = offers.sort((a, b) => a.price - b.price);
+    Engine.addLog('🤝 KLUB SPRZEDANY: ' + cs.buyer + ' przejmuje ' + gameState.club.name + ' za ' + Utils.formatMoney(cs.price) + '. Prezes odchodzi z teczką pełną pieniędzy.', 'system');
+    Engine.xPost('portal', 'SPRZEDAŻ KLUBU! ' + gameState.club.name + ' ma nowego właściciela: ' + cs.buyer + '. Kwota: ' + Utils.formatMoney(cs.price) + '. Co dalej z prezesem? 🤔');
+    gameState.clubSale = null;
+    gameState.ui.overlay = { type: 'clubSold' };
+  },
+  retireAfterSale() {
+    const p = gameState.saleProceeds || 0;
+    Engine.gameOver('Prezes sprzedał klub (' + gameState.soldTo + ', ' + Utils.formatMoney(p) + ') i przeszedł na zasłużoną emeryturę. Kariera zamknięta na własnych warunkach.', 'sold');
+  },
+  // Zakup zagranicznego klubu: nowe ligi, nowa kadra, nowe realia – kariera trwa dalej
+  moveAbroad(i) {
+    const o = (gameState.saleOffers || [])[i];
+    const cash = gameState.saleProceeds || 0;
+    if (!o || o.price > cash) return;
+    const C = DATA.countries[o.country];
+    const oldName = gameState.club.name;
+    gameState.abroad = { country: o.country, since: gameState.calendar.season, from: oldName };
+    Engine.applyCountry(gameState);
+    gameState.club.name = o.club;
+    gameState.club.town = C.name;
+    gameState.club.prefix = '';
+    gameState.stadium.baseName = 'Stadion ' + o.club;
+    gameState.loansOut = []; gameState.loanBuyouts = []; gameState.watchlist = [];
+    gameState.euro = null; gameState.cupQualified = null; gameState.clubSquads = {};
+    Object.assign(gameState.star, { playerId: null, rebel: false, promised: 0 });
+    Engine.debugSetLevel(o.level, { relocate: true });   // liga kraju, sezon, obiekty licencyjne, sztab, sponsorzy, okno transferowe
+    // kadra nowego klubu – zawodnicy wokół realnego poziomu klubu
+    const center = (o.ovr - 16) / 4;
+    gameState.squad = [];
+    Selectors.balancedPositions(22, { gk: 3 }).forEach((pos, k) => {
+      const sk = Utils.clamp(Math.round(center + (k < 14 ? Utils.randRange(-0.6, 1.4) : Utils.randRange(-2.2, 0.2))), 1, CONFIG.maxSkill);
+      const p = Engine.makePlayer({ ageMin: 18, ageMax: 33, skillMin: sk, skillMax: sk, pos, pro: true });
+      p.wage = Selectors.marketWage(p);
+      p.contractEnd = gameState.calendar.season + Utils.randInt(1, 4);
+      gameState.squad.push(p);
+    });
+    if (gameState.u19) { gameState.u19.squad = []; Engine.u19Fill(); }
+    gameState.finance.budget = Math.round(cash - o.price + 2500 * DATA.leagueLevels[o.level].econ * (o.troubled ? 0.4 : 1));
+    if (o.troubled) gameState.morale.fans = Math.min(gameState.morale.fans, 35);
+    gameState.saleOffers = null; gameState.saleProceeds = 0;
+    gameState.season.preview = null; Selectors._pvKey = null;
+    gameState.ui.overlay = { type: 'transfer' };
+    Engine.addLog('✈️ NOWY ROZDZIAŁ: prezes kupuje ' + o.club + ' (' + C.flag + ' ' + C.name + ', ' + o.league + ') za ' + Utils.formatMoney(o.price) + '. Nowy kraj, nowa liga, nowi zawodnicy – ' + oldName + ' zostaje w historii.', 'system');
+    Engine.alert('✈️', 'Witamy w lidze ' + o.league, C.flag + ' ' + o.club + ' jest Twój. Kadra, sztab i obiekty są dopasowane do realiów ' + C.name + ' – czas pokazać, że prezes z polskich boisk poradzi sobie i tutaj.', 'good', true);
+    Engine.xPost('portal', 'Polski prezes kupuje ' + o.club + '! ' + C.flag + ' Media w ' + C.name + ' pytają: „Kto to jest?”. Wkrótce się dowiedzą. ✈️');
+  },
+
   gameOver(reason, kind) {
     Storage.addHof(Selectors.hofEntry());   // 13.90: kariera trafia do Hall of Fame
     gameState.gameOver = { reason, kind: kind || null, season: gameState.calendar.season, week: gameState.calendar.week, budget: gameState.finance.budget, league: Selectors.leagueName(), dna: Selectors.dnaLabel() };
@@ -7065,7 +7206,8 @@ const Engine = {
     let n = null;
     for (let i = 0; i < 30; i++) {
       const foreign = Math.random() < (DATA.proForeign[lvl] || 0.08);
-      const P = DATA.proNames[foreign ? Utils.rand(['iber', 'balk', 'north']) : 'pl'];
+      const local = gameState.abroad ? DATA.countries[gameState.abroad.country].names : 'pl';   // 14.x: za granicą miejscowi to np. Anglicy
+      const P = DATA.proNames[foreign ? Utils.rand(['iber', 'balk', 'north', 'pl'].filter((k) => k !== local)) : local];
       const last = Utils.rand(P.last);
       n = { first: Utils.rand(P.first), last, nick: last, noNick: true, foreign };   // „ksywka” = nazwisko (okrzyki kibiców, raporty)
       if (!full.has(n.first + ' ' + n.last)) break;
@@ -7588,6 +7730,7 @@ const Engine = {
     Engine.openForeignMarket();   // zagraniczna giełda (od II ligi)
     Engine.capMarket();           // bez „kosmitów” na krajowej giełdzie niższych lig
     Engine.maybeOutgrown();   // 14.x: zawodnik wyrósł z klubu – oferta z wyższej półki
+    Engine.maybeClubSaleOffer();   // 14.x: inwestor chce kupić klub
     if (Selectors.overLimit()) {   // 14.x: powroty z wypożyczeń ponad limit kadry
       const n = Selectors.overLimit();
       Engine.addLog('📵 Kadra ' + Selectors.regCount() + '/' + CONFIG.maxSquad + ' – po powrotach z wypożyczeń jest nadmiar ' + n + '. W oknie wybierz niezarejestrowanych albo sprzedaj, wypożycz lub odeślij do U19.', 'system');
@@ -8730,8 +8873,8 @@ const Engine = {
   },
 
   // TRYB TESTOWY: natychmiastowe przeskalowanie całego klubu do wybranego szczebla (weryfikacja balansu)
-  debugSetLevel(lvl) {
-    if (!Selectors.testAllowed()) return;   // 14.x: tylko klub o nazwie „test”
+  debugSetLevel(lvl, opts = {}) {
+    if (!opts.relocate && !Selectors.testAllowed()) return;   // 14.x: tylko klub o nazwie „test” (albo przeprowadzka po zakupie klubu)
     lvl = Number(lvl);
     const L = DATA.leagueLevels[lvl];
     if (!L || gameState.screen !== 'game') return;
@@ -8739,7 +8882,7 @@ const Engine = {
     const oldL = DATA.leagueLevels[old] || DATA.leagueLevels[1];
     const ratio = L.econ / oldL.econ;
     const dSkill = L.skillBonus - oldL.skillBonus;
-    gameState.testMode = true;
+    if (!opts.relocate) gameState.testMode = true;
     // V liga istnieje tylko w 4 województwach – w razie potrzeby przenosimy klub do jednego z nich
     if (L.vgroups && !L.vgroups[gameState.club.region]) gameState.club.region = Number(Object.keys(L.vgroups)[0]);
     // Skład: umiejętności i pensje przesunięte o różnicę poziomów (zachowane proporcje w kadrze)
@@ -8794,7 +8937,7 @@ const Engine = {
     gameState.ui.transferView = Selectors.transferOffers().length ? 'offers' : 'buy';
     gameState.ui.overlay = { type: 'transfer' };
     Engine.addLog('🔄 Okno transferowe otwarte – zamknie się z pierwszym gwizdkiem sezonu w lidze ' + L.name + '.', 'system');
-    Engine.addLog('🧪 TRYB TESTOWY: klub przeskalowany do ligi ' + L.name + ' (skład, pensje, budżet ' + Utils.formatMoney(gameState.finance.budget) + ', obiekty licencyjne, sztab, trener). Ta kariera nie trafi do Hall of Fame.', 'system');
+    if (!opts.relocate) Engine.addLog('🧪 TRYB TESTOWY: klub przeskalowany do ligi ' + L.name + ' (skład, pensje, budżet ' + Utils.formatMoney(gameState.finance.budget) + ', obiekty licencyjne, sztab, trener). Ta kariera nie trafi do Hall of Fame.', 'system');
   },
 
   // TRYB TESTOWY: europejskie puchary na żądanie – rozgrywki i etap startowy (eliminacje / faza ligowa / faza pucharowa)
@@ -9611,7 +9754,7 @@ const Selectors = {
     return Math.round(Utils.clamp(Selectors.ovrOf(p.skill) + form, 1, CONFIG.euroOvrCap));   // powyżej 83 tylko po meczach w Europie
   },
   // Sufit rozwoju zależny od ligi klubu: zawodnik nie urośnie dużo ponad poziom rozgrywek
-  leagueSkillCap: () => (Selectors.euroThisSeason() ? 18 : Math.min(CONFIG.domesticMaxSkill, 9 + Selectors.levelSkillBonus())),
+  leagueSkillCap: () => (Selectors.euroThisSeason() ? 18 : Math.min(gameState.abroad ? CONFIG.maxSkill - 1 : CONFIG.domesticMaxSkill, 9 + Selectors.levelSkillBonus())),
   ovrOf: (skill) => 16 + skill * 4,   // umiejętność → OVR (bez formy)
   // Skala europejska: siła klubu z pucharów → OVR (skromny mistrz ok. 68–72, czołówka ok. 80–85, giganci 85–92)
   euroOvr: (s) => Math.round(Utils.clamp(16 + 4 * (((s / Selectors.euroPedigree(80)) * 2.14 / 3.25 - 0.45) / 0.13), 50, 94)),   // siła → OVR (odwrotność euroStrOvr, przybliżona)
@@ -10145,7 +10288,7 @@ const Selectors = {
   leagueGroup: () => { const r = gameState.club.region != null ? gameState.club.region : 1; return [2, 0, 1, 2, 3, 1, 0, 3, 3, 1, 1, 0, 0, 3, 2, 2][r] || 0; },
   // 13.68: ścieżka szczebli zależna od województwa – V liga (3.5) tylko w małopolskim, mazowieckim, śląskim i wielkopolskim
   hasVLiga: (region = gameState.club.region) => region !== '' && region != null && DATA.vRegions.includes(+region),
-  levelsPath: (region = gameState.club.region) => (Selectors.hasVLiga(region) ? [1, 2, 3, 3.5, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),
+  levelsPath: (region = gameState.club.region) => (gameState && gameState.abroad ? [7, 8] : Selectors.hasVLiga(region) ? [1, 2, 3, 3.5, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),
   nextLevel: (l = gameState.club.leagueLevel) => { const P = Selectors.levelsPath(), i = P.indexOf(l); return i >= 0 ? P[Math.min(i + 1, P.length - 1)] : Math.min(8, Math.floor(l) + 1); },
   prevLevel: (l = gameState.club.leagueLevel) => { const P = Selectors.levelsPath(), i = P.indexOf(l); return i >= 0 ? P[Math.max(i - 1, 0)] : Math.max(1, Math.ceil(l) - 1); },
   stepLevel: (l, n) => { let x = l; for (let k = 0; k < Math.abs(n); k++) x = n > 0 ? Selectors.nextLevel(x) : Selectors.prevLevel(x); return x; },
@@ -10161,7 +10304,9 @@ const Selectors = {
     return Object.values(DATA.vLiga.vgroups).some((G) => G.some((g) => g.clubs.includes(club))) ? 3.5 : -1;
   },
   cupRounds: (c = gameState.cup) => (c && c.path === 'regional' ? DATA.cupRegional : DATA.cupCentral),
-  cupName: (c = gameState.cup) => (c && c.path === 'regional' ? Selectors.cupRegion()[0] + ' Puchar Polski' : 'Puchar Polski'),
+  cupName: (c = gameState.cup) => (gameState.abroad ? DATA.countries[gameState.abroad.country].cup : c && c.path === 'regional' ? Selectors.cupRegion()[0] + ' Puchar Polski' : 'Puchar Polski'),
+  country: () => (gameState.abroad ? DATA.countries[gameState.abroad.country] : null),
+  clubValue: () => Math.round(Math.max(0, Selectors.squadValue() * 0.6 + Selectors.econ() * 4000 * (0.5 + gameState.morale.fans / 100) + (gameState.stadium.level || 0) * Selectors.econ() * 700 + (gameState.stats.titles || 0) * Selectors.econ() * 1500 + gameState.finance.budget) / 1000) * 1000,
   cupRegion: () => { const i = gameState.club.region != null ? gameState.club.region : 0; return DATA.cupRegions[i] || DATA.cupRegions[0]; },
   // Mecz pucharowy po danej kolejce ligowej (środa), jeśli jesteśmy w grze
   cupAt: (kolejka) => {
@@ -10433,7 +10578,9 @@ const Storage = {
     try {
       const raw = localStorage.getItem(Storage.KEY);
       if (!raw) return null;
-      return Storage.migrate(JSON.parse(raw));
+      const st = JSON.parse(raw);
+      Engine.applyCountry(st);   // 14.x: ligi kraju przed migracją (inaczej zagraniczna liga zostałaby „naprawiona” na polską)
+      return Storage.migrate(st);
     } catch (e) {
       return null;
     }
@@ -10866,6 +11013,7 @@ const UI = {
     if (o && o.type === 'playoff' && gameState.seasonSummary && gameState.seasonSummary.playoff) return UI.playoffOverlay(gameState.seasonSummary.playoff);
     if (o && o.type === 'season' && gameState.seasonSummary) return UI.seasonOverlay(gameState.seasonSummary);
     if (o && o.type === 'youth' && gameState.youthPick && !gameState.youthPick.done) return UI.youthPickOverlay(gameState.youthPick);
+    if (o && o.type === 'clubSold' && gameState.saleOffers) return UI.clubSoldOverlay();
     if (o && o.type === 'transfer' && gameState.transfer.open) return UI.transferOverlay();
     if (o && o.type === 'rivalPlayer') return UI.rivalPlayerOverlay(o);
     if (o && o.type === 'auction' && gameState.transfer.auction) return UI.auctionOverlay(o);
@@ -11281,7 +11429,7 @@ const UI = {
 
   seasonOverlay(sm) {
     const verdict = {
-      title: ['🏆 MISTRZ POLSKI', 'text-amber-glow'], promo: ['⬆️ AWANS', 'text-grass'], podium: ['🥉 Podium', 'text-grass'], mid: ['Utrzymanie', 'text-paper-200'],
+      title: [gameState.abroad ? '🏆 MISTRZ KRAJU' : '🏆 MISTRZ POLSKI', 'text-amber-glow'], promo: ['⬆️ AWANS', 'text-grass'], podium: ['🥉 Podium', 'text-grass'], mid: ['Utrzymanie', 'text-paper-200'],
       euro: ['🇪🇺 EUROPEJSKIE PUCHARY', 'text-amber-glow'], poLost: ['💔 Przegrany baraż o awans', 'text-paper-200'], poSafe: ['😮‍💨 Utrzymanie w barażach', 'text-grass'],
       declined: ['🚫 Awans oddany – za mały stadion', 'text-stamp'], releg: ['⬇️ SPADEK', 'text-stamp'], forced: ['⚖️ Przymusowa degradacja', 'text-stamp'], banned: ['⛔ Awans odebrany za aferę', 'text-stamp'], licBlock: ['🚫 Awans zablokowany: brak VAR', 'text-stamp'], shame: ['🏮 Czerwona latarnia', 'text-stamp'],
     }[sm.outcome] || ['Koniec sezonu', 'text-paper-200'];
@@ -12291,7 +12439,7 @@ const UI = {
     const range = (a, b) => (a === b ? a : a + '–' + b);
     const dot = (c) => `<span class="inline-block w-2 h-2 ${c} align-middle"></span>`;
     const legend = [];
-    if (rl.top) legend.push(dot('bg-amber-400') + ' 1: Mistrz Polski (el. LM)');
+    if (rl.top) legend.push(dot('bg-amber-400') + ' 1: ' + (gameState.abroad ? 'Mistrz kraju' : 'Mistrz Polski') + ' (el. LM)');
     if (rl.up) legend.push(dot('bg-grass') + ' ' + range(1, rl.up) + ': awans');
     if (rl.upPO.length) legend.push(dot('bg-sky-500') + ' ' + range(rl.upPO[0], rl.upPO[rl.upPO.length - 1]) + ': baraż o awans');
     if (rl.euro.length) legend.push(dot('bg-sky-500') + ' 2: el. LM · 3: el. LE · 4: el. LKE');
@@ -12638,6 +12786,27 @@ const UI = {
     return UI.panel('⭐ Lista życzeń', (t && t.open ? 'Okno transferowe otwarte – zawodnicy z listy są na górze giełdy.' : 'Przy najbliższym oknie transferowym skaut wystawi ich na górze giełdy (⭐).') + ' Najwyżej 8 nazwisk.',
       rows || '<p class="text-[12px] italic text-ink-700">Pusto. Kliknij zawodnika w klasyfikacji ligi i dodaj go do listy.</p>');
   },
+  // 14.x: po sprzedaży klubu – emerytura albo zakup klubu za granicą
+  clubSoldOverlay() {
+    const cash = gameState.saleProceeds || 0;
+    const rows = (gameState.saleOffers || []).map((o, i) => { const C = DATA.countries[o.country]; const ok = o.price <= cash;
+      return `<button data-action="buy-abroad" data-i="${i}" ${ok ? '' : 'disabled'} class="btn-press w-full text-left rounded-xl px-3 py-2 mt-1.5 border ${ok ? 'bg-desk-800 border-desk-600' : 'bg-desk-900 border-desk-800 opacity-50'}">
+        <div class="flex items-center gap-2"><span class="text-[22px]">${C.flag}</span><div class="min-w-0 flex-1"><div class="text-[14px] font-bold truncate">${Utils.escape(o.club)}</div>
+        <div class="text-[11px] text-paper-400 truncate">${Utils.escape(C.name)} · ${Utils.escape(o.league)} · OVR ~${o.ovr}${o.troubled ? ' · ⚠️ klub w tarapatach' : ''}</div></div>
+        <div class="text-right"><div class="text-[13px] font-extrabold ${ok ? 'text-amber-glow' : 'text-stamp'}">${Utils.formatMoney(o.price)}</div><div class="text-[10px] text-paper-400">${ok ? 'kup' : 'za drogo'}</div></div></div></button>`; }).join('');
+    return UI.overlayFrame(`
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 pt-5 text-paper-100">
+        <div class="text-center text-[44px] leading-none">💼</div>
+        <p class="text-center text-[10.5px] uppercase tracking-[0.2em] text-amber-glow font-semibold mt-2">Klub sprzedany · ${Utils.escape(gameState.soldTo || '')}</p>
+        <h2 class="text-center text-[22px] font-extrabold leading-tight mt-1">Na koncie prezesa: ${Utils.formatMoney(cash)}</h2>
+        <p class="text-center text-[12px] text-paper-300 mt-1 leading-snug">Co dalej? Emerytura z wpisem do Hall of Fame – albo nowy rozdział: klub za granicą. Reszta pieniędzy po zakupie zostaje w kasie nowego klubu.</p>
+        <div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mt-3">✈️ Kluby na sprzedaż za granicą</div>
+        ${rows}
+      </div>
+      <div class="flex-shrink-0 px-4 pb-4 pt-2">
+        <button data-action="retire-sold" class="btn-press w-full h-12 rounded-xl bg-desk-700 text-paper-100 text-[14px] font-bold">🏁 Koniec kariery – podsumowanie i Hall of Fame</button>
+      </div>`, 'bg-desk-900');
+  },
   rivalPlayerOverlay(o) {
     const x = Engine.rivalPlayer(o.team, o.id) || (gameState.watchlist || []).find((w) => w.id === o.id);
     if (!x) return '';
@@ -12926,15 +13095,16 @@ const UI = {
       <div class="w-full max-w-2xl">
         <header class="text-center mb-6">
           <p class="text-paper-400 text-[11px] font-medium tracking-wider uppercase mb-3">Protokół z Walnego Zgromadzenia · Remiza OSP · Sezon ${g.season}, Tydzień ${g.week}</p>
-          ${g.kind === 'bankrupt' ? `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">BANKRUCTWO<br>KLUBU</h1>
+          ${g.kind === 'sold' ? `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-amber-glow leading-[1.05]">KLUB SPRZEDANY<br>– PREZES NA EMERYTURZE</h1>
+          <p class="mt-4 text-paper-300">Ostatni podpis, uścisk dłoni z nowym właścicielem i pamiątkowy szalik. Kariera zamknięta na własnych warunkach – wpis do Hall of Fame czeka.</p>` : g.kind === 'bankrupt' ? `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">BANKRUCTWO<br>KLUBU</h1>
           <p class="mt-4 text-paper-300">Syndyk z teczką, komornik z lawetą, lichwiarze z reklamówkami. Na drzwiach blaszaka wisi kartka: „Zamknięte do odwołania”.</p>` : `<h1 class="font-type text-3xl sm:text-5xl font-extrabold tracking-tight text-stamp leading-[1.05]">WYWIEZIONY NA TACZCE<br>SPOD BLASZAKA</h1>
           <p class="mt-4 text-paper-300">Taczka od Pana Heńka, eskorta: Koło Gospodyń Wiejskich. Na pożegnanie ktoś puścił disco-polo z telefonu.</p>`}
         </header>
         <section class="paper p-4 sm:p-8 relative">
-          <span class="inline-block px-2 py-0.5 rounded-md bg-stamp text-white text-xs font-bold mb-2">${g.kind === 'bankrupt' ? 'UPADŁOŚĆ' : 'ODWOŁANY'}</span>
-          <h2 class="text-base font-bold mb-2">Powód upadku</h2>
+          <span class="inline-block px-2 py-0.5 rounded-md ${g.kind === 'sold' ? 'bg-grass' : 'bg-stamp'} text-white text-xs font-bold mb-2">${g.kind === 'sold' ? 'EMERYTURA' : g.kind === 'bankrupt' ? 'UPADŁOŚĆ' : 'ODWOŁANY'}</span>
+          <h2 class="text-base font-bold mb-2">${g.kind === 'sold' ? 'Jak to się skończyło' : 'Powód upadku'}</h2>
           <p class="mb-5 leading-relaxed">${Utils.escape(g.reason || 'Nieznany. Protokolantka zgubiła długopis.')}</p>
-          <p class="mb-4 text-sm">Odwołany: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
+          <p class="mb-4 text-sm">${g.kind === 'sold' ? 'Prezes' : 'Odwołany'}: <b>${Utils.escape(Selectors.presName())}</b> · klub <b>${UI.colorsBadge(gameState.club.colors)} ${Utils.escape(gameState.club.name)}</b> (${Utils.escape(gameState.club.town)})</p>
           <h2 class="text-base font-bold mb-2">Bilans prezesury</h2>
           <table class="w-full text-sm mb-6">
             ${(() => { const cs = Selectors.careerScore(); return row('🏅 Wynik Kariery', cs.total + ' pkt · ' + cs.rank) + row('Trofea / prestiż / sezony / Europa', cs.parts.trofea + ' / ' + cs.parts.prestiz + ' / ' + cs.parts.sezony + ' / ' + cs.parts.europa); })()}
@@ -12942,9 +13112,9 @@ const UI = {
             ${row('Mecze (W-R-P)', st.matches + ' (' + st.wins + '-' + st.draws + '-' + st.losses + ')')}
             ${row('Bramki', st.goalsFor + ':' + st.goalsAgainst)}
             ${row('Najwyższa liga', DATA.leagueLevels[st.topLevel].name)}
-            ${row('Liga w chwili odwołania', Utils.escape(g.league || ''))}
+            ${row(g.kind === 'sold' ? 'Liga w chwili sprzedaży' : 'Liga w chwili odwołania', Utils.escape(g.league || ''))}${gameState.abroad ? row('Kariera za granicą', Utils.escape(DATA.countries[gameState.abroad.country].flag + ' ' + DATA.countries[gameState.abroad.country].name + ' (od sezonu ' + gameState.abroad.since + ', wcześniej ' + gameState.abroad.from + ')')) : ''}
             ${row('Awanse / spadki', st.promotions + ' / ' + st.relegations)}
-            ${row('Tytuły Mistrza Polski', st.titles)}
+            ${row(gameState.abroad ? 'Tytuły mistrzowskie' : 'Tytuły Mistrza Polski', st.titles)}
             ${row('Zjedzone kiełbaski u Pana Zenka', st.sausages)}
             ${row('Stan konta na koniec', Utils.formatMoney(g.budget || 0))}
             ${row('DNA klubu', '„' + Utils.escape(g.dna || '') + '”')}
@@ -13023,7 +13193,8 @@ const UI = {
       UI.tile('Kasa', Utils.formatMoney(gameState.finance.budget), 'stan konta', gameState.finance.budget < 0 ? 'text-stamp' : ''),
       UI.tile('Wypłaty', Utils.formatMoney(Selectors.weeklyPayroll()), 'na tydzień'),
       UI.tile('Ostatni tydzień', rep ? Utils.signedMoney(rep.total) : '–', rep ? 'Tydzień ' + rep.week : 'brak rozliczenia', rep ? (rep.total < 0 ? 'text-stamp' : 'text-grass') : ''),
-    ])) + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety']].concat(open ? [['food', 'Budka']] : []).concat([['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']]))
+    ])) + (gameState.club.leagueLevel >= 5 && gameState.transfer && gameState.transfer.open && gameState.clubSaleListed !== gameState.calendar.season && !gameState.clubSale
+      ? `<button data-action="list-club" class="btn-press w-full h-8 mb-1 rounded-lg bg-desk-800 border border-desk-600 text-[12px] text-paper-200 font-semibold truncate">🏷️ Wartość klubu ${Utils.formatMoney(Selectors.clubValue())} · wystaw na sprzedaż</button>` : '') + UI.subSegs('finance', view, [['report', 'Bilans'], ['tickets', 'Bilety']].concat(open ? [['food', 'Budka']] : []).concat([['merch', 'Sklep'], ['sponsor', 'Sponsor'], ['loans', 'Pożyczki'], ['stadium', 'Obiekt']]))
       + (views[view] || UI.reportCard)();
   },
 
@@ -13408,6 +13579,7 @@ const Actions = {
     const saved = Storage.load();
     if (!saved) return;
     gameState = saved;
+    Engine.applyCountry(gameState);   // 14.x: kariera za granicą – ligi kraju
     gameState.screen = 'game';
     if (gameState.u19) Engine.u19Fill();   // 14.x: starsze zapisy – kadra U19 uzupełniona do 16
     if (gameState.transfer && gameState.transfer.open) { Engine.capMarket(); Engine.repriceMarket(); }   // otwarte okno ze starszej wersji: przycinamy giełdę i liczymy ceny od nowa
@@ -13444,7 +13616,7 @@ const Actions = {
     const chosen = d && d.options[Number(el.dataset.option)];
     Engine.resolveDecision(el.dataset.decision, Number(el.dataset.option));
     // Każda scenka (także oferta w giełdzie) kończy się planszą konsekwencji z wyraźnymi zmianami
-    const negOpened = gameState.ui.overlay && gameState.ui.overlay.type === 'negotiation' && gameState.negotiation;   // 14.x: „Siadamy do negocjacji” – od razu ekran rozmów
+    const negOpened = (gameState.ui.overlay && gameState.ui.overlay.type === 'negotiation' && gameState.negotiation) || (gameState.ui.overlay && gameState.ui.overlay.type === 'clubSold');   // 14.x: „Siadamy do negocjacji” – od razu ekran rozmów
     if (d && d.cutscene && !negOpened) {
       const lines = gameState.log.filter((e) => e.id > before).reverse().map((e) => e.text.replace(/\s*\[[^\]]*\]\s*$/, ''));
       const inWindow = d.transfer && gameState.transfer.open;
@@ -13507,6 +13679,9 @@ const Actions = {
   'loan-buyout'(el) { Engine.loanBuyout(el.dataset.id); App.commit(); },
   'toggle-reg'(el) { Engine.toggleReg(el.dataset.id); App.commit(); },
   'talk-retire'(el) { const p = gameState.squad.find((x) => x.id === el.dataset.id); if (p && p.retiring && p.age < 39) { Engine.startNegotiation(p.id, 'renew'); } App.commit(); },
+  'buy-abroad'(el) { Engine.moveAbroad(+el.dataset.i); App.commit(); },
+  'retire-sold'() { if (confirm('Zakończyć karierę? Klub jest sprzedany – zapis trafi do Hall of Fame.')) { Engine.retireAfterSale(); App.commit(); } },
+  'list-club'() { if (gameState.transfer && gameState.transfer.open && gameState.clubSaleListed !== gameState.calendar.season && !gameState.clubSale && confirm('Wystawić klub na sprzedaż? Pierwszy chętny złoży ofertę od razu.')) { Engine.offerClubSale(true); gameState.ui.overlay = null; App.commit(); } },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
