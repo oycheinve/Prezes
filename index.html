@@ -238,11 +238,11 @@ const DATA = {
         ['Polonia Środa Wlkp.', 'Wikęd Luzino', 'Wda Świecie', 'Kluczevia Stargard', 'Błękitni Stargard', 'Lech Poznań II', 'Noteć Czarnków', 'Bałtyk Koszalin', 'Elana Toruń', 'Unia Swarzędz', 'Gedania Gdańsk', 'KKS Kalisz', 'Grom Nowy Staw', 'Flota Świnoujście', 'Chemik Bydgoszcz', 'Victoria Września', 'Lipno Stęszew', 'Kotwica Kórnik'],
         ['Zagłębie Sosnowiec', 'BKS Sparta Katowice', 'Odra Bytom Odrzański', 'Zagłębie Lubin II', 'ROW Rybnik', 'Karkonosze Jelenia Góra', 'Barycz Sułów', 'Górnik Polkowice', 'MKS Kluczbork', 'Miedź Legnica II', 'Stilon Gorzów', 'Stal Brzeg', 'KS Goczałkowice-Zdrój', 'Warta Gorzów', 'Ślęza Wrocław', 'Raków Częstochowa II', 'Carina Gubin', 'Polonia Nysa'],
         ['Chełmianka Chełm', 'KSZO Ostrowiec', 'Wisłoka Dębica', 'Naprzód Jędrzejów', 'Czarni Połaniec', 'Hetman Zamość', 'Wiślanie Skawina', 'Siarka Tarnobrzeg', 'Wisła Kraków II', 'JKS Jarosław', 'Star Starachowice', 'Kolbuszowa Dolna', 'Wieczysta Kraków II', 'Korona Kielce II', 'AKS 1947 Busko-Zdrój', 'Podlasie Biała Podlaska', 'Pogoń-Sokół Lubaczów', 'Moravia Morawica']], ordered: true },
-    { name: 'II Liga',        econ: 26, econ0: 22,  rivalBase: 2.86, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
+    { name: 'II Liga',        econ: 26, econ0: 22,  rivalBase: 2.74, skillBonus: 6, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 4, downPO: 14,   // 14. miejsce: baraż z wicemistrzem grupy III ligi
       pool: ['Znicz Pruszków', 'GKS Tychy', 'Górnik Łęczna', 'Olimpia Grudziądz', 'Podhale Nowy Targ', 'Zawisza Bydgoszcz', 'Sandecja Nowy Sącz', 'Stal Stalowa Wola', 'Rekord Bielsko-Biała', 'Hutnik Kraków', 'Chojniczanka Chojnice', 'Avia Świdnik', 'Legia II Warszawa', 'Lechia Zielona Góra', 'Sokół Kleczew', 'Śląsk II Wrocław', 'Świt Szczecin', 'Resovia Rzeszów'], ordered: true },
-    { name: 'I Liga',         econ: 70, econ0: 40,  rivalBase: 3.16, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
+    { name: 'I Liga',         econ: 70, econ0: 40,  rivalBase: 2.98, skillBonus: 7, teams: 18, up: 2, upPO: [3, 4, 5, 6], down: 3, downPO: null,
       pool: ['Pogoń Grodzisk Mazowiecki', 'Polonia Warszawa', 'Ruch Chorzów', 'ŁKS Łódź', 'Bruk-Bet Termalica', 'Lechia Gdańsk', 'Miedź Legnica', 'Warta Poznań', 'Polonia Bytom', 'Stal Rzeszów', 'Pogoń Siedlce', 'Arka Gdynia', 'Podbeskidzie Bielsko-Biała', 'Chrobry Głogów', 'Stal Mielec', 'Puszcza Niepołomice', 'Odra Opole', 'Unia Skierniewice'], ordered: true },
-    { name: 'Ekstraklasa',    econ: 220, econ0: 100,  rivalBase: 3.42, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
+    { name: 'Ekstraklasa',    econ: 220, econ0: 100,  rivalBase: 3.2, skillBonus: 8, teams: 18, up: 0, upPO: null, down: 3, downPO: null, euro: [2, 3, 4],
       pool: ['Lech Poznań', 'Górnik Zabrze', 'Pogoń Szczecin', 'Legia Warszawa', 'Wisła Kraków', 'Piast Gliwice', 'Zagłębie Lubin', 'GKS Katowice', 'Korona Kielce', 'Jagiellonia Białystok', 'Wisła Płock', 'Motor Lublin', 'Cracovia', 'Widzew Łódź', 'Śląsk Wrocław', 'Wieczysta Kraków', 'Radomiak Radom', 'Raków Częstochowa'], ordered: true },
   ],
 
@@ -2621,8 +2621,9 @@ const DATA = {
       cutscene: { icon: '🚐', place: 'Okno transferowe · parking pod sklepem', scripted: true },   // tylko w oknie transferowym
       transfer: true,
       prepare: () => {
-        const prospect = gameState.squad.filter((x) => !x.loan && Selectors.giantTarget(x)).sort((a, b) => Selectors.potential(b) - Selectors.potential(a) || a.age - b.age)[0];
-        const best = prospect || gameState.squad.slice().sort((a, b) => b.skill - a.skill)[0];
+        const og = (gameState.outgrown || {}).pid;   // 14.x: ten już ma ofertę „wyrósł z klubu”
+        const prospect = gameState.squad.filter((x) => !x.loan && x.id !== og && Selectors.giantTarget(x)).sort((a, b) => Selectors.potential(b) - Selectors.potential(a) || a.age - b.age)[0];
+        const best = prospect || gameState.squad.filter((x) => x.id !== og && !x.loan).sort((a, b) => b.skill - a.skill)[0];
         gameState.cutscenes.targetId = best ? best.id : null;
         gameState.cutscenes.buyer = prospect ? Utils.rand(Selectors.giants()) : null;
       },
@@ -2932,6 +2933,39 @@ const DATA = {
       ],
     },
 
+    // 14.x: zawodnik wyraźnie ponad poziom ligi – klub z wyższej półki składa ofertę, a on chce iść
+    outgrown: {
+      id: 'outgrown',
+      transfer: true,
+      cutscene: { icon: '📈', place: 'Gabinet prezesa · telefon od agenta', scripted: true },
+      player: () => gameState.squad.find((x) => x.id === (gameState.outgrown || {}).pid),
+      from: () => 'Agent zawodnika · oferta: ' + ((gameState.outgrown || {}).buyer || 'klub z wyższej ligi'),
+      title: () => { const p = gameState.squad.find((x) => x.id === (gameState.outgrown || {}).pid); return p ? Selectors.shortName(p) + ' wyrósł z klubu' : 'Zawodnik wyrósł z klubu'; },
+      body: () => { const o = gameState.outgrown || {}; const p = gameState.squad.find((x) => x.id === o.pid); if (!p) return 'Agent się rozłączył.'; return '„Prezesie, ' + Selectors.playerName(p) + ' to już inny poziom niż ' + Selectors.leagueName() + '. ' + o.buyer + ' daje ' + Utils.formatMoney(o.fee) + ' i trzy razy lepszy kontrakt. Albo go pan puści teraz, albo podwyżka jak w wyższej lidze – inaczej po sezonie odejdzie za darmo.”'; },
+      options: [
+        {
+          label: 'Sprzedać – takiej oferty się nie odrzuca',
+          hint: () => { const o = gameState.outgrown || {}; return '+' + Utils.formatMoney(o.fee || 0) + ', szatnia -2%'; },
+          effects: () => ({ budget: (gameState.outgrown || {}).fee || 0, lockerRoom: -2 }),
+          log: () => { const o = gameState.outgrown || {}; const p = gameState.squad.find((x) => x.id === o.pid); return p ? '📈 ' + Selectors.playerName(p) + ' odchodzi do klubu ' + o.buyer + '.' : 'Transfer nie doszedł do skutku.'; },
+          onChoose: () => { const o = gameState.outgrown || {}; const p = gameState.squad.find((x) => x.id === o.pid); if (p) { if (o.giant) Engine.giantAnnounce(p, o.buyer, o.fee, true); if (gameState.star.playerId === p.id) Engine.endStar(true); gameState.squad = gameState.squad.filter((x) => x.id !== p.id); if (gameState.transfer) gameState.transfer.sold = (gameState.transfer.sold || 0) + 1; } gameState.outgrown = null; },
+        },
+        {
+          label: 'Zatrzymać – pensja jak w wyższej lidze',
+          hint: () => { const p = gameState.squad.find((x) => x.id === (gameState.outgrown || {}).pid); return p ? 'Pensja ' + Utils.formatMoney(p.wage) + ' → ' + Utils.formatMoney(Selectors.outgrownWage(p)) + '/tydz., szatnia -4% (zazdrość)' : ''; },
+          effects: { lockerRoom: -4 },
+          log: 'Prezes podpisuje aneks. W szatni liczą, ile zarabia kolega.',
+          onChoose: () => { const p = gameState.squad.find((x) => x.id === (gameState.outgrown || {}).pid); if (p) { p.wage = Selectors.outgrownWage(p); p.loyalUntil = gameState.calendar.season + 1; delete p.wantsOut; } gameState.outgrown = null; },
+        },
+        {
+          label: 'Odmówić – ma ważny kontrakt',
+          hint: 'Szatnia -5%, zawodnik odejdzie po sezonie za darmo',
+          effects: { lockerRoom: -5 },
+          log: () => { const o = gameState.outgrown || {}; const p = gameState.squad.find((x) => x.id === o.pid); return p ? '😤 ' + Selectors.playerName(p) + ' trzaska drzwiami: „Po sezonie i tak mnie tu nie będzie”.' : ''; },
+          onChoose: () => { const o = gameState.outgrown || {}; const p = gameState.squad.find((x) => x.id === o.pid); if (p) p.wantsOut = o.buyer + ' (wolny transfer – wyrósł z klubu)'; gameState.outgrown = null; },
+        },
+      ],
+    },
     starDemand: {
       id: 'starDemand',
       transfer: true,           // w oknie transferowym pokazywana w zakładce „Oferty” giełdy
@@ -4182,15 +4216,35 @@ const Engine = {
     gameState.league.rivals.forEach((r) => {
       const prev = s.strength[r.name] || r.strength;
       // lekki dryf siły między sezonami, ale z powrotem w stronę „charakteru” klubu
-      s.strength[r.name] = Utils.clamp(prev * 0.5 + r.strength * 0.5 + Utils.randRange(-0.1, 0.1), 0.8, 3);
+      s.strength[r.name] = Utils.clamp(prev * 0.5 + r.strength * 0.5 + Utils.randRange(-0.1, 0.1), 0.8, Selectors.leagueBase() * 1.4);   // 14.x: sufit względem ligi (wcześniej stałe 3,0)
     });
     // Ambitni rywale: dwóch faworytów do awansu inwestuje przed sezonem – awans nie przychodzi sam
     const favs = gameState.league.rivals.slice().sort((a, b) => s.strength[b.name] - s.strength[a.name]).slice(0, 2);
     s.favorites = favs.map((r) => r.name);
-    favs.forEach((r) => { s.strength[r.name] = Utils.clamp(s.strength[r.name] * Utils.randRange(1.1, 1.2), 0.8, 3.4); });
+    favs.forEach((r) => { s.strength[r.name] = Utils.clamp(s.strength[r.name] * Utils.randRange(1.1, 1.2), 0.8, Selectors.leagueBase() * 1.55); });
+    Engine.leagueCatchUp();   // 14.x: dominujemy – czołówka ligi się zbroi
     Engine.clubSquadsNewSeason();   // kadry rywali: nowy sezon (wiek, rozwój, emerytury), statystyki od zera – po ustaleniu siły klubów
   },
 
+  // 14.x: liga rośnie razem z nami – gdy jesteśmy wyraźnie mocniejsi od czołówki, najlepsi rywale nadrabiają część dystansu
+  // (mocniej przy serii mistrzostw w tej samej lidze)
+  leagueCatchUp() {
+    const s = gameState.season;
+    const ls = gameState.lastSeason;
+    const lvl = gameState.club.leagueLevel;
+    if (ls && ls.pos === 1 && gameState.domLevel === lvl) gameState.domRun = (gameState.domRun || 0) + 1;
+    else gameState.domRun = ls && ls.pos === 1 && ls.outcome !== 'promo' ? 1 : 0;
+    gameState.domLevel = lvl;
+    const lineup = Engine.pickLineup([]);
+    if (!lineup.length) return;
+    const ours = Engine.teamStrength(lineup, Engine.chemistry(lineup));
+    const top = gameState.league.rivals.map((r) => r.name).sort((a, b) => s.strength[b] - s.strength[a]).slice(0, 4);
+    const best = s.strength[top[0]] || 0;
+    if (ours <= best * 1.02) return;
+    const k = 0.3 + 0.12 * Math.min(3, gameState.domRun || 0);
+    top.forEach((t, i) => { s.strength[t] = Math.round(Math.min(ours * 1.05, s.strength[t] + (ours - s.strength[t]) * k * (1 - i * 0.2)) * 100) / 100; });
+    Engine.addLog('📈 Liga się zbroi: ' + top.slice(0, 2).join(', ') + ' i reszta czołówki inwestują, żeby nam dorównać' + (gameState.domRun >= 2 ? ' (seria ' + gameState.domRun + ' mistrzostw – cała liga gra przeciw nam)' : '') + '.', 'system');
+  },
   // Nazwisko strzelca drużyny spoza naszej ligi (puchary, baraże) – losowane, bez statystyk
   oppScorerName(foreign) {
     if (foreign) { const P = DATA.proNames[Utils.rand(['iber', 'balk', 'north'])]; return Utils.rand(P.first) + ' ' + Utils.rand(P.last); }   // rywal z Europy
@@ -7286,13 +7340,23 @@ const Engine = {
     Engine.addLog('🧓 Zapowiedź końca kariery po sezonie: ' + list.map((p) => Selectors.playerName(p) + ' (' + p.age + ' l.)').join(', ') + '. Nowy kontrakt może ich jeszcze zatrzymać (profil zawodnika).', 'event');
     Engine.alert('🧓', 'Ostatni sezon weteranów', list.map((p) => Selectors.shortName(p) + ' (' + p.age + ')').join(', ') + ' – kończą karierę po sezonie. Chcesz zatrzymać? Profil zawodnika → „Namów na dalszą grę”' + (list.some((p) => p.age >= 39) ? ' (39+ już nie da się namówić)' : '') + '.', 'info');
   },
+  maybeOutgrown() {
+    const cands = gameState.squad.filter((p) => Selectors.outgrown(p) && p.id !== gameState.star.playerId && !p.wantsOut).sort((a, b) => b.skill - a.skill);
+    if (!cands.length || Math.random() > 0.8) return;
+    const p = cands[0];
+    const giant = gameState.club.leagueLevel >= 7 && Selectors.giantTarget(p);
+    const lvlUp = Selectors.nextLevel();
+    const buyer = giant ? Utils.rand(Selectors.giants()) : gameState.club.leagueLevel >= 8 ? Utils.rand(DATA.euro.clubs[2]) : Engine.otherClubName(lvlUp > gameState.club.leagueLevel ? 2 : 1);
+    gameState.outgrown = { pid: p.id, buyer, giant, fee: Math.round(Selectors.sellPrice(p) * 1.1 / 10) * 10 };
+    Engine.pushDecision('outgrown');
+  },
   maybeStarDemand() {
     const st = gameState.star;
     if (Selectors.starPlayer()) { Engine.pushDecision('starDemand'); return; }
     const lineup = Engine.pickLineup([]);
     if (!lineup.length) return;
     const avg = lineup.reduce((s, p) => s + Selectors.ovr(p), 0) / lineup.length;
-    const pool = gameState.squad.filter((p) => !p.loan && p.starAsked !== gameState.calendar.season && !(p.loyalUntil >= gameState.calendar.season) && Engine.isTooGood(p, avg));
+    const pool = gameState.squad.filter((p) => !p.loan && p.id !== (gameState.outgrown || {}).pid && !p.wantsOut && p.starAsked !== gameState.calendar.season && !(p.loyalUntil >= gameState.calendar.season) && Engine.isTooGood(p, avg));
     // 14.x: gwiazda buntuje się chętniej, gdy klub nie walczy o najwyższe cele
     if (!pool.length || Math.random() > (Selectors.clubAmbitious() ? 0.35 : 0.85)) return;
     const p = pool.sort((a, b) => Selectors.ovr(b) - Selectors.ovr(a))[0];
@@ -7504,6 +7568,7 @@ const Engine = {
     Engine.rivalsToMarket();      // kluby z ligi wystawiają też swoich zawodników (m.in. alter-ego)
     Engine.openForeignMarket();   // zagraniczna giełda (od II ligi)
     Engine.capMarket();           // bez „kosmitów” na krajowej giełdzie niższych lig
+    Engine.maybeOutgrown();   // 14.x: zawodnik wyrósł z klubu – oferta z wyższej półki
     if (Selectors.overLimit()) {   // 14.x: powroty z wypożyczeń ponad limit kadry
       const n = Selectors.overLimit();
       Engine.addLog('📵 Kadra ' + Selectors.regCount() + '/' + CONFIG.maxSquad + ' – po powrotach z wypożyczeń jest nadmiar ' + n + '. W oknie wybierz niezarejestrowanych albo sprzedaj, wypożycz lub odeślij do U19.', 'system');
@@ -9220,6 +9285,10 @@ const Engine = {
 const Selectors = {
   leagueName: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).name,
   econ: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).econ,
+  // 14.x: zawodnik ponad poziom ligi (OVR powyżej najlepszych z krajowej giełdy tej ligi o ok. 2 klasy)
+  outgrown: (p) => !p.loan && !p.u19Dev && p.age <= 32 && p.skill >= 10 + Selectors.levelSkillBonus() && !(p.loyalUntil >= gameState.calendar.season),
+  outgrownWage: (p) => Math.max(p.wage * 2, Math.round(p.wage * 1.8 * (DATA.leagueLevels[Selectors.nextLevel()] || {}).econ / Math.max(1, Selectors.econ()) / 5) * 5),
+  leagueBase: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).rivalBase,
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => Math.round((sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
