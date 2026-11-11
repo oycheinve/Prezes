@@ -773,11 +773,12 @@ const DATA = {
   },
 
   /* ----- Europejskie puchary (dla czołówki Ekstraklasy) ----- */
+  // 14.x: siła rywali ok. 1,5 ponad dawną skalę – mistrz Polski (ok. 3,9) w eliminacjach LM jest słabszy; Europa dopiero po latach budowy (talenty, gwiazdy, sztab)
   euro: {
     comps: {
-      UCL:  { name: 'Liga Mistrzów',     short: 'LM',  icon: '⭐', base: 2.95, mult: 1,   lpGames: 8, qualFee: 4000, lpFee: 40000, lower: 'UEL' },
-      UEL:  { name: 'Liga Europy',       short: 'LE',  icon: '🟠', base: 2.7,  mult: 0.4, lpGames: 8, qualFee: 2000, lpFee: 16000, lower: 'UECL' },
-      UECL: { name: 'Liga Konferencji',  short: 'LKE', icon: '🟢', base: 2.45, mult: 0.2, lpGames: 6, qualFee: 1200, lpFee: 8000,  lower: null },
+      UCL:  { name: 'Liga Mistrzów',     short: 'LM',  icon: '⭐', base: 4.65, mult: 1,   lpGames: 8, qualFee: 4000, lpFee: 40000, lower: 'UEL' },
+      UEL:  { name: 'Liga Europy',       short: 'LE',  icon: '🟠', base: 4.3,  mult: 0.4, lpGames: 8, qualFee: 2000, lpFee: 16000, lower: 'UECL' },
+      UECL: { name: 'Liga Konferencji',  short: 'LKE', icon: '🟢', base: 3.95, mult: 0.2, lpGames: 6, qualFee: 1200, lpFee: 8000,  lower: null },
     },
     // etapy: kolejka ligi (przy 34 kolejkach), w której gramy; dwumecz albo pojedynczy mecz
     stages: {
@@ -6243,7 +6244,7 @@ const Engine = {
   euroOpponent(stage) {
     const eu = gameState.euro;
     const s = Math.round((DATA.euro.comps[eu.comp].base + DATA.euro.stages[stage].add + Utils.randRange(-0.15, 0.15)) * 100) / 100;
-    const tier = s < 2.6 ? 0 : s < 2.95 ? 1 : s < 3.35 ? 2 : 3;
+    const tier = s < 4.15 ? 0 : s < 4.55 ? 1 : s < 5 ? 2 : 3;   // 14.x: Europa wyraźnie mocniejsza od Ekstraklasy
     const used = eu.history.map((x) => x.opp);
     const pool = DATA.euro.clubs[tier].filter((n) => !used.includes(n));
     return { name: Utils.rand(pool.length ? pool : DATA.euro.clubs[tier]), s, tier };
@@ -6270,7 +6271,7 @@ const Engine = {
     for (let i = 0; i < 8; i++) eu.ko.KPO.push(Engine.euroKoTie(st[8 + i], st[23 - i]));
     for (let i = 0; i < 8; i++) eu.ko.R16.push(Engine.euroKoTie(st[i], null, 7 - i));   // rywal: zwycięzca baraży (pary 9/24 → 1. miejsce itd.)
   },
-  euroKoStr: (name) => { const T = gameState.euro.lpTable || {}; return (T[name] && T[name].s) || 3; },
+  euroKoStr: (name) => { const T = gameState.euro.lpTable || {}; return (T[name] && T[name].s) || 4.7; },
   // Mecz cudzej pary: poisson wg siły, gospodarz z lekką przewagą
   euroKoLeg(t, leg, neutral) {
     const sa = Engine.euroKoStr(t.a), sb = Engine.euroKoStr(t.b), r = sa / sb;
@@ -12119,7 +12120,7 @@ const UI = {
     const eu = gameState.euro;
     const T = eu.lpTable || {};
     const s = T[eur.opp] ? T[eur.opp].s : (eu.nextOpp && eu.nextOpp.opp && eu.nextOpp.opp.name === eur.opp ? eu.nextOpp.opp.s : null);
-    const level = s == null ? 'rywal poznamy w losowaniu' : s >= 3.45 ? 'gigant Europy' : s >= 3.15 ? 'europejska czołówka' : s >= 2.85 ? 'solidny europejski klub' : 'skromny mistrz małej ligi';
+    const level = s == null ? 'rywal poznamy w losowaniu' : s >= 5.1 ? 'gigant Europy' : s >= 4.75 ? 'europejska czołówka' : s >= 4.4 ? 'solidny europejski klub' : 'skromny mistrz małej ligi';
     const inj = gameState.squad.filter((p) => !p.loan && p.injured > 0);
     const sus = gameState.squad.filter((p) => !p.loan && p.suspended > 0);
     const risk = gameState.squad.filter((p) => !p.loan && (p.yellows || 0) % 4 === 3);
