@@ -4966,6 +4966,9 @@ const Engine = {
     const score = (p) => {
       if (youngest && p.id === youngest.id) return 99;
       let s = p.skill + Engine.profileFit(p, coach.style) * 1.2;
+      // 14.x: ukryta kondycja – trener sadza zmęczonych, gdy ma kim ich zastąpić (rotacja)
+      const c = p.cond != null ? p.cond : 100;
+      s -= (100 - c) * 0.06 + (c < 55 ? 2 : 0);
       if (coach.prefers === 'veterans' && p.age >= 30) s += 1.5;
       if (coach.prefers === 'youth' && p.age <= 24) s += 1;
       return s;
@@ -5080,8 +5083,9 @@ const Engine = {
 
     // --- Siła i oczekiwane gole ---
     const hang = gameState.relegHangover > 0 ? 1 - 0.012 * gameState.relegHangover : 1;   // 14.x: kac spadkowy słabnie z każdym meczem
+    const condF = lineup.length ? 1 + 0.16 * (lineup.reduce((a, p) => a + (p.cond != null ? p.cond : 100), 0) / lineup.length - 85) / 100 : 1;   // 14.x: zmęczona XI gra słabiej, świeża lepiej (średnio ~85 = bez zmian)
     if (!cup && gameState.relegHangover > 0) gameState.relegHangover--;
-    const ourS = hang * Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost)) * (1 - Selectors.backbone().total) * Selectors.relationFactor();   // 13.94: ściana trudności
+    const ourS = hang * condF * Engine.teamStrength(lineup, chem) * (1 + (cup ? 0 : coachState.carpetBoost)) * (1 - Selectors.backbone().total) * Selectors.relationFactor();   // 13.94: ściana trudności
     if (!cup) coachState.carpetBoost = 0;
     const oppS = cup ? cup.oppS : gameState.season.strength[rival.name];
     const style = DATA.styles[coach.style];
@@ -5133,7 +5137,8 @@ const Engine = {
       const pitchRisk = fixture.home && gameState.stadium.pitch < 30 ? 1.3 : 1;   // kretowisko łamie kostki
       if (p.injProne == null) p.injProne = Math.round(Utils.clamp(0.6 + Math.random() * Math.random() * 1.2, 0.6, 1.5) * 100) / 100;
       const ageRisk = (p.age >= 32 ? 1.3 : 1) * (p.fragile ? 1.6 : 1) * (Selectors.coachTrait('hardTraining') ? 1.5 : 1) * p.injProne;
-      if (Math.random() < 0.02 * Selectors.fizjoInjMult() * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk * (1 + Selectors.fatiguePenalty() * 4)) {
+      const tired = 1 + (100 - (p.cond != null ? p.cond : 100)) / 100;   // 14.x: zmęczony łatwiej łapie uraz
+      if (Math.random() < 0.02 * Selectors.fizjoInjMult() * (weather.rain ? 1.4 : 1) * pitchRisk * ageRisk * tired * (1 + Selectors.fatiguePenalty() * 4)) {
         const severe = Math.random() < 0.15 * Math.max(0.4, 1 - fizjo * 0.12);   // 14.x: nawet najlepszy lekarz nie wyklucza poważnego urazu   // poważny uraz: więzadła, złamanie
         const base = severe ? Utils.randInt(5, 9) : Utils.randInt(1, 4);
         p.injured = Math.max(severe ? 3 : 1, base - Math.floor(fizjo / 2) - (severe && fizjo >= 4 ? 2 : 0));   // minimum: lekki uraz 1 tydz., poważny 3 tyg.
@@ -5144,6 +5149,7 @@ const Engine = {
 
     // --- Strzelcy i doświadczenie ---
     lineup.forEach((p) => { p.apps++; p.seasonApps++; Engine.cstat(p).apps++; });
+    Engine.fatigue(lineup, !!cup);   // 14.x: ukryta kondycja
     const scorerCount = {};
     const goalEvents = [];   // strzelec + asystent – do ekranu meczowego
     const ourRedMin = Math.min(91, ...cards.filter((c) => c.us && c.card === 'R').map((c) => c.min));
@@ -7111,6 +7117,23 @@ const Engine = {
     Engine.addLog('🔁 Wykup: ' + Selectors.playerName(p) + ' z ' + b.club + ' na stałe za ' + Utils.formatMoney(price) + ' (' + (dv.pct > 0 ? '+' : '') + dv.pct + '% wartości · ' + dv.label.replace(/^\S+ /, '').toLowerCase() + ').', 'decision');
     Engine.startNegotiation(p.id, 'sign', price);   // zawodnik musi jeszcze podpisać kontrakt – zerwanie = zwrot pieniędzy
   },
+  // 14.x: ukryta kondycja (0–100) – nie pokazujemy jej graczowi; wpływa na skład, siłę i urazy
+  fatigue(lineup, midweek) {
+    lineup.forEach((p) => {
+      const base = p.pos === 'GK' ? 5 : 12;
+      p.condPlayedWeek = gameState.calendar.week;
+      const age = p.age >= 33 ? 6 : p.age >= 30 ? 3 : p.age <= 21 ? -3 : 0;
+      const coachLoad = Selectors.coachTrait('hardTraining') ? 2 : 0;
+      p.cond = Utils.clamp((p.cond != null ? p.cond : 100) - (base + age + coachLoad) * (midweek ? 1.15 : 1) * Utils.randRange(0.85, 1.15), 25, 100);
+    });
+  },
+  recoverCondition() {
+    const fizjo = Selectors.staffLevel('fizjo');
+    gameState.squad.forEach((p) => {
+      const rest = p.cond == null ? 0 : 10 + fizjo * 0.8 + (p.age <= 23 ? 2 : p.age >= 31 ? -2 : 0) + (p.condPlayedWeek === gameState.calendar.week ? 0 : 8);   // grający co tydzień powoli tracą świeżość, odpoczywający szybko wracają
+      if (p.cond != null) p.cond = Math.min(100, p.cond + rest);
+    });
+  },
   generatePlayer(opts = {}) {
     if (!opts.pos && gameState.squad.filter((p) => p.pos === 'GK').length < 2) opts = { ...opts, pos: 'GK' };   // brakuje bramkarza w kadrze
     const p = Engine.makePlayer(opts);
@@ -8949,6 +8972,7 @@ const Engine = {
       }
     },
     function starRebellion() {
+      Engine.recoverCondition();   // 14.x: tygodniowa regeneracja (ukryta kondycja)
       Engine.starTick();
       // 14.x: w połowie sezonu gwiazda przerastająca ligę stawia warunki, jeśli klub nie walczy o czołówkę
       const rounds = (gameState.season.rounds || []).length;
