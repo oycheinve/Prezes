@@ -5190,6 +5190,7 @@ const Engine = {
     // Gole rywala: w lidze konkretni zawodnicy z jego kadry (te same, które trafiają do klasyfikacji);
     // w pucharach – zawodnicy spoza naszej ligi, losowani na ten mecz
     let oppEv = Engine._oppGoals;
+    if (cup && cup.euro) oppEv = Engine.euroCredit(rival.name, ga, gf);   // 14.x: strzelcy rywala z Europy trafiają do klasyfikacji pucharów
     if (!oppEv || oppEv.length !== ga) {
       const foreign = cup && cup.euro;
       const pool = [0, 1, 2].map(() => Engine.oppScorerName(foreign));
@@ -6234,6 +6235,49 @@ const Engine = {
   },
 
   /* ----- Europejskie puchary ----- */
+  // 14.x: klasyfikacje europejskich pucharów – każda drużyna ma stałą kadrę (kluby z naszej ligi: ich prawdziwi zawodnicy),
+  // gole, asysty, występy i noty liczą się z wszystkich meczów pucharów (także bez naszego udziału)
+  euroSquad(team) {
+    const season = gameState.calendar.season;
+    if (!gameState.euroStats || gameState.euroStats.season !== season) gameState.euroStats = { season, teams: {} };
+    const T = gameState.euroStats.teams;
+    if (T[team]) return T[team];
+    const home = (gameState.clubSquads || {})[team];
+    if (home && home.squad && home.squad.length) {
+      T[team] = home.squad.slice(0, 18).map((x) => ({ id: x.id, n: x.n, pos: x.pos, sk: x.skill, apps: 0, g: 0, a: 0, rs: 0, rc: 0 }));
+    } else {
+      const P = DATA.proNames[Utils.rand(['iber', 'balk', 'north'])];
+      const pos = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'DEF', 'MID', 'FWD', 'GK', 'MID'];
+      T[team] = pos.map((ps, i) => { gameState.nextRivalId = (gameState.nextRivalId || 0) + 1; return { id: 'e' + gameState.nextRivalId, n: Utils.rand(P.first) + ' ' + Utils.rand(P.last), pos: ps, sk: i < 11 ? 2 : 1, apps: 0, g: 0, a: 0, rs: 0, rc: 0 }; });
+    }
+    return T[team];
+  },
+  // Rozpisanie wyniku drużyny na zawodników; zwraca zdarzenia bramkowe { n, a } (do relacji naszego meczu)
+  euroCredit(team, gf, ga) {
+    const sq = Engine.euroSquad(team);
+    const gks = sq.filter((x) => x.pos === 'GK'), field = sq.filter((x) => x.pos !== 'GK').sort((a, b) => (b.sk || 0) - (a.sk || 0));
+    const xi = [gks[0] || sq[0]].concat(field.slice(0, 7), Utils.shuffle(field.slice(7)).slice(0, 3));   // trzon + rotacja
+    const ev = [];
+    for (let i = 0; i < gf; i++) {
+      const sc = Utils.weightedPick(xi, (x) => ({ GK: 0.02, DEF: 0.8, MID: 2.5, FWD: 5 }[x.pos]));
+      const mates = xi.filter((x) => x !== sc);
+      const as = Math.random() < 0.75 ? Utils.weightedPick(mates, (x) => ({ GK: 0.1, DEF: 1.2, MID: 4, FWD: 2.5 }[x.pos])) : null;
+      sc.g++; if (as) as.a++;
+      ev.push({ n: sc.n, a: as ? as.n : null, sc, as });
+    }
+    xi.forEach((x) => {
+      x.apps++;
+      // nota jak w lidze: wynik, gole, czyste konto obrony, spłaszczenie wysokich not
+      const g = ev.filter((e) => e.sc === x).length;
+      let r = 6 + (gf > ga ? 0.5 : gf < ga ? -0.5 : 0) + Utils.randRange(-0.6, 0.6) + (g ? 1.2 + (g - 1) * 0.9 : 0);
+      if (x.pos === 'GK' || x.pos === 'DEF') r += ga === 0 ? 0.8 : -0.25 * Math.max(0, ga - 1);
+      if (x.pos === 'FWD' && !g) r -= 0.3;
+      if (r > 7.5) r = 7.5 + (r - 7.5) * 0.7;
+      if (r > 9) r = 9 + (r - 9) * 0.4;
+      x.rs = Math.round((x.rs + Math.round(Utils.clamp(r, 1, 10) * 10) / 10) * 10) / 10; x.rc++;
+    });
+    return ev.map((e) => ({ n: e.n, a: e.a }));
+  },
   euroSetup(q) {
     const C = DATA.euro.comps[q.comp];
     gameState.euro = { season: gameState.calendar.season, comp: q.comp, origin: q.comp, path: q.path, stage: q.comp === 'UEL' ? 'Q3' : 'Q2',
@@ -6306,8 +6350,9 @@ const Engine = {
       const k = Selectors.euroKolejka(DATA.euro.stages[stg].kolejka), single = stg === 'F';
       ties.forEach((t) => {
         if (!t.a || !t.b || t.w || t.a === US) return;
-        if (!t.l1 && kolejka >= k) t.l1 = Engine.euroKoLeg(t, 1, single);
-        if (!single && t.l1 && !t.l2 && kolejka >= k + 1) t.l2 = Engine.euroKoLeg(t, 2);
+        const credit = (l) => { Engine.euroCredit(t.a, l[0], l[1]); Engine.euroCredit(t.b, l[1], l[0]); return l; };   // 14.x: klasyfikacje pucharów
+        if (!t.l1 && kolejka >= k) t.l1 = credit(Engine.euroKoLeg(t, 1, single));
+        if (!single && t.l1 && !t.l2 && kolejka >= k + 1) t.l2 = credit(Engine.euroKoLeg(t, 2));
         if (t.l1 && (single || t.l2)) Engine.euroKoDecide(t);
       });
       if (ties.every((t) => t.w)) Engine.euroKoFill(stg);
@@ -6365,6 +6410,7 @@ const Engine = {
       const r = a.s / b.s;
       const ag = Utils.poisson(Math.max(0.15, 1.1 * Math.pow(r, 1.6) * 1.1)), bg = Utils.poisson(Math.max(0.15, 1.1 * Math.pow(1 / r, 1.6) / 1.1));   // Europa: mecze taktyczne
       Engine.euroLpRow(a, ag, bg); Engine.euroLpRow(b, bg, ag);
+      Engine.euroCredit(rest[i], ag, bg); Engine.euroCredit(rest[i + 1], bg, ag);   // 14.x: klasyfikacje pucharów
     }
   },
   euroLpRow(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts++; } else r.l++; },
@@ -12294,7 +12340,9 @@ const UI = {
     Engine.ensureRivalIds();
     gameState.squad.forEach((p) => { const c = p.cs && p.cs[ctx]; if (c && c.apps) rows.push({ pid: p.id, name: Selectors.shortName(p), team: Selectors.clubDisplayName(), pos: p.pos, age: p.age, ovr: Selectors.ovr(p), apps: c.apps, g: c.g, a: c.a, r: c.rc ? c.rs / c.rc : null, us: true }); });
     if (ctx === 'league') Object.entries(gameState.clubSquads || {}).forEach(([team, c]) => { if (!gameState.season.table[team]) return; c.squad.forEach((x) => { if (x.apps) rows.push({ rid: x.id, tm: team, wl: (gameState.watchlist || []).some((w) => w.id === x.id), name: x.n, team: Selectors.teamName(team), pos: x.pos, age: x.age, ovr: Selectors.ovrPlain(x.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null, us: false }); }); });
-    const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : 1;
+    if (ctx === 'euro' && euroOn && gameState.euroStats && gameState.euroStats.season === gameState.calendar.season) Object.entries(gameState.euroStats.teams).forEach(([team, sq]) => { if (team === US) return; sq.forEach((x) => { if (!x.apps) return; const rp = Engine.rivalPlayer(team, x.id); rows.push(rp ? { rid: rp.id, tm: team, name: x.n, team, pos: x.pos, age: rp.age, ovr: Selectors.ovrPlain(rp.skill), apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null } : { eu: true, name: x.n, team, pos: x.pos, apps: x.apps, g: x.g, a: x.a, r: x.rc ? x.rs / x.rc : null }); }); });
+    const euroGames = ctx === 'euro' ? Math.max(0, ...rows.filter((x) => x.us).map((x) => x.apps), ...rows.filter((x) => x.eu).map((x) => x.apps)) : 0;
+    const minApps = ctx === 'league' ? Math.max(1, Math.floor((gameState.calendar.round || 0) * 0.3)) : ctx === 'euro' ? Math.max(1, Math.floor(euroGames * 0.3)) : 1;
     const val = (x) => (sortKey === 'r' ? (x.apps >= minApps && x.r != null ? x.r : -1) : x[sortKey]);
     rows.sort((x, y) => val(y) - val(x) || y.g - x.g || y.a - x.a || (y.r || 0) - (x.r || 0));
     rows.forEach((x, i) => { x.rank = i + 1; });
@@ -12305,12 +12353,12 @@ const UI = {
     const body = top.map((x, i) => `
       <tr class="border-b border-paper-300 last:border-0 ${x.us ? 'bg-amber-glow/25' : ''}">
         <td class="py-[3px] pl-1 pr-1 text-ink-700 text-right">${x.rank}.</td>
-        <td class="py-[3px] pr-1 max-w-0 w-full"><button ${x.us ? `data-action="player-open" data-id="${x.pid}"` : `data-action="rival-player" data-team="${Utils.escape(x.tm)}" data-id="${x.rid}"`} class="block w-full text-left"><div class="truncate ${x.us ? 'font-bold' : ''}">${x.wl ? '⭐ ' : ''}${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()} · ${x.age} l. · OVR ${x.ovr} · ${x.apps} m.</div></button></td>
+        <td class="py-[3px] pr-1 max-w-0 w-full"><button ${x.us ? `data-action="player-open" data-id="${x.pid}"` : x.eu ? 'type="button" tabindex="-1"' : `data-action="rival-player" data-team="${Utils.escape(x.tm)}" data-id="${x.rid}"`} class="block w-full text-left"><div class="truncate ${x.us ? 'font-bold' : ''}">${x.wl ? '⭐ ' : ''}${Utils.escape(x.name)}</div><div class="truncate text-[10px] text-ink-700">${Utils.escape(x.team)} · ${DATA.positions[x.pos].label.toLowerCase()}${x.eu ? '' : ' · ' + x.age + ' l. · OVR ' + x.ovr} · ${x.apps} m.</div></button></td>
         <td class="px-1 text-right ${sortKey === 'g' ? 'font-bold' : ''}">${x.g}</td><td class="px-1 text-right ${sortKey === 'a' ? 'font-bold' : ''}">${x.a}</td>
         <td class="px-1 pr-1.5 text-right ${sortKey === 'r' ? 'font-bold' : ''}">${x.r != null ? x.r.toFixed(2) : '–'}</td>
       </tr>`).join('');
     const empty = ctx === 'euro' && !euroOn ? 'Klub nie gra w tym sezonie w europejskich pucharach.' : ctx === 'cup' ? 'Jeszcze żadnego meczu w ' + Utils.escape(Selectors.cupName()) + ' w tym sezonie.' : ctx === 'euro' ? 'Europejska przygoda jeszcze się nie zaczęła.' : 'Sezon jeszcze się nie zaczął – klasyfikacje ruszą po 1. kolejce.';
-    const note = ctx === 'league' ? 'Klasyfikacja całej ligi (Twoi podświetleni). Nota od ' + minApps + ' m. Nagłówek sortuje, zawodnik otwiera profil.' : 'Twoi zawodnicy w tych rozgrywkach. Kliknij nagłówek, by sortować.';
+    const note = ctx === 'league' ? 'Klasyfikacja całej ligi (Twoi podświetleni). Nota od ' + minApps + ' m. Nagłówek sortuje, zawodnik otwiera profil.' : ctx === 'euro' ? 'Klasyfikacja wszystkich drużyn w naszych pucharach (Twoi podświetleni). Nota od ' + minApps + ' m. Nagłówek sortuje.' : 'Twoi zawodnicy w tych rozgrywkach. Kliknij nagłówek, by sortować.';
     return picker + `<section class="paper py-0.5 mb-1 overflow-hidden">
         ${top.length ? `<table class="w-full text-[11.5px]"><tr class="text-[10px]"><th></th><th class="text-left uppercase text-ink-700">Zawodnik</th>${th('g', 'Gole')}${th('a', 'Asy')}${th('r', 'Nota')}</tr>${body}</table>` : `<p class="text-[12px] italic text-ink-700 px-2 py-2">${empty}</p>`}
       </section><p class="text-[10.5px] text-paper-400 leading-snug">${note}</p>`;
