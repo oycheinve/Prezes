@@ -149,7 +149,8 @@ const CONFIG = {
   fedHeavy: 12,             // ban na 2 okienka albo degradacja
   debtBailiffRatio: 12,     // komornik: dług = 12 tygodni przychodów klubu
   debtBankruptRatio: 20,    // bankructwo: dług ponad 20 tygodni przychodów przez kilka tygodni z rzędu
-  municipalGrant: 80,       // tygodniowa dotacja gminy na sport (×ekonomia ligi)
+  municipalGrant: 100,      // tygodniowa dotacja gminy na sport (×ekonomia ligi) – 14.x: 80 → 100
+  staffWageMult: 0.8,       // 14.x: łagodniejsza ekonomia – sztab, dyrektor i sztab U19 tańsi o 20%
 };
 
 const US = 'US';            // identyfikator naszego klubu w terminarzu i tabeli
@@ -3648,6 +3649,7 @@ function createInitialState() {
   return {
     version: CONFIG.saveVersion,
     screen: 'start',            // 'start' | 'game'
+    econEase14: true,           // 14.x: nowa gra – cenniki sztabu już obniżone (bez ponownej migracji)
     activeTab: 'desk',
     rental: null,               // 13.96: wynajęty stadion (awans bez własnego obiektu)
     stadiumDilemma: null,       // 13.96: oczekujący dylemat licencyjny po awansie
@@ -8924,7 +8926,7 @@ const Engine = {
     function fixedCosts() {
       const e = Selectors.econ();
       const lime = Math.round(Utils.randInt(15, 25) * e * (gameState.club.character === 'rural' ? 0.8 : 1)), power = Math.round(Utils.randInt(20, 35) * e), laundry = Math.round(Utils.randInt(25, 40) * e);
-      Engine.money('Koszty stałe (wapno, prąd, pranie)', -(lime + power + laundry));
+      Engine.money('Koszty stałe (wapno, prąd, pranie)', -Math.round((lime + power + laundry) * 0.8));   // 14.x: koszty stałe −20%
       Engine.addLog('🧾 Koszty stałe: wapno do linii ' + lime + ' zł, prąd w blaszaku ' + power + ' zł, pranie strojów u pani Krysi ' + laundry + ' zł.', 'finance');
     },
     function stadiumUpkeep() {
@@ -9054,7 +9056,7 @@ const Selectors = {
   levelSkillBonus: () => (DATA.leagueLevels[gameState.club.leagueLevel] || DATA.leagueLevels[1]).skillBonus,
   sponsorWeekly: (sp) => Math.round((sp.fallback
     ? Math.round((30 + Selectors.promo() * 0.6) * Selectors.revEcon())   // symboliczny lokalny sponsor: rośnie z atrakcyjnością klubu
-    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1) * (0.9 + 0.25 * Selectors.pikShare()))) * ({ 6: 2, 7: 4, 8: 8 }[Math.floor(gameState.club.leagueLevel)] || 1)),   // piknikarze przyciągają sponsorów   // na szczycie sponsorzy płacą realne kwoty
+    : Math.round(sp.weekly * Selectors.revEcon() * Selectors.sponsorTier().mult * ({ neutral: 1.1, spicy: 0.9, meme: 0.95 }[Selectors.mediaStrategy()] || 1) * (0.9 + 0.25 * Selectors.pikShare()) * (gameState.club.leagueLevel <= 5 ? 1.2 : 1))) * ({ 6: 2, 7: 4, 8: 8 }[Math.floor(gameState.club.leagueLevel)] || 1)),   // piknikarze przyciągają sponsorów   // na szczycie sponsorzy płacą realne kwoty
   // 13.72: powaga sponsorów rośnie z ligą – większe kontrakty, ale mniej cierpliwości i potrącenia za słabe wyniki
   sponsorTier: (lvl = gameState.club.leagueLevel) => [
     { label: 'lokalny biznes', mult: 1, patience: 5, crash: 3, cut: 0 },
@@ -9561,7 +9563,7 @@ const Selectors = {
   passHolders: () => (gameState.matchday.pass && gameState.matchday.pass.season === gameState.calendar.season ? gameState.matchday.pass.holders : 0),
   // Prognoza karnetów: ilu kupi i ile wpłynie z góry (cena skaluje się z liczbą meczów u siebie)
   // 13.89: ceny biletów i karnetów rosną w zawodowych ligach (II liga ×2, I liga ×2,5, Ekstraklasa ×4)
-  ticketScale: (lvl = gameState.club.leagueLevel) => ({ 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1) * Selectors.econBoost(Math.floor(lvl)),
+  ticketScale: (lvl = gameState.club.leagueLevel) => ({ 2: 1.3, 3: 1.1, 4: 1.15, 5: 1.3, 6: 2, 7: 2.5, 8: 4 }[Math.floor(lvl)] || 1) * Selectors.econBoost(Math.floor(lvl)),   // 14.x: IV i III liga – płynniejsze przejście
   ticketPrice: (id) => Math.round(DATA.tickets[id].price * Selectors.ticketScale()),
   // 13.90: Wynik Kariery („Score Prezesa”) – trofea z mnożnikami, prestiż najwyższej ligi, sezony i Europa
   careerScore: (st = gameState) => {
@@ -9810,7 +9812,7 @@ const Selectors = {
   feeFromValue: (v) => v,
   squadValue: () => gameState.squad.filter((p) => !p.loan).reduce((s, p) => s + Selectors.marketValue(p), 0),
   // Marka klubu rośnie z czasem: świeżo awansowany klub zarabia mniej (kibice, sponsorzy, TV dopiero się przekonują)
-  establishedFactor: () => { const since = gameState.club.levelSince; if (since == null) return 1; const y = gameState.calendar.season - since; return y <= 0 ? 0.75 : y === 1 ? 0.88 : 1; },
+  establishedFactor: () => { const since = gameState.club.levelSince; if (since == null) return 1; const y = gameState.calendar.season - since; return y <= 0 ? 0.85 : y === 1 ? 0.94 : 1; },   // 14.x: łagodniej po awansie (było 0,75 / 0,88)
   revEcon: () => Selectors.econ() * Selectors.establishedFactor(),
   tvIncome: () => (gameState.stadium.upgrades.tvcams ? Math.round(15 * Selectors.revEcon() * (1 + 0.35 * (gameState.club.leagueLevel - 1)) * ({ 6: 2, 7: 4, 8: 9 }[Math.floor(gameState.club.leagueLevel)] || 1) / 5) * 5 : 0),   // prawa TV: na szczycie główne źródło przychodu
   // Lista województw do <select> (alfabetycznie)
@@ -10219,6 +10221,12 @@ const Storage = {
       Engine.newSeason();
       Engine.addLog('📠 Związek przysłał faksem nowy terminarz: liga rozszerzona do 10 drużyn, sezon liczy się od nowa. Kadra i sztab czekają w nowych zakładkach.', 'system');
       gameState = prev;
+    }
+    if (!saved.econEase14) {   // 14.x: zatrudnieni wcześniej też tańsi o 20% (jednorazowo; flaga z surowego zapisu)
+      state.econEase14 = true;
+      Object.values(state.staff || {}).forEach((m) => { if (m && m.kind === 'external' && m.wage) m.wage = Math.round(m.wage * CONFIG.staffWageMult); });
+      if (state.director && state.director.hired && state.director.hired.wage) state.director.hired.wage = Math.round(state.director.hired.wage * CONFIG.staffWageMult);
+      ['coach', 'recruiter'].forEach((k) => { const x = state.u19 && state.u19[k]; if (x && x.wage) x.wage = Math.round(x.wage * CONFIG.staffWageMult); });
     }
     return state;
   },
@@ -13423,6 +13431,9 @@ window.addEventListener('appinstalled', () => { window.__installPrompt = null; w
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('Service worker:', e)); });
 }
+
+/* 14.x: łagodniejsza ekonomia – cenniki sztabu (fachowcy, dyrektorzy, sztab U19) tańsze o 20% */
+[...Object.values(DATA.staffPool).flat(), ...DATA.directors, ...Object.values(DATA.u19Staff).flat()].forEach((c) => { if (c && c.wage) c.wage = Math.round(c.wage * CONFIG.staffWageMult); });
 
 /* START */
 UI.renderAll();
