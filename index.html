@@ -4501,7 +4501,7 @@ const Engine = {
     const step = Engine.negStep(v);
     n.offer = Math.max(step, (v > n.offer ? Math.ceil(v / step) : Math.round(v / step)) * step);   // w górę zaokrąglamy w górę – realny postęp
   },
-  negotiateYears(y) { const n = gameState.negotiation; if (n && !n.done) n.years = Utils.clamp(y, 1, 3); },
+  negotiateYears(y) { const n = gameState.negotiation; if (n && !n.done) n.years = Utils.clamp(y, 1, 5); },   // 14.x: umowy do 5 lat
   negotiateClause(kind, v) { const n = gameState.negotiation; if (n && !n.done && Selectors.clauseAllowed(kind)) n[kind] = v; },
   negotiateAcceptClauses() { const n = gameState.negotiation; if (n && !n.done && n.wantPromo != null) { n.promo = n.wantPromo; n.releg = n.wantReleg; } },
   negotiateSubmit() {
@@ -4520,6 +4520,7 @@ const Engine = {
       if (n.kind === 'renew' || n.years) p.contractEnd = gameState.calendar.season + n.years;
       p.clause = { promo: n.promo || 0, releg: n.releg || 0 };   // procent zmiany pensji przy awansie / spadku
       delete p.wantsOut;
+      if (p.retiring) { delete p.retiring; Engine.addLog('🧓 ' + Selectors.playerName(p) + ' zmienia zdanie: „Dobra, prezesie, jeszcze pogram”. Odkłada emeryturę.', 'decision'); }
       n.done = 'signed';
       n.log.unshift('✍️ Zgoda! ' + Utils.formatMoney(n.offer) + '/tydz., umowa do końca sezonu ' + p.contractEnd + Selectors.clauseText(p.clause) + '.');
       Engine.applyEffects({ lockerRoom: +2 });
@@ -5599,7 +5600,10 @@ const Engine = {
         p.legend = true;
         Engine.addLog('🏆 ' + Selectors.playerName(p) + ' zostaje LEGENDĄ KLUBU! Jego zdjęcie wisi w blaszaku obok kalendarza z traktorami.', 'event');
       }
-      if (p.age >= 35 && (p.age >= 39 || Math.random() < 0.45)) retiring.push(p);
+      // 14.x: emerytura zapowiedziana w trakcie sezonu (🧓); bez zapowiedzi (stary zapis) – dawna losowość, łagodniejsza przy ważnej umowie
+      const announced = gameState.retireAnnounced === gameState.calendar.season;
+      if (p.loan) return;
+      if (p.age >= 40 || (announced ? p.retiring : p.age >= 35 && Math.random() < (p.contractEnd > gameState.calendar.season ? 0.15 : 0.45))) retiring.push(p);
     });
     retiring.forEach((p) => {
       gameState.squad = gameState.squad.filter((x) => x.id !== p.id);
@@ -7170,6 +7174,17 @@ const Engine = {
   },
 
   // Wywoływane przy otwarciu okna transferowego: znana gwiazda wraca z żądaniem, nowa zgłasza się pierwszy raz
+  // 14.x: weterani zapowiadają koniec kariery z wyprzedzeniem (ok. 2/3 sezonu) – nowa umowa może ich zatrzymać
+  announceRetirements() {
+    const season = gameState.calendar.season;
+    if (gameState.retireAnnounced === season) return;
+    gameState.retireAnnounced = season;
+    const list = gameState.squad.filter((p) => !p.loan && p.age >= 34 && !p.retiring && (p.age >= 39 || Math.random() < (p.contractEnd > season ? 0.15 : 0.45)));
+    list.forEach((p) => { p.retiring = season; });
+    if (!list.length) return;
+    Engine.addLog('🧓 Zapowiedź końca kariery po sezonie: ' + list.map((p) => Selectors.playerName(p) + ' (' + p.age + ' l.)').join(', ') + '. Nowy kontrakt może ich jeszcze zatrzymać (profil zawodnika).', 'event');
+    Engine.alert('🧓', 'Ostatni sezon weteranów', list.map((p) => Selectors.shortName(p) + ' (' + p.age + ')').join(', ') + ' – kończą karierę po sezonie. Chcesz zatrzymać? Profil zawodnika → „Namów na dalszą grę”' + (list.some((p) => p.age >= 39) ? ' (39+ już nie da się namówić)' : '') + '.', 'info');
+  },
   maybeStarDemand() {
     const st = gameState.star;
     if (Selectors.starPlayer()) { Engine.pushDecision('starDemand'); return; }
@@ -9006,6 +9021,7 @@ const Engine = {
         gameState.star.midAsked = gameState.calendar.season;
         Engine.maybeStarDemand();
       }
+      if (rounds && gameState.calendar.round >= Math.floor(rounds * 2 / 3) && gameState.retireAnnounced !== gameState.calendar.season) Engine.announceRetirements();
       // kontuzje się goją; dobry fizjoterapeuta czasem przyspiesza powrót o tydzień
       const fizjo = Selectors.staffLevel('fizjo');
       gameState.squad.forEach((p) => {
@@ -10832,6 +10848,7 @@ const UI = {
               : stat('Mecze', p.seasonApps || 0) + stat('Gole', p.seasonGoals || 0) + stat('Asysty', p.seasonAssists || 0) + stat('Klub M/G/A', (p.apps || 0) + '/' + (p.goals || 0) + '/' + (p.assists || 0))}
           </div>
           ${found.where === 'u19' && !p.filler && p.age < 19 ? `<button data-action="u19-promote" data-id="${p.id}" ${Selectors.squadFull() || gameState.finance.budget < Selectors.proContractFee(p) ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold disabled:opacity-60">✍️ Profesjonalny kontrakt i do 1. drużyny (${Utils.formatMoney(Selectors.gradWage(p))}/tydz.${Selectors.proContractFee(p) ? ', podpis ' + Utils.formatMoney(Selectors.proContractFee(p)) : ''})</button>` : ''}
+          ${inSquad && p.retiring ? (p.age < 39 ? `<button data-action="talk-retire" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-amber-glow text-ink-900 text-[12.5px] font-bold">🧓 Kończy karierę po sezonie – namów na dalszą grę (nowa umowa)</button>` : '<p class="text-[11.5px] text-ink-700 font-bold mt-1.5">🧓 Kończy karierę po sezonie (' + p.age + ' l. – decyzja ostateczna).</p>') : ''}
           ${inSquad && !p.loan && !p.u19Dev && gameState.transfer && gameState.transfer.open && (p.unreg || Selectors.overLimit()) ? `<button data-action="toggle-reg" data-id="${p.id}" ${p.unreg && Selectors.squadFull() ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold disabled:opacity-60 ${p.unreg ? 'bg-grass text-white' : 'bg-ink-900 text-paper-100'}">${p.unreg ? '✅ Zarejestruj do rozgrywek' : '📵 Nie rejestruj (nadmiar ' + Selectors.overLimit() + ')'}</button>` : p.unreg ? '<p class="text-[11.5px] text-stamp font-bold mt-1.5">📵 Poza rejestracją – zagra po rejestracji w najbliższym oknie.</p>' : ''}
           ${!inSquad || p.loan ? '' : p.u19Dev ? `<button data-action="u19-recall" data-id="${p.id}" class="btn-press w-full h-9 mt-2 rounded-lg bg-grass text-white text-[12.5px] font-bold">⬆️ Wróć z U19 do pierwszej drużyny (${p.u19Apps || 0} m. w U19)</button>`
             : p.exiled ? '' : (() => { const why = Selectors.u19SendBlock(p); return `<button data-action="u19-send" data-id="${p.id}" ${why ? 'disabled' : ''} class="btn-press w-full h-9 mt-2 rounded-lg text-[12.5px] font-bold ${why ? 'bg-paper-300 text-ink-700 opacity-70' : 'bg-ink-900 text-paper-100'}">⬇️ Do U19 na rozwój${why ? ' – ' + why : ' (gra z juniorami, pensja bez zmian)'}</button>`; })()}
@@ -12318,7 +12335,7 @@ const UI = {
     const p = gameState.squad.find((x) => x.id === n.pid) || n.ghost;
     if (!p) return '';
     const ended = !!n.done;
-    const yrs = [1, 2, 3].map((y) => `<button data-action="neg-years" data-y="${y}" ${ended ? 'disabled' : ''} class="btn-press flex-1 h-10 rounded-lg text-[13px] font-bold ${n.years === y ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${y} ${y === 1 ? 'sezon' : 'sezony'}</button>`).join('');
+    const yrs = [1, 2, 3, 4, 5].map((y) => `<button data-action="neg-years" data-y="${y}" ${ended ? 'disabled' : ''} class="btn-press flex-1 h-10 rounded-lg text-[13px] font-bold whitespace-nowrap ${n.years === y ? 'bg-amber-glow text-ink-900' : 'bg-desk-800 text-paper-200'}">${y} ${y === 1 ? 'rok' : y < 5 ? 'lata' : 'lat'}</button>`).join('');
     const head = n.done === 'signed' ? '✅ Umowa podpisana' : n.done === 'cancelled' ? '💥 Transfer upadł' : n.done === 'forced' ? '📄 Warunki agenta' : n.done === 'refused' ? '🚫 Odmowa rozmów' : n.done === 'broken' ? '🚪 Rozmowy zerwane' : n.kind === 'sign' ? '✍️ Kontrakt nowego nabytku' : n.kind === 'renew' ? '📝 Nowy kontrakt' : '💰 Żądanie podwyżki';
     return UI.overlayFrame(`
       <div class="flex-1 min-h-0 overflow-hidden px-4 pt-5 text-paper-100">
@@ -12348,7 +12365,7 @@ const UI = {
         <ul class="mt-3 space-y-1">${n.log.slice(0, ended ? 2 : n.minShown ? 3 : 4).map((l) => `<li class="text-[12.5px] text-paper-200 leading-snug">${Utils.escape(l)}</li>`).join('')}</ul>
       </div>
       <div class="flex-shrink-0 px-4 pb-4 pt-2 flex flex-col gap-2">
-        ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : 'sezony'}</button>`}
+        ${ended ? '' : `<button data-action="neg-submit" class="btn-press w-full h-12 rounded-xl bg-amber-glow text-ink-900 text-[15px] font-extrabold">Złóż ofertę: ${Utils.formatMoney(n.offer)}/tydz. · ${n.years} ${n.years === 1 ? 'sezon' : n.years < 5 ? 'sezony' : 'sezonów'}</button>`}
         ${ended ? '' : (() => { const dl = Selectors.directorLevel(); return `<button data-action="neg-delegate" ${dl && n.mood !== 'refuse' ? '' : 'disabled'} class="btn-press w-full h-10 rounded-xl text-[13px] font-bold leading-tight ${dl && n.mood !== 'refuse' ? 'bg-sky-700 text-white' : 'bg-desk-800 text-paper-400 opacity-70'}">🧑‍💼 Oddeleguj Dyrektora Sportowego${dl ? ' · poziom ' + dl + ' (' + ['', 'na wyczucie', 'zna rynek', 'twardy negocjator', 'mistrz negocjacji'][dl] + ')' : ' – brak dyrektora (Sztab → Dyrektor)'}</button>`; })()}
         <button data-action="neg-close" class="btn-press w-full h-11 rounded-xl bg-desk-800 text-paper-100 text-[14px] font-bold">${ended ? (n.back ? 'Wróć na giełdę' : 'Zamknij') : n.kind === 'sign' ? 'Zgódź się na warunki agenta' : 'Zerwij rozmowy'}</button>
       </div>`, 'bg-desk-900');
@@ -12576,7 +12593,7 @@ const UI = {
       : sort === 'rating' ? (a, b) => (Selectors.avgRating(b) ?? -1) - (Selectors.avgRating(a) ?? -1) || byPos(a, b)
       : byPos);
     const cols = 'grid grid-cols-[16px_minmax(0,1fr)_22px_22px_18px_18px_34px_28px] items-center gap-1';
-    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.unreg ? ' 📵' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '') + (p.u19Dev ? ' 🎓U19' : '');
+    const marks = (p) => (!p.loan && p.contractEnd != null && p.contractEnd <= gameState.calendar.season ? ' 📝' : '') + (p.id === gameState.star.playerId ? (gameState.star.rebel ? ' 🔥' : ' 🌟') : '') + (p.injured > 0 ? ' 🩹' : '') + (p.suspended > 0 ? ' ⛔' : '') + (p.loan ? ' 🔁' : '') + (p.unreg ? ' 📵' : '') + (p.retiring ? ' 🧓' : '') + (p.benched ? ' 🚫' : '') + (p.exiled ? ' ⬇️U19' : '') + (p.u19Dev ? ' 🎓U19' : '');
 
     // Gęsta tabela; stuknięcie w wiersz otwiera dolną szufladę ze szczegółami zawodnika
     const rows = squad.map((p) => {
@@ -13268,6 +13285,7 @@ const Actions = {
   'u19-promote'(el) { Engine.u19Promote(el.dataset.id); App.commit(); },
   'loan-buyout'(el) { Engine.loanBuyout(el.dataset.id); App.commit(); },
   'toggle-reg'(el) { Engine.toggleReg(el.dataset.id); App.commit(); },
+  'talk-retire'(el) { const p = gameState.squad.find((x) => x.id === el.dataset.id); if (p && p.retiring && p.age < 39) { Engine.startNegotiation(p.id, 'renew'); } App.commit(); },
   'tr-xi'() { gameState.ui.trXi = !gameState.ui.trXi; App.commit(); },
   'open-xi'() { gameState.activeTab = 'squad'; gameState.ui.squadSort = 'xi'; App.commit(); },
   'stats-sort'(el) { gameState.ui.statsSort = el.dataset.key; App.commit(); },
